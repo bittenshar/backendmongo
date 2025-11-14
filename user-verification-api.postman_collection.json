@@ -1,0 +1,428 @@
+{
+  "info": {
+    "name": "User Verification & Management API",
+    "description": "API collection for user verification, status updates, and presigned URLs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "User Verification & Status",
+      "item": [
+        {
+          "name": "Verify User - Approved",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationStatus\": \"verified\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc/verify",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc",
+                "verify"
+              ]
+            },
+            "description": "Update user verification status to VERIFIED"
+          },
+          "response": []
+        },
+        {
+          "name": "Reject User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationStatus\": \"rejected\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc/verify",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc",
+                "verify"
+              ]
+            },
+            "description": "Update user verification status to REJECTED"
+          },
+          "response": []
+        },
+        {
+          "name": "Set User to Pending",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationStatus\": \"pending\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc/verify",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc",
+                "verify"
+              ]
+            },
+            "description": "Update user verification status to PENDING"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Get all users in the system"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc"
+              ]
+            },
+            "description": "Get a specific user by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"daksh updated\",\n  \"phone\": \"+918824223395\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc"
+              ]
+            },
+            "description": "Update user profile (name, phone, etc.)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+919999999999\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc"
+              ]
+            },
+            "description": "Partially update user profile"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Event Registration",
+      "item": [
+        {
+          "name": "Create Registration (Auto Status)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"6915c1ce111e057ff7b315bc\",\n  \"eventId\": \"691337e4c4145e1999997a49\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/registrations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "registrations"
+              ]
+            },
+            "description": "Create event registration with AUTOMATIC faceVerificationStatus and ticketAvailabilityStatus calculation"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Registrations (Auto Status)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/registrations/users/6915c1ce111e057ff7b315bc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "registrations",
+                "users",
+                "6915c1ce111e057ff7b315bc"
+              ]
+            },
+            "description": "Get all registrations for a user with auto-calculated faceVerificationStatus (boolean) and ticketAvailabilityStatus"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Presigned URLs",
+      "item": [
+        {
+          "name": "Get User Presigned URLs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/users/6915c1ce111e057ff7b315bc/presigned-urls",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "users",
+                "6915c1ce111e057ff7b315bc",
+                "presigned-urls"
+              ]
+            },
+            "description": "Get presigned URLs for a specific user's photos"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users Presigned URLs (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/signed-urls/admin/all-signed-urls",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "signed-urls",
+                "admin",
+                "all-signed-urls"
+              ]
+            },
+            "description": "Get presigned URLs for ALL users (Admin only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tickets & Payment",
+      "item": [
+        {
+          "name": "Issue Ticket After Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTEzMjFjMDI4ZjlhOWRmODkxZjZmZjQiLCJpYXQiOjE3NjMwMzM5NjMsImV4cCI6MTc3MDgwOTk2M30.CQ5_PLutAu5p-2Rq0hmQUZmENZWUWpvdtRg9hN0Y8b0"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationId\": \"6915e717345ac3c6fa0ef8b1\",\n  \"paymentId\": \"PAY-12345-ABCDE\",\n  \"amount\": 500,\n  \"price\": 500\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/tickets/issue-after-payment",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "tickets",
+                "issue-after-payment"
+              ]
+            },
+            "description": "Issue ticket after successful payment. Requirements:\n- faceVerificationStatus: true\n- ticketAvailabilityStatus: available\n- Ticket automatically generated\n- Event ticketsSold incremented\n- Registration marked as verified"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
