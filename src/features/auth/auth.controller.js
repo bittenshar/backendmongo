@@ -2,6 +2,7 @@ const authService = require('./auth.service');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
 const twilioService = require('../../shared/services/twilio.service');
+const User = require('./auth.model');
 
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await authService.signup({
@@ -132,3 +133,128 @@ exports.resendOTP = catchAsync(async (req, res, next) => {
     }
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////
+
+///////new      .//////////////////////////////////
+exports.sendOTPnew = catchAsync(async (req, res, next) => {
+  const { phone } = req.body;
+
+  // Validate phone number
+  if (!phone) {
+    return next(new AppError('Please provide a phone number', 400));
+  }
+
+  // Check if user exists
+  const user = await User.findOne({ phone });
+
+  const phoneStatus = user ? 'existing' : 'new';
+
+  // Send OTP using Twilio Service
+  const result = await twilioService.sendOTP(phone);
+
+  if (!result.success) {
+    return next(new AppError(result.message, 400));
+  }
+
+  // Response
+  res.status(200).json({
+    status: 'success',
+    message: result.message,
+    data: {
+      phone,
+      phoneStatus, // "existing" or "new"
+      sid: result.sid
+    }
+  });
+});
+
+
+exports.verifyOTPnew = catchAsync(async (req, res, next) => {
+  const { phone, code, otp } = req.body;
+  const otpCode = code || otp; // Accept both 'code' and 'otp' parameter names
+
+  if (!phone || !otpCode) {
+    return next(new AppError('Please provide phone number and OTP code', 400));
+  }
+
+  // Verify OTP with Twilio
+  const verificationResult = await twilioService.verifyOTP(phone, otpCode);
+
+  if (!verificationResult.success) {
+    return next(new AppError(verificationResult.message, 400));
+  }
+
+  // Check if user exists
+  let user = await User.findOne({ phone });
+
+  if (user) {
+    // User exists - Login flow
+    if (!user.phoneVerified) {
+      user.phoneVerified = true;
+      await user.save({ validateBeforeSave: false });
+    }
+    
+    // Generate token and send response
+    await authService.createSendToken(user, 200, res);
+    
+  } else {
+    // User doesn't exist - Signup flow
+    // Create temporary user with phone only
+    const tempUser = await authService.createTempUser(phone);
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'OTP verified successfully. Please complete your profile.',
+      data: {
+        phone,
+        phoneVerified: true,
+        requiresProfile: true,
+        tempUserId: tempUser._id
+      }
+    });
+  }
+});
+
+exports.completeProfile = catchAsync(async (req, res, next) => {
+  const { tempUserId, name, email, lastname } = req.body;
+
+  if (!tempUserId) {
+    return next(new AppError('Invalid session. Please start over.', 400));
+  }
+
+  // Find and validate temp user
+  const tempUser = await User.findOne({ 
+    _id: tempUserId, 
+    isTemp: true 
+  });
+
+  if (!tempUser) {
+    return next(new AppError('Session expired. Please start over.', 400));
+  }
+
+  // Convert temp user to permanent user
+  const permanentUser = await authService.convertToPermanentUser(
+    tempUser, 
+    { name, email, lastname }
+  );
+
+  // Generate token and send response
+  await authService.createSendToken(permanentUser, 201, res);
+});
+
+
+
+
+

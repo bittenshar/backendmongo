@@ -199,10 +199,51 @@ const restrictTo = (...roles) => {
   };
 };
 
+// ============================================
+// OTP Authentication Methods
+// ============================================
+const createTempUser = async (phone) => {
+  const tempUser = await User.create({
+    phone,
+    phoneVerified: true,
+    isTemp: true,
+    role: 'user'
+  });
+
+  return tempUser;
+};
+
+const convertToPermanentUser = async (tempUser, profileData) => {
+  const { name, email, lastname } = profileData;
+  
+  const updatedUser = await User.findByIdAndUpdate(
+    tempUser._id,
+    {
+      name: name || 'User',
+      firstname: name || 'User',
+      lastname: lastname || '',
+      email: email || null,
+      isTemp: false,
+      userId: generateUserId() // Generate unique user ID
+    },
+    { new: true, runValidators: false }
+  );
+
+  return updatedUser;
+};
+
+const generateUserId = () => {
+  // Generate unique user ID
+  return 'USER' + Date.now() + Math.floor(Math.random() * 1000);
+};
+
 module.exports = {
   signup,
   login,
   protect,
   restrictTo,
-  createSendToken
+  createSendToken,
+  createTempUser,
+  convertToPermanentUser,
+  generateUserId
 };
