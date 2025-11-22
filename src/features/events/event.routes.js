@@ -1,23 +1,55 @@
 const express = require('express');
+const multer = require('multer');
 const eventController = require('./event.controller');
 const authMiddleware = require('../auth/auth.middleware');
 
 const router = express.Router();
+
+// Configure multer for image uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    // Only allow image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 router.get('/stats', eventController.getEventStats);
 
 // Public route - no authentication required
 router.get('/', eventController.getAllEvents);
 
-// Apply authentication middleware to all routes below this point
-router.use(authMiddleware.protect);
+// File upload routes (multer BEFORE auth middleware)
+router.post(
+  '/',
+  upload.single('coverImage'),
+  authMiddleware.protect,
+  authMiddleware.restrictTo('admin', 'organizer'),
+  eventController.createEvent
+);
 
-router.route('/')
-  .post(authMiddleware.restrictTo('admin', 'organizer'), eventController.createEvent);
+// ID-based routes
+router.get('/:id', eventController.getEvent);
 
-router.route('/:id')
-  .get(eventController.getEvent)
-  .patch(authMiddleware.restrictTo('admin', 'organizer'), eventController.updateEvent)
-  .delete(authMiddleware.restrictTo('admin'), eventController.deleteEvent);
+router.patch(
+  '/:id',
+  upload.single('coverImage'),
+  authMiddleware.protect,
+  authMiddleware.restrictTo('admin', 'organizer'),
+  eventController.updateEvent
+);
+
+router.delete(
+  '/:id',
+  authMiddleware.protect,
+  authMiddleware.restrictTo('admin'),
+  eventController.deleteEvent
+);
 
 module.exports = router;

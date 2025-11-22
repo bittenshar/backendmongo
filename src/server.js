@@ -44,6 +44,7 @@ const attachDBMiddleware = require('./shared/middlewares/attachDB');
 
 // Import routes
 const presignedUrlRoutes = require('./features/users/presigned-url.routes');
+const imageRoutes = require('./features/images/image.routes');
 
 // Middleware
 app.use(cors(corsOptions));
@@ -115,6 +116,7 @@ app.use('/api', amplifyRoutes);
 // Import and use image status routes
 const imageStatusRoutes = require('./features/aws/routes/image-status');
 app.use('/api', imageStatusRoutes);
+app.use('/api/images', imageRoutes);
 
 // Basic Routes
 app.get('/favicon.ico', (req, res) => res.status(204).end());

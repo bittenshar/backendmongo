@@ -21,6 +21,11 @@ const eventSchema = new mongoose.Schema({
     default: 'upcoming' 
   },
   coverImage: { type: String },
+  s3ImageKey: { type: String },
+  s3BucketName: { 
+    type: String, 
+    default: 'event-images-collection' 
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
