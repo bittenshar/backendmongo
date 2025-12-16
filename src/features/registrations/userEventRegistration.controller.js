@@ -4,6 +4,9 @@ const catchAsync = require('../../shared/utils/catchAsync');
 const BusinessRulesService = require('../../shared/services/businessRules.service');
 const mongoose = require('mongoose');
 const dynamodbService = require('../../services/aws/dynamodb.service');
+const { sendNotificationService } = require('../../services/notification.service');
+const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
+const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 // Helper: validate Mongo ObjectId for any ':id' route params
 const validateObjectIdParam = (id) => {
@@ -114,6 +117,21 @@ exports.createRegistration = catchAsync(async (req, res, next) => {
     .populate('userId', 'fullName email phone')
     .populate('eventId', 'name date location')
     .lean();
+
+  // 🔔 Send notification to user
+  await sendNotificationService({
+    userId: userIdToUse.toString(),
+    type: NOTIFICATION_TYPES.REGISTRATION_CONFIRMED,
+    payload: {
+      eventName: event_doc?.name,
+    },
+    data: {
+      type: NOTIFICATION_DATA_TYPES.REGISTRATION_CONFIRMED,
+      registrationId: registration._id.toString(),
+      eventId: eventIdToUse.toString(),
+      userId: userIdToUse.toString(),
+    },
+  });
 
   res.status(201).json({
     status: 'success',
@@ -338,7 +356,16 @@ exports.completeFaceVerification = catchAsync(async (req, res, next) => {
   if (!validateObjectIdParam(id)) {
     return next(new AppError('Invalid registration ID format.', 400));
   }
-  const { success, ticketAvailable = false } = req.body;
+  const { success, ticketAvailable = false, reason } = req.body;
+  
+  // Get registration before update to send notification
+  const registration = await UserEventRegistration.findById(id)
+    .populate('userId')
+    .populate('eventId');
+  
+  if (!registration) {
+    return next(new AppError('No registration found with that ID', 404));
+  }
   
   const updateData = {
     faceVerificationStatus: success ? 'success' : 'failed',
@@ -353,7 +380,7 @@ exports.completeFaceVerification = catchAsync(async (req, res, next) => {
     updateData.status = 'verified';
   }
   
-  const registration = await UserEventRegistration.findByIdAndUpdate(
+  const updatedRegistration = await UserEventRegistration.findByIdAndUpdate(
     id,
     updateData,
     { new: true }
@@ -361,15 +388,40 @@ exports.completeFaceVerification = catchAsync(async (req, res, next) => {
    .populate('eventId', 'name date location')
    .lean();
 
-  if (!registration) {
-    return next(new AppError('No registration found with that ID', 404));
+  // 🔔 Send appropriate notification based on verification result
+  if (success) {
+    await sendNotificationService({
+      userId: registration.userId._id.toString(),
+      type: NOTIFICATION_TYPES.FACE_VERIFICATION_APPROVED,
+      payload: {},
+      data: {
+        type: NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_APPROVED,
+        registrationId: id,
+        userId: registration.userId._id.toString(),
+        eventId: registration.eventId._id.toString(),
+      },
+    });
+  } else {
+    await sendNotificationService({
+      userId: registration.userId._id.toString(),
+      type: NOTIFICATION_TYPES.FACE_VERIFICATION_REJECTED,
+      payload: {
+        reason: reason || 'Face does not match',
+      },
+      data: {
+        type: NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_REJECTED,
+        registrationId: id,
+        userId: registration.userId._id.toString(),
+        eventId: registration.eventId._id.toString(),
+      },
+    });
   }
 
   res.status(200).json({
     status: 'success',
     message: `Face verification ${success ? 'completed successfully' : 'failed'}`,
     data: {
-      registration
+      registration: updatedRegistration
     }
   });
 });
@@ -380,7 +432,9 @@ exports.issueTicket = catchAsync(async (req, res, next) => {
     return next(new AppError('Invalid registration ID format.', 400));
   }
   
-  const registration = await UserEventRegistration.findById(id);
+  const registration = await UserEventRegistration.findById(id)
+    .populate('userId')
+    .populate('eventId');
   
   if (!registration) {
     return next(new AppError('No registration found with that ID', 404));
@@ -402,6 +456,21 @@ exports.issueTicket = catchAsync(async (req, res, next) => {
    .populate('eventId', 'name date location')
    .lean();
 
+  // 🔔 Send ticket issued notification to user
+  await sendNotificationService({
+    userId: registration.userId._id.toString(),
+    type: NOTIFICATION_TYPES.TICKET_ISSUED,
+    payload: {
+      eventName: registration.eventId?.name,
+    },
+    data: {
+      type: NOTIFICATION_DATA_TYPES.TICKET_ISSUED,
+      registrationId: id,
+      eventId: registration.eventId._id.toString(),
+      userId: registration.userId._id.toString(),
+    },
+  });
+
   res.status(200).json({
     status: 'success',
     message: 'Ticket issued successfully',
@@ -422,6 +491,15 @@ exports.adminOverride = catchAsync(async (req, res, next) => {
     return next(new AppError('Override reason is required', 400));
   }
   
+  // Get registration before update to send notification
+  const registration = await UserEventRegistration.findById(id)
+    .populate('userId')
+    .populate('eventId');
+  
+  if (!registration) {
+    return next(new AppError('No registration found with that ID', 404));
+  }
+  
   const updateData = {
     adminBooked: true,
     adminOverrideReason: overrideReason,
@@ -435,7 +513,7 @@ exports.adminOverride = catchAsync(async (req, res, next) => {
     updateData.ticketAvailabilityStatus = 'available';
   }
   
-  const registration = await UserEventRegistration.findByIdAndUpdate(
+  const updatedRegistration = await UserEventRegistration.findByIdAndUpdate(
     id,
     updateData,
     { new: true }
@@ -443,15 +521,26 @@ exports.adminOverride = catchAsync(async (req, res, next) => {
    .populate('eventId', 'name date location')
    .lean();
 
-  if (!registration) {
-    return next(new AppError('No registration found with that ID', 404));
-  }
+  // 🔔 Send registration confirmed notification to user
+  await sendNotificationService({
+    userId: registration.userId._id.toString(),
+    type: NOTIFICATION_TYPES.REGISTRATION_CONFIRMED,
+    payload: {
+      eventName: registration.eventId?.name,
+    },
+    data: {
+      type: NOTIFICATION_DATA_TYPES.REGISTRATION_CONFIRMED,
+      registrationId: id,
+      eventId: registration.eventId._id.toString(),
+      userId: registration.userId._id.toString(),
+    },
+  });
 
   res.status(200).json({
     status: 'success',
     message: 'Admin override applied successfully',
     data: {
-      registration
+      registration: updatedRegistration
     }
   });
 });

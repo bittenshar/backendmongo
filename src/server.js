@@ -98,6 +98,9 @@ const adminPublicRoutes = require('./features/admin/admin-public.routes');
 const waitlistRoutes = require('./features/waitlist/waitlist.routes');
 const amplifyRoutes = require('./features/aws/routes/amplify');
 const adsRoutes = require('./features/ads/ads.routes');
+const notificationRoutes = require("./features/notificationfcm/notification.routes");
+const testNotificationRoutes = require("./features/notificationfcm/test-notification.routes");
+
 
 // Use feature routes
 app.use('/api/auth', authRoutes);
@@ -112,6 +115,8 @@ app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/users', userRoutesNew);
 app.use('/api/ads', adsRoutes);
 app.use('/api', amplifyRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/notification", testNotificationRoutes);
 
 // Import and use image status routes
 const imageStatusRoutes = require('./features/aws/routes/image-status');

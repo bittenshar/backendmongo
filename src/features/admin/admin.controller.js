@@ -13,6 +13,9 @@ const {
   createInvalidPermissionError,
   createUnauthorizedPermissionError
 } = require('../../shared/utils/permissionValidator');
+const { sendNotificationService } = require('../../services/notification.service');
+const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
+const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 // Get dashboard statistics
 exports.getDashboardStats = catchAsync(async (req, res) => {
@@ -102,6 +105,19 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new AppError('No user found with that ID', 404));
   }
+
+  // 🔔 Send user account updated notification
+  await sendNotificationService({
+    userId: user._id.toString(),
+    type: NOTIFICATION_TYPES.USER_ACCOUNT_UPDATED,
+    payload: {
+      updateType: 'Your account information has been updated by admin',
+    },
+    data: {
+      type: NOTIFICATION_DATA_TYPES.USER_ACCOUNT_UPDATED,
+      userId: user._id.toString(),
+    },
+  });
 
   res.status(200).json({
     status: 'success',
@@ -1249,19 +1265,27 @@ exports.bulkUserOperations = catchAsync(async (req, res, next) => {
   for (const userId of userIds) {
     try {
       let updateData = {};
+      let notificationType = null;
+      let notificationDataType = null;
 
       switch (operation) {
         case 'suspend':
           updateData = { status: 'suspended' };
+          notificationType = NOTIFICATION_TYPES.USER_ACCOUNT_SUSPENDED;
+          notificationDataType = NOTIFICATION_DATA_TYPES.USER_ACCOUNT_SUSPENDED;
           break;
         case 'activate':
           updateData = { status: 'active' };
           break;
         case 'verify':
           updateData = { verificationStatus: 'verified' };
+          notificationType = NOTIFICATION_TYPES.FACE_VERIFICATION_APPROVED;
+          notificationDataType = NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_APPROVED;
           break;
         case 'reject':
           updateData = { verificationStatus: 'rejected' };
+          notificationType = NOTIFICATION_TYPES.FACE_VERIFICATION_REJECTED;
+          notificationDataType = NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_REJECTED;
           break;
         case 'delete':
           await User.findByIdAndDelete(userId);
@@ -1279,6 +1303,21 @@ exports.bulkUserOperations = catchAsync(async (req, res, next) => {
           new: true
         });
         if (user) {
+          // 🔔 Send appropriate notification if needed
+          if (notificationType) {
+            await sendNotificationService({
+              userId: userId.toString(),
+              type: notificationType,
+              payload: {
+                reason: operation === 'suspend' ? 'Your account has been suspended.' : '',
+              },
+              data: {
+                type: notificationDataType,
+                userId: userId.toString(),
+              },
+            });
+          }
+
           results.push({
             userId,
             status: 'success',

@@ -3,6 +3,10 @@ const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
 const s3EventImagesService = require('../../shared/services/s3EventImages.service');
 const urlEncryption = require('../../shared/services/urlEncryption.service');
+const { sendNotificationService } = require('../../services/notification.service');
+const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
+const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
+const Registration = require('../registrations/userEventRegistration.model');
 
 /**
  * Transform event data to hide S3 URLs
@@ -27,20 +31,24 @@ const transformEventResponse = (eventDoc) => {
   return eventObj;
 };
 
-exports.getAllEvents = catchAsync(async (req, res, next) => {
-  const events = await Event.find().populate('organizer');
+exports.getAllEvents = catchAsync(async (req, res) => {
+  const page = +req.query.page || 1;
+  const limit = +req.query.limit || 20;
 
-  // Transform events to hide S3 URLs
+  const events = await Event.find()
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .populate('organizer');
+
   const transformedEvents = events.map(transformEventResponse);
 
   res.status(200).json({
     status: 'success',
     results: transformedEvents.length,
-    data: {
-      events: transformedEvents
-    }
+    data: { events: transformedEvents },
   });
 });
+
 
 exports.getEvent = catchAsync(async (req, res, next) => {
   const event = await Event.findById(req.params.id).populate('organizer');
@@ -142,6 +150,27 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     runValidators: true
   });
 
+  // 🔔 Send event updated notification to all registered users
+  const registrations = await Registration.find({ eventId: req.params.id })
+    .select('userId')
+    .distinct('userId');
+
+  for (const userId of registrations) {
+    await sendNotificationService({
+      userId: userId.toString(),
+      type: NOTIFICATION_TYPES.EVENT_UPDATED,
+      payload: {
+        eventName: updatedEvent.name,
+        updateType: 'Event details have been updated',
+      },
+      data: {
+        type: NOTIFICATION_DATA_TYPES.EVENT_UPDATED,
+        eventId: req.params.id,
+        userId: userId.toString(),
+      },
+    });
+  }
+
   // Transform event to hide S3 URL
   const transformedEvent = transformEventResponse(updatedEvent);
 
@@ -166,35 +195,30 @@ exports.deleteEvent = catchAsync(async (req, res, next) => {
     await s3EventImagesService.deleteEventImage(event.s3ImageKey);
   }
 
+  // 🔔 Send event cancelled notification to all registered users
+  const registrations = await Registration.find({ eventId: req.params.id })
+    .select('userId')
+    .distinct('userId');
+
+  for (const userId of registrations) {
+    await sendNotificationService({
+      userId: userId.toString(),
+      type: NOTIFICATION_TYPES.EVENT_CANCELLED,
+      payload: {
+        eventName: event.name,
+        reason: 'The event has been cancelled.',
+      },
+      data: {
+        type: NOTIFICATION_DATA_TYPES.EVENT_CANCELLED,
+        eventId: req.params.id,
+        userId: userId.toString(),
+      },
+    });
+  }
+
   res.status(204).json({
     status: 'success',
     data: null
   });
 });
 
-exports.getEventStats = catchAsync(async (req, res, next) => {
-  console.log('🔍 GET /api/events/stats endpoint hit');
-  console.log('Request headers:', req.headers);
-  console.log('Request origin:', req.get('Origin'));
-  
-  const stats = await Event.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalEvents: { $sum: 1 },
-        totalRevenue: { $sum: "$revenue" },
-        avgTicketPrice: { $avg: "$ticketPrice" },
-        minTicketPrice: { $min: "$ticketPrice" },
-        maxTicketPrice: { $max: "$ticketPrice" }
-      }
-    }
-  ]);
-
-  console.log('📊 Stats calculated successfully');
-  res.status(200).json({
-    status: 'success',
-    data: {
-      stats
-    }
-  });
-});

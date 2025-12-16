@@ -1,0 +1,519 @@
+{
+  "info": {
+    "_postman_id": "adminthrill-real-user-testing",
+    "name": "AdminThrill API - Real User Testing",
+    "description": "Complete API testing with real users, events, images, and notifications",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "imageToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup New User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"phone\": \"+91-9876543210\",\n  \"lastname\": \"Doe\",\n  \"uploadedPhoto\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('token', jsonData.token);",
+                  "  console.log('Token saved:', jsonData.token.substring(0, 20) + '...');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"phone\": \"+91-9876543211\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{userId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Images & Encryption",
+      "item": [
+        {
+          "name": "Image Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/images/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "images", "health"]
+            }
+          }
+        },
+        {
+          "name": "Encrypt S3 URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('imageToken', jsonData.token);",
+                  "  console.log('Image token saved');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://event-images-collection.s3.ap-south-1.amazonaws.com/events/temp/cover-f8cc724d-a19e-4674-9448-4b0e9c3ab36d.jpg\",\n  \"expiryHours\": 24\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/images/encrypt",
+              "host": ["{{base_url}}"],
+              "path": ["api", "images", "encrypt"]
+            }
+          }
+        },
+        {
+          "name": "Serve Encrypted Image",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/images/proxy/{{imageToken}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "images", "proxy", "{{imageToken}}"]
+            }
+          }
+        },
+        {
+          "name": "Decrypt Image Token (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{imageToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/images/decrypt",
+              "host": ["{{base_url}}"],
+              "path": ["api", "images", "decrypt"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Register FCM Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm_device_token_12345xyz\",\n  \"deviceId\": \"device123\",\n  \"deviceType\": \"android\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications/register-token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "register-token"]
+            }
+          }
+        },
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"title\": \"Test Notification\",\n  \"body\": \"This is a test notification\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications/send",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "send"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Batch Notifications",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokens\": [\n    \"fcm_device_token_12345xyz\",\n    \"fcm_device_token_67890abc\"\n  ],\n  \"title\": \"Batch Notification\",\n  \"body\": \"Message to multiple users\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications/send-batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "send-batch"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Get All Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events",
+              "host": ["{{base_url}}"],
+              "path": ["api", "events"]
+            }
+          }
+        },
+        {
+          "name": "Get Event by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events/{{eventId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "events", "{{eventId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Event with Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Annual Tech Conference 2025",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "A conference about latest tech trends",
+                  "type": "text"
+                },
+                {
+                  "key": "location",
+                  "value": "New York",
+                  "type": "text"
+                },
+                {
+                  "key": "eventDate",
+                  "value": "2025-12-25",
+                  "type": "text"
+                },
+                {
+                  "key": "capacity",
+                  "value": "500",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/events",
+              "host": ["{{base_url}}"],
+              "path": ["api", "events"]
+            }
+          }
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Tech Conference 2025\",\n  \"capacity\": 600\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/events/{{eventId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "events", "{{eventId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events/{{eventId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "events", "{{eventId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

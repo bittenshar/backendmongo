@@ -1,6 +1,9 @@
 const Ticket = require('./ticket.model');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
+const { sendNotificationService } = require('../../services/notification.service');
+const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
+const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 exports.getAllTickets = catchAsync(async (req, res, next) => {
   const tickets = await Ticket.find().populate('event user');
@@ -144,6 +147,22 @@ exports.issueTicketAfterPayment = catchAsync(async (req, res, next) => {
     registration.eventId._id,
     { $inc: { ticketsSold: 1 } }
   );
+
+  // 🔔 Send notification to user
+  await sendNotificationService({
+    userId: registration.userId._id.toString(),
+    type: NOTIFICATION_TYPES.TICKET_ISSUED,
+    payload: {
+      eventName: registration.eventId.name,
+      ticketNumber: ticketId.substring(ticketId.length - 8),
+    },
+    data: {
+      type: NOTIFICATION_DATA_TYPES.TICKET_ISSUED,
+      ticketId: ticket._id.toString(),
+      eventId: registration.eventId._id.toString(),
+      registrationId: registrationId,
+    },
+  });
 
   res.status(201).json({
     status: 'success',

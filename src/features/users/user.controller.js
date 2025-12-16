@@ -2,6 +2,9 @@ const catchAsync = require('../../shared/utils/catchAsync');
 const AppError = require('../../shared/utils/appError');
 const User = require('./user.model');
 const { rekognition } = require('../../config/aws-robust');
+const { sendNotificationService } = require('../../services/notification.service');
+const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
+const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find().select('-password');
@@ -93,6 +96,17 @@ exports.verifyUserFace = catchAsync(async (req, res, next) => {
           { new: true }
         );
 
+        // 🔔 Send face verification approved notification
+        await sendNotificationService({
+          userId: userId.toString(),
+          type: NOTIFICATION_TYPES.FACE_VERIFICATION_APPROVED,
+          payload: {},
+          data: {
+            type: NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_APPROVED,
+            userId: userId.toString(),
+          },
+        });
+
         return res.status(200).json({
           status: 'success',
           data: {
@@ -102,6 +116,19 @@ exports.verifyUserFace = catchAsync(async (req, res, next) => {
         });
       }
     }
+
+    // 🔔 Send face verification rejected notification
+    await sendNotificationService({
+      userId: userId.toString(),
+      type: NOTIFICATION_TYPES.FACE_VERIFICATION_REJECTED,
+      payload: {
+        reason: 'Faces do not match. Please try again.',
+      },
+      data: {
+        type: NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_REJECTED,
+        userId: userId.toString(),
+      },
+    });
 
     res.status(200).json({
       status: 'fail',
@@ -146,6 +173,31 @@ exports.verifyUser = catchAsync(async (req, res, next) => {
 
   if (!user) {
     return next(new AppError('No user found with that ID', 404));
+  }
+
+  // 🔔 Send appropriate notification based on verification status
+  if (verificationStatus === 'verified') {
+    await sendNotificationService({
+      userId: userId.toString(),
+      type: NOTIFICATION_TYPES.FACE_VERIFICATION_APPROVED,
+      payload: {},
+      data: {
+        type: NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_APPROVED,
+        userId: userId.toString(),
+      },
+    });
+  } else if (verificationStatus === 'rejected') {
+    await sendNotificationService({
+      userId: userId.toString(),
+      type: NOTIFICATION_TYPES.FACE_VERIFICATION_REJECTED,
+      payload: {
+        reason: 'Your account verification was rejected. Please contact support.',
+      },
+      data: {
+        type: NOTIFICATION_DATA_TYPES.FACE_VERIFICATION_REJECTED,
+        userId: userId.toString(),
+      },
+    });
   }
 
   res.status(200).json({

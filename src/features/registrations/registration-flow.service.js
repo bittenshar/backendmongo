@@ -7,6 +7,13 @@ const waitlistService = require('../waitlist/waitlist.service');
 const AppError = require('../../shared/utils/appError');
 
 /**
+ * ==========================================
+ * REGISTRATION FLOW ORCHESTRATION
+ * ==========================================
+ * Main flow: Registration → Face Verification → Ticket/Waitlist
+ */
+
+/**
  * Complete registration flow with face verification and ticket issuance
  * @param {string} registrationId - Registration ID
  * @param {string} faceImageKey - S3 key of the face image to verify
@@ -336,3 +343,415 @@ exports.adminOverrideIssueTicket = async (registrationId, overrideReason) => {
     throw error;
   }
 };
+
+/**
+ * ==========================================
+ * COMPLETE REGISTRATION-TICKET-WAITLIST FLOW
+ * ==========================================
+ */
+
+/**
+ * Main orchestration: Complete registration journey
+ * Flow: User Registration → Photo Upload → Face Verification → Ticket/Waitlist
+ * @param {string} userId - User ID
+ * @param {string} eventId - Event ID
+ * @param {string} faceImageKey - S3 key of face image (optional for first step)
+ * @returns {Promise<Object>} Complete flow result
+ */
+exports.initializeRegistrationFlow = async (userId, eventId, faceImageKey = null) => {
+  try {
+    // Step 1: Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    // Step 2: Check if event exists and has capacity
+    const event = await Event.findById(eventId);
+    if (!event) {
+      throw new AppError('Event not found', 404);
+    }
+
+    // Step 3: Check if user already registered
+    const existingRegistration = await UserEventRegistration.findOne({
+      userId,
+      eventId
+    });
+
+    if (existingRegistration && existingRegistration.status === 'verified') {
+      throw new AppError('User already registered for this event', 400);
+    }
+
+    // Step 4: Create or update registration
+    let registration;
+    if (existingRegistration) {
+      registration = existingRegistration;
+    } else {
+      registration = await UserEventRegistration.create({
+        userId,
+        eventId,
+        registrationDate: new Date(),
+        status: 'pending',
+        faceVerificationStatus: 'pending'
+      });
+    }
+
+    // Step 5: Check if photo is uploaded
+    if (!user.uploadedPhoto) {
+      return {
+        success: true,
+        currentStep: 'STEP_1_UPLOAD_PHOTO',
+        message: 'Please upload your profile photo first',
+        registration: registration.toObject(),
+        nextAction: 'Upload profile photo to S3'
+      };
+    }
+
+    // Step 6: If no face image provided, return next step
+    if (!faceImageKey) {
+      return {
+        success: true,
+        currentStep: 'STEP_2_VERIFY_FACE',
+        message: 'Proceed with face verification',
+        registration: registration.toObject(),
+        nextAction: 'Capture face image for verification'
+      };
+    }
+
+    // Step 7: Process face verification and continue flow
+    return exports.processRegistrationWithFaceVerification(
+      registration._id,
+      faceImageKey,
+      80
+    );
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get complete registration-ticket-waitlist status
+ * Shows current position in flow and next steps
+ * @param {string} registrationId - Registration ID
+ * @returns {Promise<Object>} Complete status info
+ */
+exports.getCompleteRegistrationFlowStatus = async (registrationId) => {
+  try {
+    const registration = await UserEventRegistration.findById(registrationId)
+      .populate('userId', 'name email uploadedPhoto')
+      .populate('eventId', 'name date totalTickets ticketsSold ticketPrice status');
+
+    if (!registration) {
+      throw new AppError('Registration not found', 404);
+    }
+
+    const result = {
+      registrationId: registration._id,
+      userId: registration.userId._id,
+      eventId: registration.eventId._id,
+      eventName: registration.eventId.name,
+      registrationDate: registration.registrationDate,
+      currentStatus: registration.status,
+      flowSteps: []
+    };
+
+    // Determine flow stage and add details
+    if (!registration.userId.uploadedPhoto) {
+      result.currentStep = 'PENDING_PHOTO_UPLOAD';
+      result.flowSteps = [
+        { step: 1, name: 'Upload Photo', status: 'pending', completed: false },
+        { step: 2, name: 'Face Verification', status: 'blocked', completed: false },
+        { step: 3, name: 'Issue Ticket/Waitlist', status: 'blocked', completed: false }
+      ];
+      result.nextAction = 'Upload profile photo';
+      result.progress = 0;
+    } else if (registration.faceVerificationStatus === 'pending') {
+      result.currentStep = 'PENDING_FACE_VERIFICATION';
+      result.flowSteps = [
+        { step: 1, name: 'Upload Photo', status: 'completed', completed: true },
+        { step: 2, name: 'Face Verification', status: 'in-progress', completed: false },
+        { step: 3, name: 'Issue Ticket/Waitlist', status: 'blocked', completed: false }
+      ];
+      result.nextAction = 'Verify your face';
+      result.verificationAttempts = registration.verificationAttempts;
+      result.progress = 33;
+    } else if (registration.faceVerificationStatus === 'failed') {
+      result.currentStep = 'FACE_VERIFICATION_FAILED';
+      result.flowSteps = [
+        { step: 1, name: 'Upload Photo', status: 'completed', completed: true },
+        { step: 2, name: 'Face Verification', status: 'failed', completed: false },
+        { step: 3, name: 'Issue Ticket/Waitlist', status: 'blocked', completed: false }
+      ];
+      result.nextAction = 'Retry face verification or contact support';
+      result.verificationAttempts = registration.verificationAttempts;
+      result.canRetry = registration.verificationAttempts < 3;
+      result.progress = 33;
+    } else if (registration.ticketIssued) {
+      result.currentStep = 'TICKET_ISSUED';
+      result.flowSteps = [
+        { step: 1, name: 'Upload Photo', status: 'completed', completed: true },
+        { step: 2, name: 'Face Verification', status: 'completed', completed: true },
+        { step: 3, name: 'Issue Ticket', status: 'completed', completed: true }
+      ];
+
+      // Get ticket details
+      const ticket = await Ticket.findOne({
+        user: registration.userId._id,
+        event: registration.eventId._id
+      });
+
+      result.ticketDetails = {
+        ticketId: ticket?.ticketId,
+        seatNumber: ticket?.seatNumber,
+        price: ticket?.price,
+        purchaseDate: ticket?.purchaseDate,
+        status: ticket?.status
+      };
+      result.progress = 100;
+    } else {
+      // Check if on waitlist
+      const waitlistPosition = await waitlistService.getUserWaitlistPosition(
+        registration.userId._id,
+        registration.eventId._id
+      );
+
+      if (waitlistPosition) {
+        result.currentStep = 'ON_WAITLIST';
+        result.flowSteps = [
+          { step: 1, name: 'Upload Photo', status: 'completed', completed: true },
+          { step: 2, name: 'Face Verification', status: 'completed', completed: true },
+          { step: 3, name: 'Waitlisted', status: 'in-progress', completed: false }
+        ];
+        result.waitlistDetails = {
+          position: waitlistPosition.position,
+          reason: waitlistPosition.reason,
+          dateAdded: waitlistPosition.dateAdded,
+          totalWaitlistCount: await Waitlist.countDocuments({ eventId: registration.eventId._id, status: 'waiting' })
+        };
+        result.progress = 75;
+      }
+    }
+
+    // Add event capacity info
+    result.eventCapacity = {
+      totalTickets: registration.eventId.totalTickets,
+      ticketsSold: registration.eventId.ticketsSold,
+      ticketsAvailable: registration.eventId.totalTickets - registration.eventId.ticketsSold,
+      ticketPrice: registration.eventId.ticketPrice
+    };
+
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Process waitlist user to ticket when capacity becomes available
+ * Called when a ticket is cancelled or refunded
+ * @param {string} eventId - Event ID
+ * @returns {Promise<Array>} Array of users promoted to ticket
+ */
+exports.promoteFromWaitlistToTicket = async (eventId) => {
+  try {
+    const event = await Event.findById(eventId);
+    if (!event) {
+      throw new AppError('Event not found', 404);
+    }
+
+    const ticketsAvailable = event.totalTickets - event.ticketsSold;
+    if (ticketsAvailable <= 0) {
+      return {
+        success: false,
+        message: 'No tickets available for promotion',
+        promotedUsers: []
+      };
+    }
+
+    // Get waitlist entries with highest priority (earliest, verified face)
+    const waitlistEntries = await Waitlist.find({
+      eventId,
+      status: 'waiting'
+    })
+      .sort({ position: 1 })
+      .limit(ticketsAvailable)
+      .populate('userId')
+      .populate('registrationId');
+
+    const promotedUsers = [];
+
+    for (const entry of waitlistEntries) {
+      try {
+        // Create ticket
+        const ticket = await Ticket.create({
+          event: eventId,
+          user: entry.userId._id,
+          ticketId: `TKT-PROMO-${entry.userId._id}-${eventId}-${Date.now()}`,
+          seatNumber: `SEAT-${Math.floor(Math.random() * 10000)}`,
+          price: event.ticketPrice,
+          status: 'active',
+          promotedFromWaitlist: true,
+          promotionDate: new Date()
+        });
+
+        // Update registration
+        const registration = await UserEventRegistration.findById(entry.registrationId);
+        if (registration) {
+          registration.ticketIssued = true;
+          registration.ticketIssuedDate = new Date();
+          registration.status = 'verified';
+          registration.ticketAvailabilityStatus = 'available';
+          await registration.save();
+        }
+
+        // Remove from waitlist
+        await Waitlist.findByIdAndUpdate(entry._id, { status: 'promoted' });
+
+        promotedUsers.push({
+          userId: entry.userId._id,
+          userName: entry.userId.name,
+          ticketId: ticket.ticketId,
+          seatNumber: ticket.seatNumber
+        });
+      } catch (promotionError) {
+        console.error(`Error promoting user ${entry.userId._id}:`, promotionError);
+        continue;
+      }
+    }
+
+    // Update event tickets sold
+    event.ticketsSold += promotedUsers.length;
+    await event.save();
+
+    return {
+      success: true,
+      message: `${promotedUsers.length} users promoted from waitlist`,
+      promotedUsers
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get registration flow analytics
+ * Summary of all registrations and their flow status
+ * @param {string} eventId - Event ID
+ * @returns {Promise<Object>} Flow analytics
+ */
+exports.getRegistrationFlowAnalytics = async (eventId) => {
+  try {
+    const event = await Event.findById(eventId).populate('registrations');
+    if (!event) {
+      throw new AppError('Event not found', 404);
+    }
+
+    const registrations = await UserEventRegistration.find({ eventId });
+
+    const analytics = {
+      eventId,
+      eventName: event.name,
+      totalRegistrations: registrations.length,
+      flowBreakdown: {
+        photoUploadPending: 0,
+        faceVerificationPending: 0,
+        faceVerificationFailed: 0,
+        ticketsIssued: 0,
+        onWaitlist: 0
+      },
+      flowStagePercentage: {},
+      ticketCapacity: {
+        total: event.totalTickets,
+        sold: event.ticketsSold,
+        available: event.totalTickets - event.ticketsSold
+      }
+    };
+
+    // Analyze each registration
+    for (const reg of registrations) {
+      const user = await User.findById(reg.userId);
+
+      if (!user || !user.uploadedPhoto) {
+        analytics.flowBreakdown.photoUploadPending++;
+      } else if (reg.faceVerificationStatus === 'pending') {
+        analytics.flowBreakdown.faceVerificationPending++;
+      } else if (reg.faceVerificationStatus === 'failed') {
+        analytics.flowBreakdown.faceVerificationFailed++;
+      } else if (reg.ticketIssued) {
+        analytics.flowBreakdown.ticketsIssued++;
+      } else {
+        analytics.flowBreakdown.onWaitlist++;
+      }
+    }
+
+    // Calculate percentages
+    const total = registrations.length || 1;
+    analytics.flowStagePercentage = {
+      photoUploadPending: ((analytics.flowBreakdown.photoUploadPending / total) * 100).toFixed(2),
+      faceVerificationPending: ((analytics.flowBreakdown.faceVerificationPending / total) * 100).toFixed(2),
+      faceVerificationFailed: ((analytics.flowBreakdown.faceVerificationFailed / total) * 100).toFixed(2),
+      ticketsIssued: ((analytics.flowBreakdown.ticketsIssued / total) * 100).toFixed(2),
+      onWaitlist: ((analytics.flowBreakdown.onWaitlist / total) * 100).toFixed(2)
+    };
+
+    return analytics;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Cancel registration and process waitlist promotion
+ * @param {string} registrationId - Registration ID
+ * @param {string} cancellationReason - Reason for cancellation
+ * @returns {Promise<Object>} Cancellation result
+ */
+exports.cancelRegistration = async (registrationId, cancellationReason) => {
+  try {
+    const registration = await UserEventRegistration.findById(registrationId)
+      .populate('eventId');
+
+    if (!registration) {
+      throw new AppError('Registration not found', 404);
+    }
+
+    // Delete associated ticket
+    if (registration.ticketIssued) {
+      await Ticket.findOneAndDelete({
+        user: registration.userId,
+        event: registration.eventId._id
+      });
+
+      // Update event
+      const event = await Event.findById(registration.eventId._id);
+      if (event && event.ticketsSold > 0) {
+        event.ticketsSold -= 1;
+        await event.save();
+      }
+    }
+
+    // Remove from waitlist if on it
+    await waitlistService.removeFromWaitlist(registration.userId, registration.eventId._id);
+
+    // Update registration status
+    registration.status = 'cancelled';
+    registration.cancellationDate = new Date();
+    registration.cancellationReason = cancellationReason;
+    await registration.save();
+
+    // Try to promote from waitlist
+    const promotionResult = await exports.promoteFromWaitlistToTicket(registration.eventId._id);
+
+    return {
+      success: true,
+      message: 'Registration cancelled successfully',
+      registration: registration.toObject(),
+      promotionResult
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Import Waitlist model if not already imported
+const Waitlist = require('../waitlist/waitlist.model');
