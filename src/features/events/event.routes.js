@@ -5,19 +5,19 @@ const authMiddleware = require('../auth/auth.middleware');
 const router = express.Router();
 const {
   getSeatAvailability,
-} = require('./seatAvailability.controller');
+} = require('../booking/seatAvailability.controller');
 
 const {
   bookSeat,
-} = require('./bookSeat.controller');
+} = require('../booking/bookSeat.controller');
 
 const {
   confirmSeatAfterPayment,
-} = require('./confirmSeat.controller');
+} = require('../booking/confirmSeat.controller');
 
 const {
   cancelSeatBooking,
-} = require('./cancelSeat.controller');
+} = require('../booking/cancelSeat.controller');
 
 
 // Configure multer for image uploads
@@ -64,10 +64,5 @@ router.delete(
   authMiddleware.restrictTo('admin'),
   eventController.deleteEvent
 );
-
-router.get('/:eventId/seats', getSeatAvailability);
-router.post('/book', bookSeat);
-router.post('/confirm', confirmSeatAfterPayment);
-router.post('/cancel', cancelSeatBooking);
 
 module.exports = router;

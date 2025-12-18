@@ -1,0 +1,1495 @@
+{
+  "info": {
+    "name": "Complete Thrillathon Backend API Collection",
+    "description": "Comprehensive collection for testing all backend APIs including Authentication, Events, Bookings, Admin, Users, Organizers, Feedback, Notifications, Ads, and AWS services",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "thrillathon-complete-backend-apis"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "api_url",
+      "value": "{{base_url}}/api",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "event_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "booking_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "organizer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "feedback_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ad_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "phone",
+      "value": "+919876543210",
+      "type": "string"
+    },
+    {
+      "key": "otp",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if API is working"
+          }
+        },
+        {
+          "name": "AWS Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/aws-status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "aws-status"]
+            },
+            "description": "Check AWS configuration and S3 bucket status"
+          }
+        },
+        {
+          "name": "Debug Route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/debug",
+              "host": ["{{base_url}}"],
+              "path": ["api", "debug"]
+            },
+            "description": "Debug route to verify API endpoints"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123!\",\n  \"passwordConfirm\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/signup",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "Register a new user account"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('jwt_token', jsonData.token);",
+                  "  pm.environment.set('user_id', jsonData.data.user._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/login",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password"
+          }
+        },
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('admin_token', jsonData.token);",
+                  "  pm.environment.set('user_id', jsonData.data.user._id);",
+                  "  console.log('✅ Admin Login Success!');",
+                  "  console.log('Token:', jsonData.token);",
+                  "  console.log('User:', jsonData.data.user);",
+                  "} else {",
+                  "  console.log('❌ Admin Login Failed!');",
+                  "  console.log('Response:', pm.response.json());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@thrillathon.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/admin-login",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "admin-login"]
+            },
+            "description": "Login as admin user - Auto-saves token to admin_token variable\n\nDefault Credentials:\n- Email: admin@thrillathon.com\n- Password: admin123"
+          }
+        },
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/send-otp",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "send-otp"]
+            },
+            "description": "Send OTP to phone number"
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/verify-otp",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "verify-otp"]
+            },
+            "description": "Verify OTP code"
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/resend-otp",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "resend-otp"]
+            },
+            "description": "Resend OTP code"
+          }
+        },
+        {
+          "name": "Send OTP (New)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/send-otp-new",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "send-otp-new"]
+            },
+            "description": "Send OTP using new endpoint"
+          }
+        },
+        {
+          "name": "Verify OTP (New)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/verify-otp-new",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "verify-otp-new"]
+            },
+            "description": "Verify OTP using new endpoint"
+          }
+        },
+        {
+          "name": "Complete Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"age\": 25,\n  \"city\": \"Delhi\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/complete-profile",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "complete-profile"]
+            },
+            "description": "Complete user profile after OTP verification"
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/auth",
+              "host": ["{{api_url}}"],
+              "path": ["auth"]
+            },
+            "description": "Get current logged-in user info"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/auth/logout",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Get All Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/events",
+              "host": ["{{api_url}}"],
+              "path": ["events"]
+            },
+            "description": "Retrieve all events (public endpoint)"
+          }
+        },
+        {
+          "name": "Get Event by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/events/{{event_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["events", "{{event_id}}"]
+            },
+            "description": "Retrieve a specific event details"
+          }
+        },
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Music Festival 2024\",\n  \"location\": \"Delhi Grounds\",\n  \"date\": \"2024-12-25T00:00:00Z\",\n  \"startTime\": \"2024-12-25T10:00:00Z\",\n  \"endTime\": \"2024-12-25T22:00:00Z\",\n  \"organizer\": \"{{organizer_id}}\",\n  \"seatings\": [\n    {\n      \"seatType\": \"General\",\n      \"price\": 500,\n      \"totalSeats\": 500\n    },\n    {\n      \"seatType\": \"Premium\",\n      \"price\": 1000,\n      \"totalSeats\": 300\n    },\n    {\n      \"seatType\": \"VIP\",\n      \"price\": 2000,\n      \"totalSeats\": 200\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/events",
+              "host": ["{{api_url}}"],
+              "path": ["events"]
+            },
+            "description": "Create a new event (admin/organizer only)\n\nRequired fields:\n- name: Event name\n- location: Event location\n- date: Event date (ISO format)\n- startTime: Start time (ISO format)\n- endTime: End time (ISO format)\n- organizer: Organizer ID\n- seatings: Array of seating types with price and total seats"
+          }
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Music Festival 2024 Updated\",\n  \"location\": \"Delhi Convention Center\",\n  \"endTime\": \"2024-12-25T23:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/events/{{event_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["events", "{{event_id}}"]
+            },
+            "description": "Update event details\n\nCan update fields like:\n- name\n- location\n- date\n- startTime\n- endTime\n- seatings"
+          }
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/events/{{event_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["events", "{{event_id}}"]
+            },
+            "description": "Delete an event (admin only)"
+          }
+        },
+        {
+          "name": "Test Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/events/test",
+              "host": ["{{api_url}}"],
+              "path": ["events", "test"]
+            },
+            "description": "Get test events data"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Get Seat Availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/booking/{{event_id}}/seats",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "{{event_id}}", "seats"]
+            },
+            "description": "Get available seats for an event"
+          }
+        },
+        {
+          "name": "Book Seat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"seating_id_from_event_seatings\",\n  \"userId\": \"{{user_id}}\",\n  \"specialRequirements\": \"Wheelchair accessible seats\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/booking/book",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "book"]
+            },
+            "description": "Temporarily book a ticket (1 ticket per booking)\n\nRequired fields:\n- eventId: Event ID (from Create Event response)\n- seatingId: Seating ID from event's seatings array\n- userId: User ID (from login response)\n- specialRequirements (optional): Any special seat requirements\n\nNote: Get seatingId from event details - it's the _id in the seatings array"
+          }
+        },
+        {
+          "name": "Confirm Booking After Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{booking_id}}\",\n  \"paymentId\": \"payment_12345\",\n  \"amount\": 1500\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/booking/confirm",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "confirm"]
+            },
+            "description": "Confirm booking after payment is completed"
+          }
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{booking_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/booking/cancel",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "cancel"]
+            },
+            "description": "Cancel an existing booking"
+          }
+        },
+        {
+          "name": "Get User Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/booking/user/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "user", "{{user_id}}"]
+            },
+            "description": "Get all bookings for a specific user"
+          }
+        },
+        {
+          "name": "Get Booking Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/booking/{{booking_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "{{booking_id}}"]
+            },
+            "description": "Get details of a specific booking"
+          }
+        },
+        {
+          "name": "Download Ticket",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/booking/{{booking_id}}/download-ticket",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "{{booking_id}}", "download-ticket"]
+            },
+            "description": "Download ticket for a booking"
+          }
+        },
+        {
+          "name": "Get Event Booking Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/booking/admin/{{event_id}}/stats",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "admin", "{{event_id}}", "stats"]
+            },
+            "description": "Get booking statistics for an event (admin only)"
+          }
+        },
+        {
+          "name": "Cleanup Expired Bookings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/booking/admin/cleanup-expired",
+              "host": ["{{api_url}}"],
+              "path": ["booking", "admin", "cleanup-expired"]
+            },
+            "description": "Release expired temporary bookings (admin only)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users/me",
+              "host": ["{{api_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Get current user profile"
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users",
+              "host": ["{{api_url}}"],
+              "path": ["users"]
+            },
+            "description": "Get all users (admin/employee only)"
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Get specific user details"
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"city\": \"Mumbai\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Update user information"
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Delete user account (admin only)"
+          }
+        },
+        {
+          "name": "Verify User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isVerified\": true\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}/verify",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}", "verify"]
+            },
+            "description": "Verify user account (admin/employee only)"
+          }
+        },
+        {
+          "name": "Get Presigned URLs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}/presigned-urls",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}", "presigned-urls"]
+            },
+            "description": "Get presigned URLs for file upload"
+          }
+        },
+        {
+          "name": "Verify User Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"faceId\": \"face_verification_id\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/users/verify-face",
+              "host": ["{{api_url}}"],
+              "path": ["users", "verify-face"]
+            },
+            "description": "Verify user face data (admin/employee only)"
+          }
+        },
+        {
+          "name": "Test Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users/test",
+              "host": ["{{api_url}}"],
+              "path": ["users", "test"]
+            },
+            "description": "Get test users data"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organizers",
+      "item": [
+        {
+          "name": "Get All Organizers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/organizers",
+              "host": ["{{api_url}}"],
+              "path": ["organizers"]
+            },
+            "description": "Get all organizers"
+          }
+        },
+        {
+          "name": "Get Organizer by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/organizers/{{organizer_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["organizers", "{{organizer_id}}"]
+            },
+            "description": "Get specific organizer details"
+          }
+        },
+        {
+          "name": "Create Organizer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Event Masters\",\n  \"email\": \"organizer@eventmasters.com\",\n  \"phone\": \"+919876543210\",\n  \"description\": \"Professional event organizing company\",\n  \"city\": \"Delhi\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/organizers",
+              "host": ["{{api_url}}"],
+              "path": ["organizers"]
+            },
+            "description": "Create new organizer (admin only)"
+          }
+        },
+        {
+          "name": "Update Organizer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Event Masters Updated\",\n  \"phone\": \"+919876543211\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/organizers/{{organizer_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["organizers", "{{organizer_id}}"]
+            },
+            "description": "Update organizer details (admin only)"
+          }
+        },
+        {
+          "name": "Delete Organizer",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/organizers/{{organizer_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["organizers", "{{organizer_id}}"]
+            },
+            "description": "Delete organizer (admin only)"
+          }
+        },
+        {
+          "name": "Test Organizers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/organizers/test",
+              "host": ["{{api_url}}"],
+              "path": ["organizers", "test"]
+            },
+            "description": "Get test organizers data"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "Get All Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/feedback",
+              "host": ["{{api_url}}"],
+              "path": ["feedback"]
+            },
+            "description": "Get all feedback"
+          }
+        },
+        {
+          "name": "Get Feedback by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/feedback/{{feedback_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["feedback", "{{feedback_id}}"]
+            },
+            "description": "Get specific feedback details"
+          }
+        },
+        {
+          "name": "Create Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"rating\": 5,\n  \"comment\": \"Amazing event! Really enjoyed it.\",\n  \"category\": \"Experience\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/feedback",
+              "host": ["{{api_url}}"],
+              "path": ["feedback"]
+            },
+            "description": "Submit new feedback for an event"
+          }
+        },
+        {
+          "name": "Update Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Good event overall.\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/feedback/{{feedback_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["feedback", "{{feedback_id}}"]
+            },
+            "description": "Update feedback"
+          }
+        },
+        {
+          "name": "Mark Feedback As Reviewed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{api_url}}/feedback/{{feedback_id}}/review",
+              "host": ["{{api_url}}"],
+              "path": ["feedback", "{{feedback_id}}", "review"]
+            },
+            "description": "Mark feedback as reviewed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Get Admin Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/stats",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "stats"]
+            },
+            "description": "Get admin dashboard statistics"
+          }
+        },
+        {
+          "name": "Create Admin User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Admin\",\n  \"email\": \"newadmin@example.com\",\n  \"password\": \"AdminPassword123!\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/admin-users",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "admin-users"]
+            },
+            "description": "Create new admin user (admin only)"
+          }
+        },
+        {
+          "name": "Get All Admin Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/admin-users",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "admin-users"]
+            },
+            "description": "Get all admin users"
+          }
+        },
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin Registration\",\n  \"email\": \"admin.reg@example.com\",\n  \"password\": \"AdminPassword123!\",\n  \"passwordConfirm\": \"AdminPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/register",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "register"]
+            },
+            "description": "Register admin account (protected)"
+          }
+        },
+        {
+          "name": "Check Face Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/users/{{user_id}}/face-data",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "users", "{{user_id}}", "face-data"]
+            },
+            "description": "Check face data for user (admin only)"
+          }
+        },
+        {
+          "name": "Issue Pending Tickets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/users/{{user_id}}/issue-tickets",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "users", "{{user_id}}", "issue-tickets"]
+            },
+            "description": "Issue pending tickets for user (admin only)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Register FCM Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm_device_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/register-token",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "register-token"]
+            },
+            "description": "Register Firebase Cloud Messaging token"
+          }
+        },
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm_device_token_here\",\n  \"title\": \"Event Reminder\",\n  \"body\": \"Your event is starting soon!\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/send",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "send"]
+            },
+            "description": "Send notification to a device"
+          }
+        },
+        {
+          "name": "Send Batch Notifications",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokens\": [\"token1\", \"token2\", \"token3\"],\n  \"title\": \"New Event\",\n  \"body\": \"Check out our new events!\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/send-batch",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "send-batch"]
+            },
+            "description": "Send notifications to multiple devices"
+          }
+        },
+        {
+          "name": "Delete FCM Token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm_device_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/delete-token",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "delete-token"]
+            },
+            "description": "Delete/unregister FCM token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Advertisements",
+      "item": [
+        {
+          "name": "Get Active Ads",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/ads/active",
+              "host": ["{{api_url}}"],
+              "path": ["ads", "active"]
+            },
+            "description": "Get all active advertisements"
+          }
+        },
+        {
+          "name": "Get Ad by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/ads/{{ad_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["ads", "{{ad_id}}"]
+            },
+            "description": "Get specific advertisement details"
+          }
+        },
+        {
+          "name": "Record Ad Click",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{api_url}}/ads/{{ad_id}}/click",
+              "host": ["{{api_url}}"],
+              "path": ["ads", "{{ad_id}}", "click"]
+            },
+            "description": "Record when user clicks an ad"
+          }
+        },
+        {
+          "name": "Create Ad",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/ads",
+              "host": ["{{api_url}}"],
+              "path": ["ads"]
+            },
+            "description": "Create new advertisement (requires image upload)"
+          }
+        },
+        {
+          "name": "Get Ads by Organizer",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/ads/organizer/{{organizer_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["ads", "organizer", "{{organizer_id}}"]
+            },
+            "description": "Get all ads for specific organizer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "AWS & Images",
+      "item": [
+        {
+          "name": "Image Upload Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/image-status",
+              "host": ["{{api_url}}"],
+              "path": ["image-status"]
+            },
+            "description": "Check image upload status"
+          }
+        },
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/images",
+              "host": ["{{api_url}}"],
+              "path": ["images"]
+            },
+            "description": "Upload image to S3 via API"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Public",
+      "item": [
+        {
+          "name": "Get Admin Public Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/admin-public",
+              "host": ["{{api_url}}"],
+              "path": ["admin-public"]
+            },
+            "description": "Get public admin information"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../../users/user.model');
+const User = require('../../auth/auth.model');  // Use auth model instead of users model
 const router = express.Router();
 
 // JWT Secret
@@ -43,8 +43,21 @@ router.get('/get-image-status/:userId', verifyToken, async (req, res) => {
             });
         }
         
-        // Look up user in database
-        const user = await User.findOne({ email: `${userId}@example.com` });
+        // Look up user in database by ID or email
+        let user = await User.findById(userId);
+        
+        // If not found by ID, try by email
+        if (!user) {
+            user = await User.findOne({ email: userId });
+        }
+        
+        console.log(`[DEBUG] Image Status - UserId: ${userId}`);
+        console.log(`[DEBUG] User found:`, !!user);
+        if (user) {
+            console.log(`[DEBUG] User._id: ${user._id}`);
+            console.log(`[DEBUG] User.uploadedPhoto:`, user.uploadedPhoto);
+            console.log(`[DEBUG] User object keys:`, Object.keys(user.toObject ? user.toObject() : user));
+        }
         
         if (!user) {
             return res.status(404).json({

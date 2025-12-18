@@ -1,4 +1,5 @@
 const Event = require('./event.model');
+const Booking = require('../booking/booking_model');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
 const s3EventImagesService = require('../../shared/services/s3EventImages.service');
@@ -6,7 +7,6 @@ const urlEncryption = require('../../shared/services/urlEncryption.service');
 const { sendNotificationService } = require('../../services/notification.service');
 const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
 const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
-const Registration = require('../registrations/userEventRegistration.model');
 
 /**
  * Transform event data to hide S3 URLs
@@ -151,7 +151,7 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   });
 
   // 🔔 Send event updated notification to all registered users
-  const registrations = await Registration.find({ eventId: req.params.id })
+  const registrations = await Booking.find({ eventId: req.params.id, status: 'confirmed' })
     .select('userId')
     .distinct('userId');
 
@@ -196,7 +196,7 @@ exports.deleteEvent = catchAsync(async (req, res, next) => {
   }
 
   // 🔔 Send event cancelled notification to all registered users
-  const registrations = await Registration.find({ eventId: req.params.id })
+  const registrations = await Booking.find({ eventId: req.params.id, status: 'confirmed' })
     .select('userId')
     .distinct('userId');
 

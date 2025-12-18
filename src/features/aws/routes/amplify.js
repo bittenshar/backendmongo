@@ -1,9 +1,8 @@
 const express = require("express");
 const multer = require("multer");
 const { S3Client, PutObjectCommand, DeleteObjectCommand, ListBucketsCommand } = require("@aws-sdk/client-s3");
-const { fromNodeProviderChain } = require("@aws-sdk/credential-providers");
 const jwt = require('jsonwebtoken');
-const User = require('../../users/user.model');
+const User = require('../../auth/auth.model');  // Use auth model which has user data
 
 // Import S3 signed URL service
 const { getSignedImageUrl, checkObjectExists, getMultipleSignedUrls } = require('../s3-signed-url.service');
@@ -48,12 +47,16 @@ let s3Available = false;
 try {
     const awsConfig = {
         region: process.env.AWS_REGION || "ap-south-1",
-        credentials: fromNodeProviderChain()
+        credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    }
     };
 
     s3 = new S3Client(awsConfig);
     s3Available = true;
-} catch (s3Error) {
+} 
+catch (s3Error) {
     console.error("[ERROR] S3 client initialization failed:", s3Error.message);
     s3Available = false;
 }
@@ -425,8 +428,16 @@ router.get("/retrieve-image", verifyToken, async (req, res) => {
 
 // Get image status for a user
 router.get("/get-image-status/:userId", verifyToken, async (req, res) => {
+    
     try {
         const userId = req.params.userId;
+        const user = await User.findOne({
+        $or: [
+            { userId: userId },
+            { _id: userId }
+        ]
+        });
+
         
         // Verify user has permission to access this data
         if (req.user.userId !== userId && !req.user.isAdmin) {
@@ -445,8 +456,10 @@ router.get("/get-image-status/:userId", verifyToken, async (req, res) => {
             uploadInfo = userUploads.get(userId);
             imageUrl = uploadInfo.fileUrl;
         } else {
-            // Check database
-            const user = await User.findOne({ userId: userId });
+            // Check database - try by ID first, then by email
+           
+            
+            console.log(`[DEBUG] Image Status Lookup - userId: ${userId}, found: ${!!user}, uploadedPhoto: ${user?.uploadedPhoto || 'undefined'}`);
             
             if (user && user.uploadedPhoto) {
                 hasUploadedImage = true;
@@ -466,13 +479,80 @@ router.get("/get-image-status/:userId", verifyToken, async (req, res) => {
             }
         }
         
+        // Check for face records - Priority 1: MongoDB faceId field, Priority 2: DynamoDB
+       let hasFaceRecord = false;
+        let faceRecord = null;
+
+        // Priority 1: MongoDB
+        if (user && user.faceId) {
+        hasFaceRecord = true;
+        faceRecord = {
+            faceId: user.faceId,
+            source: "mongodb"
+        };
+        }
+        // Priority 2: DynamoDB (faceimage table)
+        else {
+        try {
+            const dynamodbService = require('../../../services/aws/dynamodb.service');
+           
+            console.log("🔍 Checking DynamoDB for userId:", userId);
+
+            const faceItem = await dynamodbService.getUserFaceRecord(userId);
+
+            console.log("🧾 DynamoDB faceItem:", JSON.stringify(faceItem, null, 2));
+
+            // Handle both null and object response formats
+            if (faceItem) {
+                const data = faceItem.data || faceItem; // Handle both response formats
+                if (data) {
+                    hasFaceRecord = true;
+                    faceRecord = {
+                        rekognitionId: data.RekognitionId || data.rekognitionId,
+                        fullName: data.FullName || data.Name || data.name,
+                        status: data.Status || data.status || 'verified',
+                        userId: data.UserId || data.userId,
+                        uploadedAt: data.Timestamp || data.timestamp || new Date().toISOString(),
+                        source: "dynamodb_faceimage"
+                    };
+                    console.log("✅ Face record found in DynamoDB:", faceRecord);
+                }
+            } else {
+                console.log("ℹ️  No face record found for userId:", userId);
+                hasFaceRecord = false;
+            }
+        } catch (err) {
+            // Check if error is due to invalid AWS credentials
+            if (err.message && err.message.includes('security token')) {
+                console.error("❌ Faceimage DynamoDB error - INVALID AWS CREDENTIALS");
+                console.error("   Error:", err.message);
+                console.error("   ⚠️  Please update AWS credentials in .env file");
+            } else {
+                console.error("⚠️  Faceimage DynamoDB error:", err.message);
+            }
+            // Continue without DynamoDB data - graceful fallback
+            hasFaceRecord = false;
+        }
+        }
+
+
+        
         return res.status(200).json({
             success: true,
-            hasUploadedImage,
-            message: hasUploadedImage ? 
-                "User has an uploaded image" : 
-                "User has not uploaded an image",
-            ...(hasUploadedImage && { imageUrl, uploadInfo })
+            image: {
+                hasUploadedImage,
+                message: hasUploadedImage ? 
+                    "User has an uploaded image" : 
+                    "User has not uploaded an image",
+                ...(hasUploadedImage && { imageUrl, uploadInfo })
+            },
+            face: {
+                hasFaceRecord,
+                message: hasFaceRecord ? 
+                    "User has a face record" : 
+                    "User has not uploaded face record",
+                ...(hasFaceRecord && { faceRecord })
+            }
         });
         
     } catch (error) {

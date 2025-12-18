@@ -38,6 +38,12 @@ const eventSchema = new mongoose.Schema(
 
     coverImage: String,
     s3ImageKey: String,
+    
+    status: {
+      type: String,
+      enum: ['upcoming', 'active', 'completed', 'cancelled'],
+      default: 'upcoming',
+    },
   },
   {
     timestamps: true,

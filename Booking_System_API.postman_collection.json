@@ -1,0 +1,383 @@
+{
+  "info": {
+    "_postman_id": "booking-system-2025",
+    "name": "AdminThrill - Booking System API",
+    "description": "Complete Booking System with Seat Reservations, Payments, and Tickets",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1️⃣ Check Seat Availability",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/booking/:eventId/seats",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            ":eventId",
+            "seats"
+          ],
+          "variable": [
+            {
+              "key": "eventId",
+              "value": "63f1a2b4c5d6e7f8g9h0i1j2"
+            }
+          ]
+        },
+        "description": "Check available seats for an event. Returns total seats, sold, locked, and remaining for each seating type."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{base_url}}/api/booking/:eventId/seats"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"eventId\": \"63f1a2b4c5d6e7f8g9h0i1j2\",\n    \"eventName\": \"Tech Summit 2025\",\n    \"seatings\": [\n      {\n        \"id\": \"63f1a2b4c5d6e7f8g9h0i1j3\",\n        \"seatType\": \"General\",\n        \"price\": 500,\n        \"totalSeats\": 100,\n        \"seatsSold\": 45,\n        \"lockedSeats\": 10,\n        \"remainingSeats\": 45,\n        \"occupancyRate\": \"45.00\"\n      },\n      {\n        \"id\": \"63f1a2b4c5d6e7f8g9h0i1j4\",\n        \"seatType\": \"Premium\",\n        \"price\": 1000,\n        \"totalSeats\": 50,\n        \"seatsSold\": 30,\n        \"lockedSeats\": 5,\n        \"remainingSeats\": 15,\n        \"occupancyRate\": \"60.00\"\n      }\n    ]\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "2️⃣ Book Seats (Create Lock)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventId\": \"63f1a2b4c5d6e7f8g9h0i1j2\",\n  \"seatingId\": \"63f1a2b4c5d6e7f8g9h0i1j3\",\n  \"quantity\": 2,\n  \"userId\": \"63f1a2b4c5d6e7f8g9h0i1j5\",\n  \"specialRequirements\": \"Wheelchair accessible\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/booking/book",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            "book"
+          ]
+        },
+        "description": "Lock seats for payment processing. Creates a 15-minute temporary booking. User must complete payment within 15 minutes."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "url": "{{base_url}}/api/booking/book"
+          },
+          "status": "Created",
+          "code": 201,
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Seats locked successfully. Proceeding to payment\",\n  \"data\": {\n    \"booking\": {\n      \"_id\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"bookingId\": \"BOOK-64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"userId\": \"63f1a2b4c5d6e7f8g9h0i1j5\",\n      \"eventId\": \"63f1a2b4c5d6e7f8g9h0i1j2\",\n      \"quantity\": 2,\n      \"totalPrice\": 1000,\n      \"status\": \"temporary\",\n      \"expiresAt\": \"2025-12-16T23:45:00Z\",\n      \"expiresIn\": 15,\n      \"specialRequirements\": \"Wheelchair accessible\"\n    },\n    \"event\": {\n      \"seatingLocked\": 12,\n      \"seatingsSold\": 45,\n      \"remainingSeats\": 43\n    },\n    \"nextStep\": \"Process payment and call /confirm endpoint\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "3️⃣ Confirm Booking (After Payment)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingId\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n  \"paymentId\": \"pay_1H3nL8Az0F9T4z5C0K1M2N3O\",\n  \"paymentMethod\": \"card\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/booking/confirm",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            "confirm"
+          ]
+        },
+        "description": "Confirm booking after successful payment. Converts temporary lock to confirmed booking and generates tickets."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "url": "{{base_url}}/api/booking/confirm"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Booking confirmed successfully\",\n  \"data\": {\n    \"booking\": {\n      \"_id\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"bookingId\": \"BOOK-64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"status\": \"confirmed\",\n      \"paymentId\": \"pay_1H3nL8Az0F9T4z5C0K1M2N3O\",\n      \"paymentMethod\": \"card\",\n      \"paymentStatus\": \"completed\",\n      \"ticketNumbers\": [\n        \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-001\",\n        \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-002\"\n      ],\n      \"qrCodes\": [\n        \"qr_64f1a2b4c5d6e7f8g9h0i1j6_001\",\n        \"qr_64f1a2b4c5d6e7f8g9h0i1j6_002\"\n      ],\n      \"confirmedAt\": \"2025-12-16T23:35:00Z\",\n      \"totalPrice\": 1000\n    },\n    \"nextStep\": \"Download ticket using /download-ticket endpoint\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "4️⃣ Cancel Booking",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingId\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n  \"reason\": \"User requested cancellation\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/booking/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            "cancel"
+          ]
+        },
+        "description": "Cancel booking. If temporary, releases locked seats. If confirmed, initiates refund process."
+      },
+      "response": [
+        {
+          "name": "Success - Temporary Cancelled",
+          "originalRequest": {
+            "method": "POST",
+            "url": "{{base_url}}/api/booking/cancel"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Booking cancelled successfully\",\n  \"data\": {\n    \"booking\": {\n      \"_id\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"bookingId\": \"BOOK-64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"status\": \"cancelled\",\n      \"cancellationReason\": \"User requested cancellation\",\n      \"cancelledAt\": \"2025-12-16T23:36:00Z\",\n      \"seatsReleased\": 2\n    },\n    \"message\": \"Seats have been released and are now available for other users\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "5️⃣ Get User Bookings",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/booking/user/:userId?status=confirmed&eventId=",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            "user",
+            ":userId"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "confirmed"
+            },
+            {
+              "key": "eventId",
+              "value": "",
+              "disabled": true
+            }
+          ],
+          "variable": [
+            {
+              "key": "userId",
+              "value": "63f1a2b4c5d6e7f8g9h0i1j5"
+            }
+          ]
+        },
+        "description": "Get all bookings for a user. Optionally filter by status (temporary/confirmed/cancelled/refunded) or eventId."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{base_url}}/api/booking/user/63f1a2b4c5d6e7f8g9h0i1j5?status=confirmed"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"bookings\": [\n      {\n        \"_id\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n        \"bookingId\": \"BOOK-64f1a2b4c5d6e7f8g9h0i1j6\",\n        \"eventId\": {\n          \"_id\": \"63f1a2b4c5d6e7f8g9h0i1j2\",\n          \"name\": \"Tech Summit 2025\",\n          \"date\": \"2025-12-20\"\n        },\n        \"seatType\": \"General\",\n        \"quantity\": 2,\n        \"totalPrice\": 1000,\n        \"status\": \"confirmed\",\n        \"confirmedAt\": \"2025-12-16T23:35:00Z\",\n        \"ticketNumbers\": [\n          \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-001\",\n          \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-002\"\n        ]\n      }\n    ],\n    \"count\": 1,\n    \"summary\": {\n      \"totalBookings\": 5,\n      \"confirmedBookings\": 1,\n      \"temporaryBookings\": 2,\n      \"cancelledBookings\": 2\n    }\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "6️⃣ Get Booking Details",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/booking/:bookingId",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            ":bookingId"
+          ],
+          "variable": [
+            {
+              "key": "bookingId",
+              "value": "64f1a2b4c5d6e7f8g9h0i1j6"
+            }
+          ]
+        },
+        "description": "Get detailed information about a specific booking."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{base_url}}/api/booking/64f1a2b4c5d6e7f8g9h0i1j6"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"booking\": {\n      \"_id\": \"64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"bookingId\": \"BOOK-64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"userId\": {\n        \"_id\": \"63f1a2b4c5d6e7f8g9h0i1j5\",\n        \"name\": \"John Doe\",\n        \"email\": \"john@example.com\"\n      },\n      \"eventId\": {\n        \"_id\": \"63f1a2b4c5d6e7f8g9h0i1j2\",\n        \"name\": \"Tech Summit 2025\",\n        \"date\": \"2025-12-20\",\n        \"location\": \"Convention Center\"\n      },\n      \"seatType\": \"General\",\n      \"quantity\": 2,\n      \"pricePerSeat\": 500,\n      \"totalPrice\": 1000,\n      \"status\": \"confirmed\",\n      \"paymentStatus\": \"completed\",\n      \"paymentMethod\": \"card\",\n      \"paymentId\": \"pay_1H3nL8Az0F9T4z5C0K1M2N3O\",\n      \"ticketNumbers\": [\n        \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-001\",\n        \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-002\"\n      ],\n      \"qrCodes\": [\n        \"qr_64f1a2b4c5d6e7f8g9h0i1j6_001\",\n        \"qr_64f1a2b4c5d6e7f8g9h0i1j6_002\"\n      ],\n      \"specialRequirements\": \"Wheelchair accessible\",\n      \"bookedAt\": \"2025-12-16T23:30:00Z\",\n      \"confirmedAt\": \"2025-12-16T23:35:00Z\",\n      \"ticketDownloadCount\": 2\n    }\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "7️⃣ Download Ticket",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/booking/:bookingId/download-ticket",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            ":bookingId",
+            "download-ticket"
+          ],
+          "variable": [
+            {
+              "key": "bookingId",
+              "value": "64f1a2b4c5d6e7f8g9h0i1j6"
+            }
+          ]
+        },
+        "description": "Download or retrieve tickets for a confirmed booking. User can download multiple times."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{base_url}}/api/booking/64f1a2b4c5d6e7f8g9h0i1j6/download-ticket"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"booking\": {\n      \"bookingId\": \"BOOK-64f1a2b4c5d6e7f8g9h0i1j6\",\n      \"eventName\": \"Tech Summit 2025\",\n      \"eventDate\": \"2025-12-20\",\n      \"eventTime\": \"10:00 AM\",\n      \"venue\": \"Convention Center\",\n      \"ticketNumbers\": [\n        \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-001\",\n        \"TKT-64f1a2b4c5d6e7f8g9h0i1j6-002\"\n      ],\n      \"qrCodes\": [\n        \"qr_64f1a2b4c5d6e7f8g9h0i1j6_001\",\n        \"qr_64f1a2b4c5d6e7f8g9h0i1j6_002\"\n      ],\n      \"userName\": \"John Doe\",\n      \"seatType\": \"General\",\n      \"specialRequirements\": \"Wheelchair accessible\",\n      \"downloadCount\": 2,\n      \"lastDownloadedAt\": \"2025-12-16T23:40:00Z\"\n    },\n    \"downloadUrl\": \"/tickets/BOOK-64f1a2b4c5d6e7f8g9h0i1j6.pdf\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "👨‍💼 Admin: Get Event Statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/booking/admin/:eventId/stats",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            "admin",
+            ":eventId",
+            "stats"
+          ],
+          "variable": [
+            {
+              "key": "eventId",
+              "value": "63f1a2b4c5d6e7f8g9h0i1j2"
+            }
+          ]
+        },
+        "description": "Admin endpoint to view detailed booking statistics for an event, including revenue, booking breakdown by status, and timeline trends."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{base_url}}/api/booking/admin/63f1a2b4c5d6e7f8g9h0i1j2/stats"
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"eventId\": \"63f1a2b4c5d6e7f8g9h0i1j2\",\n    \"eventName\": \"Tech Summit 2025\",\n    \"statistics\": {\n      \"byStatus\": {\n        \"temporary\": {\n          \"count\": 5,\n          \"revenue\": 2500,\n          \"percentage\": 4.85\n        },\n        \"confirmed\": {\n          \"count\": 95,\n          \"revenue\": 47500,\n          \"percentage\": 92.23\n        },\n        \"cancelled\": {\n          \"count\": 3,\n          \"revenue\": 0,\n          \"percentage\": 2.91\n        },\n        \"refunded\": {\n          \"count\": 0,\n          \"revenue\": 0,\n          \"percentage\": 0\n        }\n      },\n      \"summary\": {\n        \"totalBookings\": 103,\n        \"totalRevenue\": 50000,\n        \"averageBookingValue\": 485.44,\n        \"occupancyRate\": \"92.23%\"\n      },\n      \"timeline\": [\n        {\n          \"_id\": \"2025-12-15\",\n          \"count\": 30,\n          \"revenue\": 15000\n        },\n        {\n          \"_id\": \"2025-12-16\",\n          \"count\": 73,\n          \"revenue\": 35000\n        }\n      ]\n    }\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "👨‍💼 Admin: Cleanup Expired Bookings",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/booking/admin/cleanup-expired",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "booking",
+            "admin",\n            \"cleanup-expired\"\n          ]\n        },\n        \"description\": \"Admin endpoint to manually cleanup expired temporary bookings. Releases locked seats back to availability. Can be run on-demand or as a scheduled cron job.\"\n      },\n      \"response\": [\n        {\n          \"name\": \"Success\",\n          \"originalRequest\": {\n            \"method\": \"POST\",\n            \"url\": \"{{base_url}}/api/booking/admin/cleanup-expired\"\n          },\n          \"status\": \"OK\",\n          \"code\": 200,\n          \"body\": \"{\n  \\\"status\\\": \\\"success\\\",\n  \\\"message\\\": \\\"Expired bookings cleaned up successfully\\\",\n  \\\"data\\\": {\n    \\\"cleaned\\\": 12,\n    \\\"seatsReleased\\\": 24,\n    \\\"cleanupTime\\\": \\\"2025-12-16T23:50:00Z\\\",\n    \\\"details\\\": [\n      {\n        \\\"bookingId\\\": \\\"BOOK-64f1a2b4c5d6e7f8g9h0i1j1\\\",\n        \\\"eventId\\\": \\\"63f1a2b4c5d6e7f8g9h0i1j2\\\",\n        \\\"quantity\\\": 2,\n        \\\"expiresAt\\\": \\\"2025-12-16T23:45:00Z\\\"\n      }\n    ]\n  }\n}\"\n        }\n      ]\n    }\n  ],\n  \"variable\": [\n    {\n      \"key\": \"base_url\",\n      \"value\": \"http://localhost:3000\"\n    },\n    {\n      \"key\": \"auth_token\",\n      \"value\": \"\"\n    }\n  ]\n}\n

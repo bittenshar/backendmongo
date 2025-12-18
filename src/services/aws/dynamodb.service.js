@@ -41,10 +41,12 @@ const AppError = require('../../shared/utils/appError');
  */
 const client = new DynamoDBClient({
   region: process.env.AWS_REGION || 'ap-south-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
+  ...(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && {
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+  })
 });
 
 const docClient = DynamoDBDocumentClient.from(client);
@@ -205,7 +207,7 @@ exports.storeFaceImage = async (rekognitionId, userId, name, faceData) => {
  * @returns {Promise<Object>} User's face record
  * @throws {AppError} 404 if record not found
  */
-exports.getUserFaceByUserId = async (userId) => {
+exports.getUserFaceRecord = async (userId) => {
   try {
     const params = {
       TableName: FACE_IMAGE_TABLE,
@@ -213,29 +215,37 @@ exports.getUserFaceByUserId = async (userId) => {
       KeyConditionExpression: 'UserId = :userId',
       ExpressionAttributeValues: {
         ':userId': userId
-      }
+      },
+      Limit: 1
     };
 
     const result = await docClient.send(new QueryCommand(params));
-
+    
     if (!result.Items || result.Items.length === 0) {
-      throw new AppError(`No face record found for userId: ${userId}`, 404);
+      return null;
     }
-
-    console.log(`✅ Face record retrieved for userId: ${userId}`);
 
     return {
       success: true,
-      data: result.Items[0] // Return first (and only) item
+      data: result.Items[0]
     };
   } catch (error) {
-    if (error.statusCode === 404) {
-      throw error;
+    // Check if it's a credential error
+    if (error.message && (error.message.includes('security token') || error.message.includes('InvalidSignatureException'))) {
+      console.error('❌ AWS Credential Error:', error.message);
+      console.error('   Your AWS credentials may be expired or invalid');
+      console.error('   Please update AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env');
+      throw new AppError(
+        `AWS credentials invalid or expired: ${error.message}`,
+        401
+      );
     }
     console.error('❌ Error retrieving face record:', error);
     throw new AppError(`Failed to retrieve face record: ${error.message}`, 500);
   }
 };
+
+
 
 /**
  * GET FACE IMAGE BY REKOGNITION ID (BY PRIMARY KEY)
@@ -523,6 +533,14 @@ exports.initializeService = async () => {
     console.log('Duplicate Prevention: UserId queried via GSI before storage');
     console.log('Business Rule: One face per user (409 Conflict if duplicate)');
     
+    // Check if AWS credentials are configured
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      console.warn('⚠️  WARNING: AWS credentials not configured');
+      console.warn('   - AWS_ACCESS_KEY_ID: ' + (process.env.AWS_ACCESS_KEY_ID ? '✅ Set' : '❌ Missing'));
+      console.warn('   - AWS_SECRET_ACCESS_KEY: ' + (process.env.AWS_SECRET_ACCESS_KEY ? '✅ Set' : '❌ Missing'));
+      console.warn('   DynamoDB operations may fail if credentials are invalid or expired');
+    }
+    
     return {
       success: true,
       message: 'DynamoDB service ready',
@@ -542,12 +560,9 @@ exports.initializeService = async () => {
  * The controller code previously used different function names and a
  * different DynamoDB variable name. Provide thin adapters so existing
  * controller code continues to work until the controller is migrated.
- */
+ *
+*/
 
-// Adapter: getUserFaceRecord -> getUserFaceByUserId
-exports.getUserFaceRecord = async (userId) => {
-  return exports.getUserFaceByUserId(userId);
-};
 
 // Adapter: getAllFaceRecords -> getAllFaceImages
 exports.getAllFaceRecords = async (limit) => {

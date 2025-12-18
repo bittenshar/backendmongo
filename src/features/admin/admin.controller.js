@@ -2,12 +2,9 @@ const AdminUser = require('./admin.model');
 const User = require('../auth/auth.model');
 const UserModel = require('../users/user.model');
 const Event = require('../events/event.model');
-const Registration = require('../registrations/userEventRegistration.model');
-const Ticket = require('../tickets/ticket.model');
 const Organizer = require('../organizers/organizer.model');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
-const { issuePendingTicketsForUser } = require('../tickets/ticket.service');
 const {
   validatePermissions,
   createInvalidPermissionError,
@@ -179,14 +176,8 @@ exports.registerAdmin = catchAsync(async (req, res, next) => {
     return next(new AppError('Admin with this email already exists', 400));
   }
 
-  // Generate unique adminId
-  const adminId = `admin_${Date.now().toString(36)}${Math.random()
-    .toString(36)
-    .substr(2, 5)}`;
-
   // Create admin with plain password - let schema handle hashing
   const adminData = {
-    adminId,
     email,
     password,  // Plain password - schema will hash it
     passwordConfirm,  // Schema validates this matches password
@@ -624,7 +615,17 @@ exports.getAdminUser = catchAsync(async (req, res) => {
 });
 
 exports.createAdminUser = catchAsync(async (req, res) => {
-  const { email, password, name, phone, role, permissions } = req.body;
+  const { email, password, passwordConfirm, name, phone, role, permissions } = req.body;
+
+  // Validate required fields
+  if (!email || !password || !name) {
+    throw new AppError('Email, password, and name are required', 400);
+  }
+
+  // Validate password confirmation
+  if (passwordConfirm && password !== passwordConfirm) {
+    throw new AppError('Passwords do not match', 400);
+  }
 
   // Validate permissions
   const validation = validatePermissions(permissions, req.user);
@@ -645,22 +646,15 @@ exports.createAdminUser = catchAsync(async (req, res) => {
     }
   }
 
-  // Generate unique userId
-  const adminId = `admin_${Date.now().toString(36)}${Math.random()
-    .toString(36)
-    .substr(2, 5)}`;
-
   const newAdmin = await AdminUser.create({
-    userId: adminId,
     email,
     password,
+    passwordConfirm,
     name,
     phone,
     role: role || 'admin',
     permissions: permissions || [],
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    active: true
   });
 
   // Remove sensitive information

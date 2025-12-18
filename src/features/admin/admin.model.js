@@ -3,10 +3,6 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const adminSchema = new mongoose.Schema({
-  adminId: {
-    type: String,
-    required: true
-  },
   email: {
     type: String,
     required: [true, 'Please provide your email'],
@@ -22,7 +18,6 @@ const adminSchema = new mongoose.Schema({
   },
   passwordConfirm: {
     type: String,
-    required: [function() { return this.isNew || this.isModified('password'); }, 'Please confirm your password'],
     validate: {
       validator: function(el) {
         return el === this.password;
@@ -47,6 +42,7 @@ const adminSchema = new mongoose.Schema({
   permissions: [{
     type: String,
     enum: [
+      'all',
       'manage_users',
       'manage_events',
       'manage_tickets',
@@ -64,13 +60,13 @@ const adminSchema = new mongoose.Schema({
   passwordResetExpires: Date
 }, {
   timestamps: true,
+  id: false,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
 // Indexes for faster queries
 adminSchema.index({ email: 1 }, { unique: true });
-adminSchema.index({ adminId: 1 }, { unique: true });
 
 // Hash password before saving
 adminSchema.pre('save', async function(next) {

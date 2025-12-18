@@ -88,31 +88,28 @@ app.get('/api/debug', (req, res) => {
 });
 const eventRoutes = require('./features/events/event.routes');
 const organizerRoutes = require('./features/organizers/organizer.routes');  
-const ticketRoute = require('./features/tickets/ticket.routes');
 const feedbackRoutes = require('./features/feedback/feedback.routes');
-const adminRoutes = require('./features/admin/admin.routes');
-const registrationRoutes = require('./features/registrations/userEventRegistration.routes');
-const userRoutesNew = require('./features/users/user.routes');
+const adminRoutes = require('./features/admin/admin.routes');const userRoutesNew = require('./features/users/user.routes');
 const authRoutes = require('./features/auth/auth.routes');
 const adminPublicRoutes = require('./features/admin/admin-public.routes');
-const waitlistRoutes = require('./features/waitlist/waitlist.routes');
 const amplifyRoutes = require('./features/aws/routes/amplify');
 const adsRoutes = require('./features/ads/ads.routes');
 const notificationRoutes = require("./features/notificationfcm/notification.routes");
 const testNotificationRoutes = require("./features/notificationfcm/test-notification.routes");
 
 
+// Import booking routes
+const bookingRoutes = require('./features/booking/booking_route');
+
 // Use feature routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin-public', adminPublicRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/organizers', organizerRoutes);
-app.use('/api/tickets', ticketRoute);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/registrations', registrationRoutes);
-app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/users', userRoutesNew);
+app.use('/api/booking', bookingRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api', amplifyRoutes);
 app.use("/api/notifications", notificationRoutes);

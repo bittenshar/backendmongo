@@ -1,0 +1,391 @@
+{
+  "info": {
+    "name": "AWS S3 & Image Upload API Collection",
+    "description": "Complete collection for AWS S3 operations, presigned URLs, and image upload endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "aws-s3-image-api"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "api_url",
+      "value": "{{base_url}}/api",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bucket_name",
+      "value": "thrillathon-bucket",
+      "type": "string"
+    },
+    {
+      "key": "s3_key",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "User Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('jwt_token', jsonData.token);",
+                  "  pm.environment.set('user_id', jsonData.data.user._id || jsonData.data.user.userId);",
+                  "  console.log('✅ Login successful!');",
+                  "  console.log('Token:', jsonData.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/login",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login to get JWT token for authenticated requests"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Image Upload",
+      "item": [
+        {
+          "name": "Upload Image to S3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "/path/to/image.jpg",
+                  "description": "Image file to upload (JPEG, PNG)"
+                },
+                {
+                  "key": "fullname",
+                  "value": "profile_image",
+                  "type": "text",
+                  "description": "Filename without extension"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{api_url}}/aws/upload",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "upload"]
+            },
+            "description": "Upload an image to S3 bucket\n\nRequired:\n- image: Image file (JPEG, PNG, JPG)\n- fullname: Filename\n\nAuthentication: Required (Bearer token)"
+          }
+        },
+        {
+          "name": "Get Image Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/get-image-status/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "get-image-status", "{{user_id}}"]
+            },
+            "description": "Get the status of uploaded images for a user"
+          }
+        },
+        {
+          "name": "Get Presigned URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/get-signed-url/{{user_id}}/image_key",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "get-signed-url", "{{user_id}}", "image_key"]
+            },
+            "description": "Get a presigned URL to download an image from S3\n\nReplace 'image_key' with the actual S3 key of the image"
+          }
+        },
+        {
+          "name": "Get Multiple Presigned URLs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"s3Keys\": [\n    \"userId_image1_key\",\n    \"userId_image2_key\",\n    \"userId_image3_key\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/aws/get-multiple-signed-urls",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "get-multiple-signed-urls"]
+            },
+            "description": "Get multiple presigned URLs at once for batch downloads"
+          }
+        },
+        {
+          "name": "Delete Image from S3",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"s3Key\": \"path/to/image/in/s3\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/aws/delete",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "delete"]
+            },
+            "description": "Delete an image from S3 bucket"
+          }
+        }
+      ]
+    },
+    {
+      "name": "S3 Operations",
+      "item": [
+        {
+          "name": "List S3 Buckets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/buckets",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "buckets"]
+            },
+            "description": "List all S3 buckets in AWS account"
+          }
+        },
+        {
+          "name": "List Objects in Bucket",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/objects?bucket={{bucket_name}}",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "objects"],
+              "query": [
+                {
+                  "key": "bucket",
+                  "value": "{{bucket_name}}"
+                }
+              ]
+            },
+            "description": "List all objects in a specific S3 bucket"
+          }
+        },
+        {
+          "name": "Check Object Exists",
+          "request": {
+            "method": "HEAD",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/check-object/{{bucket_name}}/path/to/object",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "check-object", "{{bucket_name}}", "path/to/object"]
+            },
+            "description": "Check if an object exists in S3 bucket"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Presigned URLs (User Endpoints)",
+      "item": [
+        {
+          "name": "Get User Presigned URLs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}/presigned-urls",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}", "presigned-urls"]
+            },
+            "description": "Get presigned URLs for a user (from user endpoints)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Image Status (Admin Endpoints)",
+      "item": [
+        {
+          "name": "List All Uploaded Images",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/admin/all-images",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "admin", "all-images"]
+            },
+            "description": "Admin endpoint to list all images uploaded by all users"
+          }
+        },
+        {
+          "name": "Get All Signed URLs (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/admin/all-signed-urls",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "admin", "all-signed-urls"]
+            },
+            "description": "Admin endpoint to get all signed URLs for all users"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Status & Health",
+      "item": [
+        {
+          "name": "AWS Status Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/aws-status",
+              "host": ["{{api_url}}"],
+              "path": ["aws-status"]
+            },
+            "description": "Check AWS configuration and S3 bucket status"
+          }
+        },
+        {
+          "name": "Image Upload Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/image-status",
+              "host": ["{{api_url}}"],
+              "path": ["image-status"]
+            },
+            "description": "Check image upload service status"
+          }
+        },
+        {
+          "name": "AWS Debug Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/aws/debug",
+              "host": ["{{api_url}}"],
+              "path": ["aws", "debug"]
+            },
+            "description": "Get debug information about AWS configuration"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,11 +1,13 @@
 // Valid permissions for the system
 const VALID_PERMISSIONS = [
-  'users',
-  'organizers', 
-  'events',
-  'registrations',
-  'feedback',
-  'analytics'
+  'all',
+  'manage_users',
+  'manage_events',
+  'manage_tickets',
+  'manage_organizers',
+  'manage_admins',
+  'view_analytics',
+  'manage_settings'
 ];
 
 // Define which roles can grant which permissions

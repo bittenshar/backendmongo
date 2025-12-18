@@ -43,29 +43,65 @@ const createSendToken = async (user, statusCode, res) => {
     }
   }
 
-  // Check if user has face record in DynamoDB
+  // Check if user has face record - first check MongoDB user.faceId field
   let hasFaceRecord = false;
   let faceId = null;
   
-  if (process.env.DYNAMODB_FACE_VALIDATION_TABLE && user._id) {
+  console.log(`\n🔍 [Face Check] Starting face record lookup for userId: ${user._id.toString()}`);
+  
+  // Primary check: User model's faceId field
+  if (user.faceId) {
+    hasFaceRecord = true;
+    faceId = user.faceId;
+    console.log(`✅ [Face Check] Face record found in MongoDB - faceId: ${faceId}`);
+  } else {
+    console.log(`ℹ️ [Face Check] No faceId in MongoDB user record`);
+  }
+  
+  // Fallback: Check DynamoDB if available and no face record in MongoDB yet
+  // SKIP DynamoDB if AWS credentials are missing/invalid - gracefully degrade
+  if (!hasFaceRecord && user._id && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_ACCESS_KEY_ID !== 'YOUR_ACTUAL_ACCESS_KEY_HERE') {
+    console.log(`🔄 [Face Check] Checking DynamoDB for face record...`);
     try {
       const dynamodbService = require('../../services/aws/dynamodb.service');
       const userIdStr = user._id.toString();
-      hasFaceRecord = await dynamodbService.checkIfUserFaceExists(userIdStr);
       
-      if (hasFaceRecord) {
-        try {
-          const faceRecord = await dynamodbService.getUserFaceRecord(userIdStr);
-          faceId = faceRecord?.data?.RekognitionId || faceRecord?.data?.rekognitionId;
-        } catch (err) {
-          console.warn(`⚠️ Could not retrieve face ID for userId: ${userIdStr}`, err.message);
-        }
+      console.log(`📍 [Face Check] DynamoDB Query - userId: ${userIdStr}, table: faceimage`);
+      
+      // Try to get face record from DynamoDB
+      const faceRecord = await dynamodbService.getUserFaceRecord(userIdStr);
+      
+      console.log(`📊 [Face Check] DynamoDB Response:`, JSON.stringify(faceRecord, null, 2));
+      
+      // Handle both response formats (with .data wrapper or direct object)
+      const data = faceRecord && (faceRecord.data || faceRecord);
+      
+      if (data && data.RekognitionId) {
+        hasFaceRecord = true;
+        // Get RekognitionId from the face record
+        faceId = data.RekognitionId || data.rekognitionId;
+        console.log(`✅ [Face Check] Face record found in DynamoDB!`);
+        console.log(`   - RekognitionId: ${faceId}`);
+        console.log(`   - FullName: ${data.FullName || data.fullName}`);
+        console.log(`   - Status: ${data.Status || data.status}`);
+      } else {
+        console.log(`⚠️ [Face Check] DynamoDB returned but no data`);
       }
-      console.log(`✅ Face check in login - userId: ${userIdStr}, hasFaceRecord: ${hasFaceRecord}, faceId: ${faceId}`);
     } catch (err) {
-      console.warn('⚠️ Warning: Could not check face record in login:', err.message);
+      // Gracefully skip DynamoDB errors - not critical for login
+      console.log(`⚠️ [Face Check] DynamoDB Query Error (will skip DynamoDB):`, {
+        message: err.message,
+        type: err.constructor.name
+      });
+      console.log(`ℹ️ [Face Check] Skipping DynamoDB - AWS credentials may be invalid`);
+      hasFaceRecord = false;
+      faceId = null;
     }
+  } else if (!hasFaceRecord && (!process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID === 'YOUR_ACTUAL_ACCESS_KEY_HERE')) {
+    console.log(`⚠️ [Face Check] AWS credentials not configured - skipping DynamoDB check`);
   }
+  
+  console.log(`\n📋 [Face Check] Final Result: hasFaceRecord=${hasFaceRecord}, faceId=${faceId}\n`);
 
   // Ensure uploadedPhoto is included in the response
   const userResponse = {
