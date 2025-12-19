@@ -25,8 +25,8 @@ const bookingSchema = new mongoose.Schema(
     },
     seatType: {
       type: String,
-      enum: ['General', 'Premium', 'VIP', 'StandardSeating', 'PremiumSeating'],
       required: true
+      // Dynamic seatType provided by organizer
     },
     quantity: {
       type: Number,
