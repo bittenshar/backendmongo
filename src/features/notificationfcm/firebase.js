@@ -1,6 +1,11 @@
-const admin = require("firebase-admin");
-const path = require("path");
-const fs = require("fs");
+import admin from "firebase-admin";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+// Create __dirname for ES6 modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize Firebase only if service account is available
 let initialized = false;
@@ -8,7 +13,8 @@ const serviceAccountPath = path.join(__dirname, "firebase-service-account.json")
 
 if (fs.existsSync(serviceAccountPath)) {
   try {
-    const serviceAccount = require(serviceAccountPath);
+    const serviceAccountJson = fs.readFileSync(serviceAccountPath, "utf8");
+    const serviceAccount = JSON.parse(serviceAccountJson);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
@@ -21,6 +27,6 @@ if (fs.existsSync(serviceAccountPath)) {
   console.warn("[Firebase] firebase-service-account.json not found. Firebase notifications disabled.");
 }
 
-module.exports = { admin, initialized };
+export { admin, initialized };
 
 
