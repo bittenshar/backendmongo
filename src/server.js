@@ -96,7 +96,7 @@ const amplifyRoutes = require('./features/aws/routes/amplify');
 const adsRoutes = require('./features/ads/ads.routes');
 const notificationRoutes = require("./features/notificationfcm/notification.routes");
 const testNotificationRoutes = require("./features/notificationfcm/test-notification.routes");
-
+const aadhaarRoutes = require('./features/documents/aadhaar.routes');
 
 // Import booking routes
 const bookingRoutes = require('./features/booking/booking_route');
@@ -114,11 +114,11 @@ app.use('/api/ads', adsRoutes);
 app.use('/api', amplifyRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification", testNotificationRoutes);
-
+app.use('/api', aadhaarRoutes);
 // Import and use image status routes
 const imageStatusRoutes = require('./features/aws/routes/image-status');
 app.use('/api', imageStatusRoutes);
-app.use('/api/images', imageRoutes);
+app.use('/api/images',imageRoutes);
 
 // Basic Routes
 app.get('/favicon.ico', (req, res) => res.status(204).end());
