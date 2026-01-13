@@ -1,11 +1,6 @@
-import admin from "firebase-admin";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-// Create __dirname for ES6 modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const admin = require("firebase-admin");
+const path = require("path");
+const fs = require("fs");
 
 // Initialize Firebase only if service account is available
 let initialized = false;
@@ -25,5 +20,6 @@ if (fs.existsSync(serviceAccountPath)) {
   }
 } else {
   console.warn("[Firebase] firebase-service-account.json not found. Firebase notifications disabled.");
-} 
-export { admin, initialized };
+}
+
+module.exports = { admin, initialized };
