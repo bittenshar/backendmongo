@@ -25,8 +25,5 @@ if (fs.existsSync(serviceAccountPath)) {
   }
 } else {
   console.warn("[Firebase] firebase-service-account.json not found. Firebase notifications disabled.");
-}
-
+} 
 export { admin, initialized };
-
-

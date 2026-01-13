@@ -1,5 +1,5 @@
 const { buildNotificationFromTemplate } = require("../features/notificationfcm/notification.helper");
-const UserFcmToken = require("../features/notificationfcm/userFcmToken.model");
+const UserFcmToken = require("../features/notificationfcm/UserFcmToken.model");
 const admin = require("firebase-admin");
 
 exports.sendNotificationService = async ({
