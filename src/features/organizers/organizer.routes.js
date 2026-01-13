@@ -8,7 +8,7 @@ router.use(authMiddleware.protect);
 
 router.route('/')
   .get(organizerController.getAllOrganizers)
-  .post(organizerController.createOrganizer);
+  .post(authMiddleware.restrictTo('admin'), organizerController.createOrganizer);
 
 router.route('/:id')
   .get(organizerController.getOrganizer)
