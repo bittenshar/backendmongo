@@ -32,7 +32,7 @@ const connectDB = async () => {
     console.log('\n✅ MongoDB Connected\n');
 
     // Import model after connection
-    const UserFcmToken = require('./src/features/notificationfcm/userFcmToken.model');
+    const UserFcmToken = require('./src/features/notificationfcm/UserFcmToken.model');
 
     // Step 3: Check if user has any FCM tokens
     console.log('Step 2: Check FCM Tokens for User');

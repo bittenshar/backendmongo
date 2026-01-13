@@ -253,7 +253,7 @@ router.post('/test-all', async (req, res) => {
 router.get('/tokens/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const UserFcmToken = require('./userFcmToken.model');
+    const UserFcmToken = require('./UserFcmToken.model');
 
     const tokens = await UserFcmToken.find({ userId });
 
@@ -284,7 +284,7 @@ router.get('/tokens/:userId', async (req, res) => {
 router.delete('/tokens/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const UserFcmToken = require('./userFcmToken.model');
+    const UserFcmToken = require('./UserFcmToken.model');
 
     await UserFcmToken.deleteOne({ token });
 

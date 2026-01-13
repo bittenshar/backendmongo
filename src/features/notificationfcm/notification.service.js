@@ -1,6 +1,6 @@
 const { admin, initialized: firebaseInitialized } = require('./firebase');
 const { buildNotificationFromTemplate } = require('./notification.helper');
-const UserFcmToken = require('./userFcmToken.model');
+const UserFcmToken = require('./UserFcmToken.model');
 
 /**
  * Main notification service function
