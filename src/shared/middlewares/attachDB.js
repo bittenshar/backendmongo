@@ -11,8 +11,6 @@ const attachDBMiddleware = async (req, res, next) => {
                 serverSelectionTimeoutMS: 5000,
                 socketTimeoutMS: 30000,
                 connectTimeoutMS: 10000,
-                keepAlive: true,
-                keepAliveInitialDelay: 300000,
                 autoIndex: false,
             });
         }
