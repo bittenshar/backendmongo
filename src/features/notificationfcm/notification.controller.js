@@ -1,5 +1,5 @@
 const { admin, initialized: firebaseInitialized } = require("./firebase");
-const UserFcmToken = require("./userFcmToken.model");
+const UserFcmToken = require("./UserFcmToken.model");
 
 /**
  * Register FCM Token
