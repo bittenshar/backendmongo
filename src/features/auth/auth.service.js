@@ -6,6 +6,11 @@ const { AppError } = require('../../shared/utils/');
 const bcrypt = require('bcryptjs');
 
 const signToken = (user) => {
+  // Validate JWT_SECRET exists
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured in environment variables');
+  }
+  
   // sign with _id (userId)
   return jwt.sign(
     { userId: user._id.toString() },
@@ -17,9 +22,10 @@ const signToken = (user) => {
 const createSendToken = async (user, statusCode, res) => {
   const token = signToken(user);
 
+  const cookieExpiryDays = parseInt(process.env.JWT_COOKIE_EXPIRES_IN) || 90;
   const cookieOptions = {
     expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      Date.now() + cookieExpiryDays * 24 * 60 * 60 * 1000
     ),
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production'
