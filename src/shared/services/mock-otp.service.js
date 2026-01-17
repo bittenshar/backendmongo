@@ -13,8 +13,8 @@ const otpExpiry = 10 * 60 * 1000; // 10 minutes in milliseconds
 // ============================================
 exports.sendOTP = async (phoneNumber) => {
   try {
-    // Generate random 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate random 4-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Store OTP with expiry
     const expiresAt = Date.now() + otpExpiry;
