@@ -2,28 +2,35 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Payment = require('./payment.model');
 
-// Initialize Razorpay instance
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
-
 // Validate Razorpay initialization
+let razorpay = null;
+
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
   console.warn('⚠️  WARNING: Razorpay credentials not fully configured in .env');
   console.warn('RAZORPAY_KEY_ID:', process.env.RAZORPAY_KEY_ID);
   console.warn('RAZORPAY_KEY_SECRET:', process.env.RAZORPAY_KEY_SECRET);
+  console.warn('Razorpay features will be disabled');
 } else {
-  console.log('✅ Razorpay initialized with:');
-  console.log('  Key ID:', process.env.RAZORPAY_KEY_ID?.substring(0, 20) + '...');
-  console.log('  Key Secret:', process.env.RAZORPAY_KEY_SECRET?.substring(0, 10) + '...');
+  try {
+    // Initialize Razorpay instance only if credentials are available
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+    console.log('✅ Razorpay initialized with:');
+    console.log('  Key ID:', process.env.RAZORPAY_KEY_ID?.substring(0, 20) + '...');
+    console.log('  Key Secret:', process.env.RAZORPAY_KEY_SECRET?.substring(0, 10) + '...');
+  } catch (error) {
+    console.error('❌ Failed to initialize Razorpay:', error.message);
+    razorpay = null;
+  }
 }
 
 // Verify razorpay object has required methods
-if (!razorpay.orders || typeof razorpay.orders.create !== 'function') {
+if (razorpay && (!razorpay.orders || typeof razorpay.orders.create !== 'function')) {
   console.error('❌ CRITICAL: Razorpay SDK not properly initialized - missing orders.create method');
   console.error('Razorpay object:', razorpay);
-} else {
+} else if (razorpay) {
   console.log('✅ Razorpay orders.create method available');
 }
 
@@ -39,6 +46,11 @@ exports.createOrder = async ({
   customer = {},
 }) => {
   try {
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      throw new Error('Razorpay is not configured. Please check your environment variables.');
+    }
+
     // Validate inputs
     if (!userId) throw new Error('userId is required');
     if (!amount || amount <= 0) throw new Error('Valid amount is required');
@@ -139,6 +151,11 @@ exports.verifyPaymentSignature = async ({
   signature,
 }) => {
   try {
+    // Check if Razorpay is initialized (warning only, signature verification works without it)
+    if (!razorpay) {
+      console.warn('⚠️ Razorpay not configured - payment details fetch will be skipped');
+    }
+
     // Try to find payment by orderId (could be ORD_... or order_...)
     let payment = null;
     
@@ -183,17 +200,29 @@ exports.verifyPaymentSignature = async ({
     // Try to fetch payment details from Razorpay
     let paymentDetails = null;
     let fetchError = null;
-    try {
-      paymentDetails = await razorpay.payments.fetch(paymentId);
-      console.log('✅ Fetched payment details from Razorpay:', paymentDetails.id);
-    } catch (err) {
-      // If payment doesn't exist in Razorpay (test scenario), that's okay
-      // We already verified the signature, so we can proceed
-      fetchError = err.message;
-      console.warn('⚠️ Could not fetch payment from Razorpay:', fetchError);
-      console.log('Proceeding with payment verification based on signature validation');
-      
-      // Use default status if we couldn't fetch from Razorpay
+    
+    if (razorpay) {
+      try {
+        paymentDetails = await razorpay.payments.fetch(paymentId);
+        console.log('✅ Fetched payment details from Razorpay:', paymentDetails.id);
+      } catch (err) {
+        // If payment doesn't exist in Razorpay (test scenario), that's okay
+        // We already verified the signature, so we can proceed
+        fetchError = err.message;
+        console.warn('⚠️ Could not fetch payment from Razorpay:', fetchError);
+        console.log('Proceeding with payment verification based on signature validation');
+        
+        // Use default status if we couldn't fetch from Razorpay
+        paymentDetails = {
+          id: paymentId,
+          status: 'captured', // Assume captured if signature is valid
+          amount: payment.amount,
+          currency: payment.currency
+        };
+      }
+    } else {
+      // Razorpay not configured - use default status
+      console.log('Using default payment status (Razorpay not configured)');
       paymentDetails = {
         id: paymentId,
         status: 'captured', // Assume captured if signature is valid
@@ -238,6 +267,10 @@ exports.verifyPaymentSignature = async ({
  */
 exports.capturePayment = async (paymentId, amount) => {
   try {
+    if (!razorpay) {
+      throw new Error('Razorpay is not configured');
+    }
+
     const capturedPayment = await razorpay.payments.capture(paymentId, amount * 100);
 
     return {
@@ -258,6 +291,10 @@ exports.getPaymentDetails = async (paymentId) => {
     
     if (!paymentId) {
       throw new Error('Payment ID is required');
+    }
+    
+    if (!razorpay) {
+      throw new Error('Razorpay is not configured');
     }
     
     const paymentDetails = await razorpay.payments.fetch(paymentId);
@@ -294,6 +331,10 @@ exports.getOrderDetails = async (orderId) => {
       throw new Error('Order ID is required');
     }
     
+    if (!razorpay) {
+      throw new Error('Razorpay is not configured');
+    }
+    
     const orderDetails = await razorpay.orders.fetch(orderId);
     console.log('✅ Order details fetched:', orderDetails.id);
 
@@ -322,6 +363,10 @@ exports.getOrderDetails = async (orderId) => {
  */
 exports.refundPayment = async (paymentId, amount = null, notes = {}) => {
   try {
+    if (!razorpay) {
+      throw new Error('Razorpay is not configured');
+    }
+
     const refundOptions = {
       notes,
     };

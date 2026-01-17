@@ -106,8 +106,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 // Add indexes for better query performance
-userSchema.index({ phone: 1 });
-userSchema.index({ email: 1 });
+// Note: phone and email already have unique: true in schema definition
 userSchema.index({ isTemp: 1, createdAt: 1 }, { 
   expireAfterSeconds: 3600 // Auto-delete temp users after 1 hour
 });
