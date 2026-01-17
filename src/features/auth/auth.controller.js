@@ -1,7 +1,7 @@
 const authService = require('./auth.service');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
-const twilioService = require('../../shared/services/twilio.service');
+const mockOtpService = require('../../shared/services/mock-otp.service');
 const User = require('./auth.model');
 
 exports.signup = catchAsync(async (req, res, next) => {
@@ -59,7 +59,7 @@ exports.sendOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide a phone number', 400));
   }
 
-  const result = await twilioService.sendOTP(phone);
+  const result = await mockOtpService.sendOTP(phone);
 
   if (!result.success) {
     return next(new AppError(result.message, 400));
@@ -70,7 +70,8 @@ exports.sendOTP = catchAsync(async (req, res, next) => {
     message: result.message,
     data: {
       phone,
-      sid: result.sid
+      sid: result.sid,
+      otp: result.otp // For testing - remove in production
     }
   });
 });
@@ -88,7 +89,7 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide phone number and OTP code', 400));
   }
 
-  const result = await twilioService.verifyOTP(phone, code);
+  const result = await mockOtpService.verifyOTP(phone, code);
 
   if (!result.success) {
     return next(new AppError(result.message || 'OTP verification failed', 400));
@@ -99,8 +100,8 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     message: result.message,
     data: {
       phone,
-      verified: result.valid,
-      status: result.status
+      verified: result.verified,
+      status: 'approved'
     }
   });
 });
@@ -161,8 +162,8 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
 
   const phoneStatus = user ? 'existing' : 'new';
 
-  // Send OTP using Twilio Service
-  const result = await twilioService.sendOTP(phone);
+  // Send OTP using Mock OTP Service
+  const result = await mockOtpService.sendOTP(phone);
 
   if (!result.success) {
     return next(new AppError(result.message, 400));
@@ -175,7 +176,8 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
     data: {
       phone,
       phoneStatus, // "existing" or "new"
-      sid: result.sid
+      sid: result.sid,
+      otp: result.otp // For testing - remove in production
     }
   });
 });
@@ -189,8 +191,8 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide phone number and OTP code', 400));
   }
 
-  // Verify OTP with Twilio
-  const verificationResult = await twilioService.verifyOTP(phone, otpCode);
+  // Verify OTP with Mock OTP Service
+  const verificationResult = await mockOtpService.verifyOTP(phone, otpCode);
 
   if (!verificationResult.success) {
     return next(new AppError(verificationResult.message, 400));

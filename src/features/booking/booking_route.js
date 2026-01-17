@@ -8,6 +8,7 @@ const { bookSeat } = require('./bookSeat.controller');
 const { confirmSeatAfterPayment } = require('./confirmSeat.controller');
 const { cancelSeatBooking } = require('./cancelSeat.controller');
 const bookingController = require('./booking.controller');
+const authMiddleware = require('../auth/auth.middleware');
 
 /**
  * ==========================================
@@ -15,7 +16,27 @@ const bookingController = require('./booking.controller');
  * ==========================================
  */
 
+// Apply authentication middleware to all routes below
+router.use(authMiddleware.protect);
+
 // POST routes must come before GET routes to avoid parameter conflicts
+
+// ==========================================
+// PAYMENT INTEGRATION ROUTES (NEW)
+// ==========================================
+
+// Create booking + initiate payment
+router.post('/create-with-payment', bookingController.createBookingAndInitiatePayment);
+
+// Verify payment + confirm booking
+router.post('/:bookingId/verify-payment', bookingController.verifyBookingPayment);
+
+// Cancel booking with refund
+router.post('/:bookingId/cancel-with-refund', bookingController.cancelBookingWithRefund);
+
+// ==========================================
+// EXISTING ROUTES
+// ==========================================
 
 // Book seats (temporary lock)
 router.post('/book', bookSeat);
@@ -32,6 +53,12 @@ router.post('/admin/cleanup-expired', bookingController.cleanupExpiredBookings);
 
 // User routes
 router.get('/user/:userId', bookingController.getUserBookings);
+
+// Get booking with payment details
+router.get('/:bookingId/with-payment', bookingController.getBookingWithPayment);
+
+// Get payment receipt
+router.get('/:bookingId/receipt', bookingController.getPaymentReceipt);
 
 // Get seat availability
 router.get('/:eventId/seats', getSeatAvailability);

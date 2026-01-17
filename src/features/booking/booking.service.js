@@ -397,3 +397,345 @@ exports.getBookingHistory = async (eventId, startDate, endDate) => {
     { $sort: { _id: 1 } }
   ]);
 };
+
+/**
+ * ==========================================
+ * PAYMENT INTEGRATION METHODS
+ * ==========================================
+ */
+
+/**
+ * Create booking with automatic payment order generation
+ * Integrates with Payment API to create Razorpay order
+ */
+exports.createBookingWithPayment = async (bookingData) => {
+  try {
+    const paymentService = require('../payment/payment.service');
+    const {
+      userId,
+      eventId,
+      seatingId,
+      seatType,
+      quantity,
+      pricePerSeat,
+      totalPrice,
+      specialRequirements = null
+    } = bookingData;
+
+    console.log('📝 Creating booking with payment:', {
+      userId,
+      eventId,
+      seatType,
+      quantity,
+      totalPrice
+    });
+
+    // 1. Create booking record (temporary status)
+    const booking = new Booking({
+      userId,
+      eventId,
+      seatingId,
+      seatType,
+      quantity,
+      pricePerSeat,
+      totalPrice,
+      status: 'temporary',
+      paymentStatus: 'pending',
+      specialRequirements,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min expiry
+    });
+
+    // Save booking first
+    await booking.save();
+    console.log('✅ Booking created (temporary):', booking._id);
+
+    // 2. Create Razorpay payment order
+    try {
+      const paymentOrderData = {
+        userId,
+        amount: totalPrice, // Amount in INR (payment service will convert to paise)
+        description: `Event Booking - Seat Type: ${seatType}, Qty: ${quantity}`,
+        receipt: `BOOKING_${booking._id}_${Date.now()}`
+      };
+
+      console.log('💳 Creating payment order with amount:', paymentOrderData.amount);
+
+      const paymentResponse = await paymentService.createOrder(
+        paymentOrderData
+      );
+
+      console.log('✅ Payment order created:', paymentResponse.razorpayOrderId);
+
+      // 3. Store payment response in booking
+      booking.razorpayOrderId = paymentResponse.razorpayOrderId;
+      booking.paymentOrder = {
+        orderId: paymentResponse.orderId,
+        razorpayOrderId: paymentResponse.razorpayOrderId,
+        amount: paymentResponse.amount,
+        currency: paymentResponse.currency,
+        receipt: paymentResponse.receipt,
+        key: paymentResponse.key,
+        description: paymentResponse.description,
+        status: paymentResponse.status,
+        createdAt: new Date()
+      };
+      booking.paymentStatus = 'processing';
+
+      await booking.save();
+      console.log('✅ Payment details stored in booking');
+
+      return {
+        success: true,
+        booking: booking.toObject(),
+        payment: paymentResponse,
+        message: 'Booking created successfully. Ready for payment.'
+      };
+
+    } catch (paymentError) {
+      // If payment order creation fails, mark booking as failed
+      console.error('❌ Payment creation failed:', paymentError.message);
+      
+      booking.paymentStatus = 'failed';
+      booking.status = 'cancelled';
+      booking.cancellationReason = `Payment order creation failed: ${paymentError.message}`;
+      await booking.save();
+
+      throw new AppError(
+        `Payment order creation failed: ${paymentError.message}`,
+        400
+      );
+    }
+
+  } catch (error) {
+    console.error('❌ Error creating booking:', error.message);
+    throw new AppError(`Error creating booking: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Verify payment and confirm booking
+ * Validates Razorpay signature and confirms booking
+ */
+exports.verifyBookingPayment = async (bookingId, paymentData) => {
+  try {
+    const paymentService = require('../payment/payment.service');
+    const { orderId, paymentId, signature } = paymentData;
+
+    console.log('🔐 Verifying payment for booking:', bookingId);
+
+    // Find booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    // Check if already verified
+    if (booking.paymentVerified) {
+      console.log('⚠️ Payment already verified for this booking');
+      return {
+        success: true,
+        booking: booking.toObject(),
+        verified: true,
+        message: 'Payment already verified. Booking confirmed.'
+      };
+    }
+
+    // Check if payment order matches
+    if (booking.razorpayOrderId !== orderId) {
+      throw new AppError(
+        'Payment order ID does not match booking',
+        400
+      );
+    }
+
+    // Verify payment with payment service
+    console.log('📌 Calling payment verification service...');
+    const verificationResult = await paymentService.verifyPaymentSignature({
+      orderId,
+      paymentId,
+      signature
+    });
+
+    console.log('✅ Payment verified successfully');
+
+    // Update booking with verified payment details
+    booking.razorpayPaymentId = paymentId;
+    booking.razorpaySignature = signature;
+    booking.paymentVerificationDetails = verificationResult;
+    booking.paymentVerified = true;
+    booking.paymentStatus = 'completed';
+
+    // Confirm booking using built-in method
+    await booking.confirm(paymentId, 'razorpay');
+    console.log('✅ Booking confirmed');
+
+    return {
+      success: true,
+      booking: booking.toObject(),
+      verified: true,
+      payment: {
+        orderId,
+        paymentId,
+        verified: true,
+        verificationDetails: verificationResult
+      },
+      message: 'Booking confirmed successfully'
+    };
+
+  } catch (error) {
+    console.error('❌ Payment verification error:', error.message);
+    
+    // Update booking with failed payment
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (booking) {
+        booking.paymentStatus = 'failed';
+        booking.paymentVerified = false;
+        await booking.save();
+      }
+    } catch (updateError) {
+      console.error('Error updating booking after verification failure:', updateError);
+    }
+
+    throw new AppError(
+      `Payment verification failed: ${error.message}`,
+      400
+    );
+  }
+};
+
+/**
+ * Get booking with payment details
+ */
+exports.getBookingWithPayment = async (bookingId) => {
+  try {
+    const booking = await Booking.findById(bookingId)
+      .populate('userId', 'name email phone')
+      .populate('eventId', 'name date location price');
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    return {
+      success: true,
+      booking: booking.toObject(),
+      payment: {
+        status: booking.paymentStatus,
+        verified: booking.paymentVerified,
+        razorpayOrderId: booking.razorpayOrderId,
+        razorpayPaymentId: booking.razorpayPaymentId,
+        orderDetails: booking.paymentOrder,
+        verificationDetails: booking.paymentVerificationDetails
+      }
+    };
+
+  } catch (error) {
+    throw new AppError(`Error fetching booking: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Cancel booking and process refund if paid
+ */
+exports.cancelBooking = async (bookingId, reason = 'User cancelled') => {
+  try {
+    const paymentService = require('../payment/payment.service');
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    if (booking.status === 'cancelled') {
+      throw new AppError('Booking already cancelled', 400);
+    }
+
+    // If payment was completed, process refund
+    if (booking.paymentVerified && booking.razorpayPaymentId) {
+      try {
+        console.log('🔄 Processing refund for cancelled booking');
+        const refundResult = await paymentService.refundPayment(
+          booking.razorpayPaymentId,
+          booking.totalPrice * 100
+        );
+
+        booking.refundAmount = booking.totalPrice;
+        console.log('✅ Refund processed:', refundResult);
+      } catch (refundError) {
+        console.error('⚠️ Refund failed:', refundError.message);
+        // Continue with cancellation even if refund fails
+      }
+    }
+
+    // Cancel booking using built-in method
+    await booking.cancel(reason);
+    console.log('✅ Booking cancelled:', bookingId);
+
+    return {
+      success: true,
+      booking: booking.toObject(),
+      message: 'Booking cancelled successfully',
+      refundProcessed: booking.paymentVerified
+    };
+
+  } catch (error) {
+    throw new AppError(`Error cancelling booking: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Get payment receipt
+ */
+exports.getPaymentReceipt = async (bookingId) => {
+  try {
+    const booking = await Booking.findById(bookingId)
+      .populate('userId', 'name email phone')
+      .populate('eventId', 'name date location');
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    if (!booking.paymentVerified) {
+      throw new AppError('Payment not verified yet', 400);
+    }
+
+    return {
+      success: true,
+      receipt: {
+        bookingId: booking._id,
+        orderId: booking.paymentOrder?.orderId,
+        razorpayOrderId: booking.razorpayOrderId,
+        razorpayPaymentId: booking.razorpayPaymentId,
+        user: {
+          name: booking.userId.name,
+          email: booking.userId.email,
+          phone: booking.userId.phone
+        },
+        event: {
+          name: booking.eventId.name,
+          date: booking.eventId.date,
+          location: booking.eventId.location
+        },
+        booking: {
+          seatType: booking.seatType,
+          quantity: booking.quantity,
+          pricePerSeat: booking.pricePerSeat,
+          totalPrice: booking.totalPrice
+        },
+        payment: {
+          method: booking.paymentMethod,
+          status: booking.paymentStatus,
+          verified: booking.paymentVerified,
+          paidAt: booking.confirmedAt
+        },
+        ticketNumbers: booking.ticketNumbers,
+        bookedAt: booking.bookedAt
+      }
+    };
+
+  } catch (error) {
+    throw new AppError(`Error generating receipt: ${error.message}`, 500);
+  }
+};

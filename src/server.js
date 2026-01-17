@@ -100,6 +100,7 @@ const aadhaarRoutes = require('./features/documents/aadhaar.routes');
 
 // Import booking routes
 const bookingRoutes = require('./features/booking/booking_route');
+const paymentRoutes = require('./features/payment/payment.routes');
 
 // Use feature routes
 app.use('/api/auth', authRoutes);
@@ -111,9 +112,21 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutesNew);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/ads', adsRoutes);
-app.use('/api', amplifyRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification", testNotificationRoutes);
+
+// Health check route - MUST be before broad /api routes
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'API is working!',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Broad routes that catch /api/* - place after specific routes
+app.use('/api', amplifyRoutes);
 app.use('/api', aadhaarRoutes);
 // Import and use image status routes
 const imageStatusRoutes = require('./features/aws/routes/image-status');
@@ -124,16 +137,6 @@ app.use('/api/images',imageRoutes);
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/', (req, res) => res.send('Hello, World!'));
 app.get('/favicon.png', (req, res) => res.status(204).end());
-
-// Test route for API health check
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    message: 'API is working!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
 
 // AWS status check endpoint
 app.get('/api/aws-status', (req, res) => {

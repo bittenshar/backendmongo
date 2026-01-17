@@ -366,3 +366,158 @@ exports.getBookingSummary = async (req, res, next) => {
     return next(new AppError(error.message, 500));
   }
 };
+
+/**
+ * ==========================================
+ * PAYMENT INTEGRATION CONTROLLERS
+ * ==========================================
+ */
+
+/**
+ * Create booking and initiate payment
+ * POST /api/booking/create-with-payment
+ */
+exports.createBookingAndInitiatePayment = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const {
+      eventId,
+      seatingId,
+      seatType,
+      quantity,
+      pricePerSeat,
+      specialRequirements
+    } = req.body;
+
+    // Validate required fields
+    if (!eventId || !seatingId || !seatType || !quantity || !pricePerSeat) {
+      return next(new AppError('Missing required fields', 400));
+    }
+
+    const totalPrice = quantity * pricePerSeat;
+
+    // Create booking with payment
+    const bookingService = require('./booking.service');
+    const result = await bookingService.createBookingWithPayment({
+      userId,
+      eventId,
+      seatingId,
+      seatType,
+      quantity,
+      pricePerSeat,
+      totalPrice,
+      specialRequirements
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: result,
+      message: 'Booking created and payment order initiated'
+    });
+
+  } catch (error) {
+    console.error('Error creating booking:', error);
+    next(error);
+  }
+};
+
+/**
+ * Verify payment and confirm booking
+ * POST /api/booking/:bookingId/verify-payment
+ */
+exports.verifyBookingPayment = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { orderId, paymentId, signature } = req.body;
+
+    if (!orderId || !paymentId || !signature) {
+      return next(new AppError('Missing payment verification details', 400));
+    }
+
+    const bookingService = require('./booking.service');
+    const result = await bookingService.verifyBookingPayment(bookingId, {
+      orderId,
+      paymentId,
+      signature
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: result,
+      message: 'Booking confirmed with verified payment'
+    });
+
+  } catch (error) {
+    console.error('Error verifying booking payment:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get booking with payment details
+ * GET /api/booking/:bookingId/with-payment
+ */
+exports.getBookingWithPayment = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+
+    const bookingService = require('./booking.service');
+    const result = await bookingService.getBookingWithPayment(bookingId);
+
+    res.status(200).json({
+      status: 'success',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error fetching booking:', error);
+    next(error);
+  }
+};
+
+/**
+ * Cancel booking with refund
+ * POST /api/booking/:bookingId/cancel
+ */
+exports.cancelBookingWithRefund = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason } = req.body;
+
+    const bookingService = require('./booking.service');
+    const result = await bookingService.cancelBooking(bookingId, reason);
+
+    res.status(200).json({
+      status: 'success',
+      data: result,
+      message: 'Booking cancelled successfully'
+    });
+
+  } catch (error) {
+    console.error('Error cancelling booking:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get payment receipt
+ * GET /api/booking/:bookingId/receipt
+ */
+exports.getPaymentReceipt = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+
+    const bookingService = require('./booking.service');
+    const result = await bookingService.getPaymentReceipt(bookingId);
+
+    res.status(200).json({
+      status: 'success',
+      data: result,
+      message: 'Payment receipt generated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error generating receipt:', error);
+    next(error);
+  }
+};

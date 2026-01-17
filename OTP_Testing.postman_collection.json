@@ -1,0 +1,86 @@
+{
+  "info": {
+    "_postman_id": "otp-testing-collection",
+    "name": "OTP Testing Collection",
+    "description": "Collection for testing send-otp-new, verify-otp-new, and complete-profile endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Send OTP New",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"+919876543210\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/send-otp-new",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "send-otp-new"]
+        },
+        "description": "Send OTP to a phone number.\n\n**Request Body:**\n- `phone` (string, required): Phone number with country code (e.g., +919876543210)\n\n**Response:**\n- `phoneStatus`: \"new\" (new user) or \"existing\" (existing user)\n- `sid`: Session ID from Twilio"
+      },
+      "response": []
+    },
+    {
+      "name": "2. Verify OTP New",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"+919876543210\",\n  \"code\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/verify-otp-new",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "verify-otp-new"]
+        },
+        "description": "Verify OTP code sent to the phone number.\n\n**Request Body:**\n- `phone` (string, required): Phone number with country code\n- `code` or `otp` (string, required): The 6-digit OTP code\n\n**For Existing Users:**\n- Returns JWT token and logs in user\n\n**For New Users:**\n- Returns `tempUserId` needed for next step\n- Returns `requiresProfile: true`"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Complete Profile (New User Only)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tempUserId\": \"<tempUserId_from_step_2>\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"lastname\": \"Doe\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/complete-profile",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "complete-profile"]
+        },
+        "description": "Complete user profile for new users after OTP verification.\n\n**Request Body:**\n- `tempUserId` (string, required): The tempUserId from verify-otp-new response\n- `name` (string, required): User's first name\n- `email` (string, required): User's email address\n- `lastname` (string, optional): User's last name\n\n**Response:**\n- Returns JWT token and creates permanent user account"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
