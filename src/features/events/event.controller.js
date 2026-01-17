@@ -51,6 +51,11 @@ exports.getAllEvents = catchAsync(async (req, res) => {
 
 
 exports.getEvent = catchAsync(async (req, res, next) => {
+  // Validate if ID is a valid MongoDB ObjectId
+  if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(new AppError('Invalid event ID format', 400));
+  }
+
   const event = await Event.findById(req.params.id).populate('organizer');
 
   if (!event) {
@@ -119,6 +124,11 @@ exports.createEvent = catchAsync(async (req, res, next) => {
 });
 
 exports.updateEvent = catchAsync(async (req, res, next) => {
+  // Validate if ID is a valid MongoDB ObjectId
+  if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(new AppError('Invalid event ID format', 400));
+  }
+
   const event = await Event.findById(req.params.id);
 
   if (!event) {
@@ -183,6 +193,11 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteEvent = catchAsync(async (req, res, next) => {
+  // Validate if ID is a valid MongoDB ObjectId
+  if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(new AppError('Invalid event ID format', 400));
+  }
+
   const event = await Event.findByIdAndDelete(req.params.id);
 
   if (!event) {
