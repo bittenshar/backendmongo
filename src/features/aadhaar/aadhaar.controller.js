@@ -39,7 +39,9 @@ exports.uploadAadhaarImage = async (req, res, next) => {
     // Generate unique filename
     const timestamp = Date.now();
     const fileName = `${imageType}-${timestamp}.jpg`;
-    const s3Key = `uploads/aadhaar/${userId}/${fileName}`;
+    // Include fullName in the S3 key path
+    const fullNamePath = fullName ? fullName.toLowerCase().replace(/\s+/g, '-') : 'unknown';
+    const s3Key = `uploads/aadhaar/${fullNamePath}/${userId}/${fileName}`;
 
     // Upload to S3
     const bucketName = process.env.AWS_S3_BUCKET || 'event-images-collection';
