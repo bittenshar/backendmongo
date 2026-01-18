@@ -96,11 +96,11 @@ const amplifyRoutes = require('./features/aws/routes/amplify');
 const adsRoutes = require('./features/ads/ads.routes');
 const notificationRoutes = require("./features/notificationfcm/notification.routes");
 const testNotificationRoutes = require("./features/notificationfcm/test-notification.routes");
-const aadhaarRoutes = require('./features/documents/aadhaar.routes');
 
 // Import booking routes
 const bookingRoutes = require('./features/booking/booking_route');
 const paymentRoutes = require('./features/payment/payment.routes');
+const aadhaarImageRoutes = require('./features/aadhaar/aadhaar.routes');
 
 // Use feature routes
 app.use('/api/auth', authRoutes);
@@ -127,7 +127,7 @@ app.get('/api/health', (req, res) => {
 
 // Broad routes that catch /api/* - place after specific routes
 app.use('/api', amplifyRoutes);
-app.use('/api', aadhaarRoutes);
+app.use('/api/aadhaar', aadhaarImageRoutes);
 // Import and use image status routes
 const imageStatusRoutes = require('./features/aws/routes/image-status');
 app.use('/api', imageStatusRoutes);
