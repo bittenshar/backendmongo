@@ -89,15 +89,24 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `${userId}_${sanitizedFullname}`;
 
-        // Verify user exists first using userId as a string
-        const user = await User.findOne({ userId: userId });
+        // Verify user exists - try multiple lookup strategies
+        let user = await User.findOne({ 
+            $or: [
+                { userId: userId },           // Try userId as string
+                { _id: userId }               // Try _id as ObjectId string
+            ]
+        });
+        
         if (!user) {
             console.log("[DEBUG] User not found for userId:", userId);
+            console.log("[DEBUG] Attempted lookups: userId field and _id field");
             return res.status(404).json({
                 success: false,
                 message: "User not found"
             });
         }
+        
+        console.log("[DEBUG] User found:", { _id: user._id, userId: user.userId, email: user.email });
 
         // Check for existing upload
         if (userUploads.has(userId)) {
@@ -136,9 +145,14 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         await s3.send(new PutObjectCommand(params));
         const fileUrl = `https://nfacialimagescollections.s3.${process.env.AWS_REGION || 'ap-south-1'}.amazonaws.com/public/${filename}`;
 
-        // Update user's uploadedPhoto field using userId as a string
+        // Update user's uploadedPhoto field using flexible user lookup
         const updatedUser = await User.findOneAndUpdate(
-            { userId: userId },
+            { 
+                $or: [
+                    { userId: userId },
+                    { _id: userId }
+                ]
+            },
             { 
                 $set: { 
                     uploadedPhoto: fileUrl,
@@ -239,9 +253,14 @@ router.delete("/delete", verifyToken, async (req, res) => {
             }
         }
 
-        // Update user record
+        // Update user record with flexible lookup
         const updatedUser = await User.findOneAndUpdate(
-            { userId: userId },
+            { 
+                $or: [
+                    { userId: userId },
+                    { _id: userId }
+                ]
+            },
             { 
                 $set: { 
                     uploadedPhoto: null,
@@ -298,34 +317,13 @@ router.get("/my-upload", verifyToken, async (req, res) => {
             });
         }
         
-        // If not in memory, check database
-        const userRecord = await User.findOne({ userId: userId });
-        
-        if (userRecord && userRecord.uploadedPhoto) {
-            const fileUrl = user.uploadedPhoto;
-            const filename = fileUrl.split('/').pop();
-            
-            // Create a simplified uploadInfo object
-            const uploadInfo = {
-                filename: filename,
-                userId: userId,
-                fileUrl: fileUrl,
-                uploadedAt: user.updatedAt.toISOString(),
-                storage: "aws_s3"
-            };
-            
-            // Store in memory for future requests
-            userUploads.set(userId, uploadInfo);
-            
-            return res.status(200).json({
-                success: true,
-                uploadInfo: uploadInfo,
-                message: "Upload information retrieved from database"
-            });
-        }
-        
-        // If not in memory, check database
-        const user = await User.findOne({ userId: userId });
+        // If not in memory, check database with flexible lookup
+        const user = await User.findOne({ 
+            $or: [
+                { userId: userId },
+                { _id: userId }
+            ]
+        });
         
         if (!user || !user.uploadedPhoto) {
             return res.status(404).json({
@@ -334,17 +332,16 @@ router.get("/my-upload", verifyToken, async (req, res) => {
             });
         }
         
-        // Reconstruct upload info from database
-        const filename = user.uploadedPhoto.split('/').pop();
-        const timestamp = new Date(user.updatedAt).toISOString().replace(/[:.]/g, '-');
+        const fileUrl = user.uploadedPhoto;
+        const filename = fileUrl.split('/').pop();
         
-        // Create a minimal uploadInfo object from available data
+        // Create a simplified uploadInfo object
         const uploadInfo = {
             filename: filename,
             userId: userId,
-            uploadedAt: timestamp,
-            fileUrl: user.uploadedPhoto,
-            s3Key: `public/${filename}`
+            fileUrl: fileUrl,
+            uploadedAt: user.updatedAt.toISOString(),
+            storage: "aws_s3"
         };
         
         // Store in memory for future requests
@@ -353,7 +350,7 @@ router.get("/my-upload", verifyToken, async (req, res) => {
         return res.status(200).json({
             success: true,
             uploadInfo: uploadInfo,
-            message: "Upload information retrieved successfully"
+            message: "Upload information retrieved from database"
         });
 
     } catch (error) {
@@ -383,8 +380,13 @@ router.get("/retrieve-image", verifyToken, async (req, res) => {
             });
         }
         
-        // If not in memory, check database
-        const user = await User.findOne({ userId: userId });
+        // If not in memory, check database with flexible lookup
+        const user = await User.findOne({ 
+            $or: [
+                { userId: userId },
+                { _id: userId }
+            ]
+        });
         
         if (!user || !user.uploadedPhoto) {
             return res.status(404).json({
