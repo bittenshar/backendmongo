@@ -16,6 +16,9 @@ const authMiddleware = require('../auth/auth.middleware');
  * ==========================================
  */
 
+// Public routes (no authentication required)
+router.get('/:eventId/seats', getSeatAvailability);
+
 // Apply authentication middleware to all routes below
 router.use(authMiddleware.protect);
 
@@ -59,9 +62,6 @@ router.get('/:bookingId/with-payment', bookingController.getBookingWithPayment);
 
 // Get payment receipt
 router.get('/:bookingId/receipt', bookingController.getPaymentReceipt);
-
-// Get seat availability
-router.get('/:eventId/seats', getSeatAvailability);
 
 // Get booking details
 router.get('/:bookingId', bookingController.getBookingDetails);
