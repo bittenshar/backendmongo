@@ -7,6 +7,10 @@ const aadhaarImageSchema = new mongoose.Schema(
       ref: 'User',
       required: true
     },
+    fullName: {
+      type: String,
+      required: false
+    },
     imageType: {
       type: String,
       enum: ['front', 'back'],

@@ -17,6 +17,7 @@ const s3 = new AWS.S3({
 exports.uploadAadhaarImage = async (req, res, next) => {
   try {
     const userId = req.user._id;
+    const { fullName } = req.body; // Get fullName from request body
     const imageType = 'front'; // Only front image
 
     // Validate inputs
@@ -65,6 +66,7 @@ exports.uploadAadhaarImage = async (req, res, next) => {
 
     if (aadhaarImage) {
       // Update existing image
+      aadhaarImage.fullName = fullName;
       aadhaarImage.s3Key = s3Key;
       aadhaarImage.s3Url = s3Response.Location;
       aadhaarImage.fileName = fileName;
@@ -76,6 +78,7 @@ exports.uploadAadhaarImage = async (req, res, next) => {
       // Create new image record
       aadhaarImage = await AadhaarImage.create({
         userId,
+        fullName,
         imageType,
         s3Key,
         s3Url: s3Response.Location,
@@ -91,6 +94,7 @@ exports.uploadAadhaarImage = async (req, res, next) => {
       data: {
         imageId: aadhaarImage._id,
         userId: aadhaarImage.userId,
+        fullName: aadhaarImage.fullName,
         imageType: aadhaarImage.imageType,
         s3Key: aadhaarImage.s3Key,
         fileName: aadhaarImage.fileName,
