@@ -1,0 +1,156 @@
+{
+  "info": {
+    "_postman_id": "wati-otp-collection",
+    "name": "WhatsApp OTP (WATI) Authentication",
+    "description": "WhatsApp OTP login flow using WATI API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Send OTP to WhatsApp",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  var jsonData = pm.response.json();",
+              "  pm.environment.set('otp_sid', jsonData.data.sid);",
+              "  pm.environment.set('otp_code', jsonData.data.otp);",
+              "  pm.environment.set('phone', pm.request.body.raw);",
+              "  console.log('✅ OTP sent! Check your WhatsApp');",
+              "  console.log('OTP Code (dev only): ' + jsonData.data.otp);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"phone\": \"919876543210\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/send-otp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "send-otp"
+          ]
+        },
+        "description": "Sends OTP to user's WhatsApp\n\n**Phone Format:**\n- `919876543210` (with country code)\n- `+919876543210` (with + prefix)\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"OTP sent successfully via WhatsApp\",\n  \"data\": {\n    \"phone\": \"919876543210\",\n    \"sid\": \"wati-1234567890\",\n    \"expiresIn\": \"5 minutes\",\n    \"otp\": \"123456\"  // Dev only\n  }\n}\n```"
+      }
+    },
+    {
+      "name": "2. Verify OTP Code",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  var jsonData = pm.response.json();",
+              "  if (jsonData.data.verified) {",
+              "    pm.environment.set('otp_verified', 'true');",
+              "    console.log('✅ OTP Verified! User can now login');",
+              "  }",
+              "} else {",
+              "  console.log('❌ OTP verification failed');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"phone\": \"919876543210\", \"code\": \"{{otp_code}}\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/verify-otp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "verify-otp"
+          ]
+        },
+        "description": "Verifies OTP code sent to WhatsApp\n\n**Request:**\n- `phone`: Phone number (same as send-otp)\n- `code`: OTP code received on WhatsApp\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"OTP verified successfully\",\n  \"data\": {\n    \"verified\": true\n  }\n}\n```\n\n**Failure Cases:**\n- Invalid OTP: \"Invalid OTP. 2 attempts remaining.\"\n- Expired: \"OTP has expired. Please request a new one.\"\n- Too many attempts: \"Too many failed attempts. Please request a new OTP.\""
+      }
+    },
+    {
+      "name": "3. Manual Test - Replace OTP in Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"phone\": \"919876543210\", \"code\": \"PASTE_OTP_HERE\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/verify-otp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "verify-otp"
+          ]
+        },
+        "description": "Use this when you want to manually enter the OTP code\n\n1. First request: \"1. Send OTP to WhatsApp\"\n2. Check your WhatsApp for OTP\n3. Copy the OTP code\n4. Replace `PASTE_OTP_HERE` with the code\n5. Send this request"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "phone",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "otp_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "otp_sid",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "otp_verified",
+      "value": "false",
+      "type": "boolean"
+    }
+  ]
+}

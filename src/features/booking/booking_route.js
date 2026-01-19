@@ -28,6 +28,10 @@ router.use(authMiddleware.protect);
 // PAYMENT INTEGRATION ROUTES (NEW)
 // ==========================================
 
+// ONE-STEP BOOKING WITH AUTOMATIC PAYMENT
+// Combines booking creation + payment verification in one endpoint
+router.post('/book', bookingController.bookWithPayment);
+
 // Create booking + initiate payment
 router.post('/create-with-payment', bookingController.createBookingAndInitiatePayment);
 

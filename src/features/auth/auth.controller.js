@@ -47,7 +47,7 @@ exports.protect = authService.protect;
 exports.restrictTo = authService.restrictTo;
 
 // ============================================
-// @desc    Send OTP to phone number
+// @desc    Send OTP to phone number via WhatsApp
 // @route   POST /api/auth/send-otp
 // @access  Public
 // ============================================
@@ -71,6 +71,7 @@ exports.sendOTP = catchAsync(async (req, res, next) => {
     data: {
       phone,
       sid: result.sid,
+      expiresIn: result.expiresIn,
       otp: result.otp // For testing - remove in production
     }
   });
@@ -213,19 +214,18 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
     
   } else {
     // User doesn't exist - Signup flow
-    // Create temporary user with phone only
-    const tempUser = await authService.createTempUser(phone);
-    
-    res.status(200).json({
-      status: 'success',
-      message: 'OTP verified successfully. Please complete your profile.',
-      data: {
-        phone,
-        phoneVerified: true,
-        requiresProfile: true,
-        tempUserId: tempUser._id
-      }
+    // Create temporary user with phone and unique email
+    const tempEmail = `temp_${phone}_${Date.now()}@temp.local`;
+    const tempUser = await User.create({
+      phone,
+      email: tempEmail,
+      name: 'Temp User',
+      phoneVerified: true,
+      isTemp: true
     });
+    
+    // Generate token and send response immediately
+    await authService.createSendToken(tempUser, 201, res);
   }
 });
 
@@ -236,24 +236,27 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
     return next(new AppError('Invalid session. Please start over.', 400));
   }
 
-  // Find and validate temp user
-  const tempUser = await User.findOne({ 
-    _id: tempUserId, 
-    isTemp: true 
-  });
+  if (!email) {
+    return next(new AppError('Email is required.', 400));
+  }
+
+  // Find temp user
+  const tempUser = await User.findById(tempUserId);
 
   if (!tempUser) {
     return next(new AppError('Session expired. Please start over.', 400));
   }
 
-  // Convert temp user to permanent user
-  const permanentUser = await authService.convertToPermanentUser(
-    tempUser, 
-    { name, email, lastname }
-  );
+  // Update temp user with provided info
+  tempUser.name = name || tempUser.name;
+  tempUser.email = email;
+  tempUser.lastname = lastname || '';
+  tempUser.isTemp = false;
+
+  await tempUser.save({ validateBeforeSave: false });
 
   // Generate token and send response
-  await authService.createSendToken(permanentUser, 201, res);
+  await authService.createSendToken(tempUser, 201, res);
 });
 
 

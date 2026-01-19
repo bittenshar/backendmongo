@@ -521,3 +521,201 @@ exports.getPaymentReceipt = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * ==========================================
+ * UNIFIED BOOKING + PAYMENT ENDPOINT
+ * ==========================================
+ */
+
+/**
+ * One-step booking with automatic payment processing
+ * POST /api/booking/book
+ * 
+ * This endpoint handles the entire flow:
+ * 1. Creates booking record
+ * 2. Initiates Razorpay payment
+ * 3. Verifies payment signature
+ * 4. Confirms booking if payment successful
+ * 
+ * Request body:
+ * {
+ *   eventId: string,
+ *   seatingId: string,
+ *   seatType: string,
+ *   quantity: number,
+ *   pricePerSeat: number,
+ *   specialRequirements?: string,
+ *   paymentData: {
+ *     razorpayOrderId: string,
+ *     razorpayPaymentId: string,
+ *     razorpaySignature: string
+ *   }
+ * }
+ * 
+ * Response includes:
+ * - paymentStatus: success/failed
+ * - booking: confirmed booking details with ticket info
+ * - payment: payment details with order and transaction IDs
+ * - token: JWT token for authenticated access (if new user profile completed)
+ */
+exports.bookWithPayment = async (req, res, next) => {
+  try {
+    const userId = req.user?._id;
+    const {
+      eventId,
+      seatingId,
+      seatType,
+      quantity,
+      pricePerSeat,
+      specialRequirements,
+      paymentData // Contains razorpayOrderId, razorpayPaymentId, razorpaySignature
+    } = req.body;
+
+    // ===== VALIDATION =====
+    if (!eventId || !seatingId || !seatType || !quantity || !pricePerSeat) {
+      return next(new AppError('Missing required fields: eventId, seatingId, seatType, quantity, pricePerSeat', 400));
+    }
+
+    if (!paymentData || !paymentData.razorpayOrderId || !paymentData.razorpayPaymentId || !paymentData.razorpaySignature) {
+      return next(new AppError('Missing payment data: razorpayOrderId, razorpayPaymentId, razorpaySignature required', 400));
+    }
+
+    const bookingService = require('./booking.service');
+    const totalPrice = quantity * pricePerSeat;
+
+    console.log('📚 Unified booking endpoint called:', {
+      userId,
+      eventId,
+      seatType,
+      quantity,
+      totalPrice,
+      paymentData: paymentData.razorpayOrderId
+    });
+
+    // ===== STEP 1: Create Razorpay order =====
+    let razorpayOrderId;
+    try {
+      const paymentService = require('../payment/payment.service');
+      
+      const paymentOrderData = {
+        userId,
+        amount: totalPrice,
+        description: `Event Booking - Seat Type: ${seatType}, Qty: ${quantity}`,
+        receipt: `BOOKING_${userId}_${Date.now()}`
+      };
+
+      console.log('💳 Step 1: Creating Razorpay order...');
+      const paymentResponse = await paymentService.createOrder(paymentOrderData);
+      razorpayOrderId = paymentResponse.razorpayOrderId;
+      
+      console.log('✅ Razorpay order created:', razorpayOrderId);
+
+    } catch (paymentError) {
+      console.error('❌ Payment order creation failed:', paymentError.message);
+      return next(new AppError(`Payment processing failed: ${paymentError.message}`, 400));
+    }
+
+    // ===== STEP 2: Create temporary booking =====
+    let booking;
+    try {
+      console.log('📋 Step 2: Creating temporary booking...');
+      
+      booking = new Booking({
+        userId,
+        eventId,
+        seatingId,
+        seatType,
+        quantity,
+        pricePerSeat,
+        totalPrice,
+        status: 'temporary',
+        paymentStatus: 'pending',
+        specialRequirements,
+        razorpayOrderId,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min expiry
+      });
+
+      await booking.save();
+      console.log('✅ Temporary booking created:', booking._id);
+
+    } catch (bookingError) {
+      console.error('❌ Booking creation failed:', bookingError.message);
+      return next(new AppError(`Booking creation failed: ${bookingError.message}`, 400));
+    }
+
+    // ===== STEP 3: Verify payment signature =====
+    try {
+      console.log('🔐 Step 3: Verifying payment signature...');
+      
+      const paymentService = require('../payment/payment.service');
+      const verificationResult = await paymentService.verifyPaymentSignature({
+        orderId: razorpayOrderId,
+        paymentId: paymentData.razorpayPaymentId,
+        signature: paymentData.razorpaySignature
+      });
+
+      if (!verificationResult.verified) {
+        throw new Error('Payment signature verification failed');
+      }
+
+      console.log('✅ Payment signature verified');
+
+    } catch (verificationError) {
+      console.error('❌ Payment verification failed:', verificationError.message);
+      
+      // Mark booking as failed
+      booking.status = 'cancelled';
+      booking.paymentStatus = 'failed';
+      booking.cancellationReason = `Payment verification failed: ${verificationError.message}`;
+      await booking.save();
+
+      return next(new AppError(`Payment verification failed: ${verificationError.message}`, 400));
+    }
+
+    // ===== STEP 4: Confirm booking with payment verification =====
+    try {
+      console.log('🎟️ Step 4: Confirming booking with verified payment...');
+      
+      const confirmationResult = await bookingService.verifyBookingPayment(booking._id.toString(), {
+        orderId: razorpayOrderId,
+        paymentId: paymentData.razorpayPaymentId,
+        signature: paymentData.razorpaySignature
+      });
+
+      console.log('✅ Booking confirmed with payment verified');
+
+      // ===== SUCCESS RESPONSE =====
+      res.status(201).json({
+        status: 'success',
+        message: 'Booking confirmed with successful payment',
+        data: {
+          paymentStatus: 'success',
+          booking: confirmationResult.booking,
+          payment: {
+            orderId: razorpayOrderId,
+            paymentId: paymentData.razorpayPaymentId,
+            amount: totalPrice,
+            currency: 'INR',
+            verifiedAt: new Date()
+          },
+          ticketInfo: {
+            seatType,
+            quantity,
+            pricePerSeat,
+            totalPrice,
+            ticketNumbers: confirmationResult.booking?.ticketNumbers || []
+          }
+        }
+      });
+
+    } catch (confirmationError) {
+      console.error('❌ Booking confirmation failed:', confirmationError.message);
+      return next(new AppError(`Booking confirmation failed: ${confirmationError.message}`, 400));
+    }
+
+  } catch (error) {
+    console.error('❌ Unexpected error in unified booking endpoint:', error);
+    next(error);
+  }
+};
