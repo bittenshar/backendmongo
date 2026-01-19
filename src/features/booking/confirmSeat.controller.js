@@ -2,14 +2,10 @@ const Event = require('../events/event.model');
 const Booking = require('./booking_model');
 const catchAsync = require('../../shared/utils/catchAsync');
 const AppError = require('../../shared/utils/appError');
-const dynamodbService = require('../../services/aws/dynamodb.service');
 
 /**
  * FINAL CONFIRMATION AFTER PAYMENT SUCCESS
  * Converts temporary lock to final booking
- * 
- * ✅ FACE VERIFICATION REQUIRED:
- * Only users with verified face records in DynamoDB can proceed to payment
  */
 exports.confirmSeatAfterPayment = catchAsync(async (req, res, next) => {
   const { bookingId, paymentId, paymentMethod = 'card' } = req.body;
@@ -28,35 +24,6 @@ exports.confirmSeatAfterPayment = catchAsync(async (req, res, next) => {
   // Check if already confirmed
   if (booking.status === 'confirmed') {
     return next(new AppError('Booking already confirmed', 400));
-  }
-
-  // ✅ FACE VERIFICATION CHECK (BEFORE PAYMENT)
-  // Only users with verified face records in DynamoDB can proceed
-  try {
-    const userId = booking.userId.toString();
-    const hasFaceRecord = await dynamodbService.checkIfUserFaceExists(userId);
-    
-    if (!hasFaceRecord) {
-      return next(new AppError(
-        'Face verification required. Please complete face verification before proceeding with payment.',
-        403
-      ));
-    }
-
-    // Optional: Get face record details for logging
-    const faceRecord = await dynamodbService.getUserFaceRecord(userId);
-    if (faceRecord && faceRecord.data) {
-      console.log(`✅ Face verification passed for user ${userId}:`, {
-        rekognitionId: faceRecord.data.RekognitionId || faceRecord.data.rekognitionId,
-        status: faceRecord.data.Status || faceRecord.data.status,
-        verifiedAt: faceRecord.data.Timestamp || faceRecord.data.timestamp
-      });
-    }
-  } catch (error) {
-    console.error('❌ Face verification check error:', error.message);
-    // If DynamoDB is unavailable but other checks pass, allow continuation
-    // This prevents total system failure if DynamoDB is down
-    console.warn('⚠️ Warning: Face verification check failed, but proceeding (DynamoDB may be unavailable)');
   }
 
   // Get event first (before checking expiry)

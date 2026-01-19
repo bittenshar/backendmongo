@@ -522,12 +522,19 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
     const { orderId, paymentId, signature } = paymentData;
 
     console.log('🔐 Verifying payment for booking:', bookingId);
+    console.log('📋 Payment data:', { orderId, paymentId });
 
     // Find booking
     const booking = await Booking.findById(bookingId);
     if (!booking) {
       throw new AppError('Booking not found', 404);
     }
+
+    console.log('📌 Booking details:', { 
+      bookingId: booking._id,
+      razorpayOrderId: booking.razorpayOrderId,
+      status: booking.status 
+    });
 
     // Check if already verified
     if (booking.paymentVerified) {
@@ -540,13 +547,22 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
       };
     }
 
-    // Check if payment order matches
+    // Check if payment order matches (orderId should match razorpayOrderId from frontend)
+    console.log('🔍 Comparing orders:', { received: orderId, stored: booking.razorpayOrderId });
     if (booking.razorpayOrderId !== orderId) {
+      console.error('❌ Order ID mismatch:', { 
+        received: orderId, 
+        stored: booking.razorpayOrderId,
+        receivedType: typeof orderId,
+        storedType: typeof booking.razorpayOrderId
+      });
       throw new AppError(
-        'Payment order ID does not match booking',
+        `Payment order ID does not match booking. Expected: ${booking.razorpayOrderId}, Received: ${orderId}`,
         400
       );
     }
+    
+    console.log('✅ Order IDs match');
 
     // Verify payment with payment service
     console.log('📌 Calling payment verification service...');
@@ -568,6 +584,35 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
     // Confirm booking using built-in method
     await booking.confirm(paymentId, 'razorpay');
     console.log('✅ Booking confirmed');
+
+    // ===== UPDATE SEATING INVENTORY =====
+    console.log('🎫 Updating seating inventory...');
+    const Event = require('../events/event.model').default || require('../events/event.model');
+    const event = await Event.findById(booking.eventId);
+    
+    if (event) {
+      // Find the seating by ID in the seatings array
+      const seatingIndex = event.seatings.findIndex(s => s._id.toString() === booking.seatingId.toString());
+      
+      if (seatingIndex !== -1) {
+        const seating = event.seatings[seatingIndex];
+        
+        // Move seats from locked to sold
+        seating.lockedSeats = Math.max(0, seating.lockedSeats - booking.quantity);
+        seating.seatsSold += booking.quantity;
+        
+        await event.save();
+        console.log('✅ Seating inventory updated:', {
+          seatsSold: seating.seatsSold,
+          lockedSeats: seating.lockedSeats,
+          remainingSeats: seating.totalSeats - seating.seatsSold - seating.lockedSeats
+        });
+      } else {
+        console.warn('⚠️ Seating not found in event seatings array');
+      }
+    } else {
+      console.warn('⚠️ Event not found for booking');
+    }
 
     return {
       success: true,
@@ -737,5 +782,65 @@ exports.getPaymentReceipt = async (bookingId) => {
 
   } catch (error) {
     throw new AppError(`Error generating receipt: ${error.message}`, 500);
+  }
+};
+/**
+ * Clean up expired temporary bookings and unlock their seats
+ * Called periodically to maintain seat inventory accuracy
+ */
+exports.cleanupExpiredBookings = async () => {
+  try {
+    console.log('🧹 Cleaning up expired temporary bookings...');
+    
+    const now = new Date();
+    const expiredBookings = await Booking.find({
+      status: 'temporary',
+      expiresAt: { $lt: now }
+    });
+
+    console.log(`📋 Found ${expiredBookings.length} expired bookings`);
+
+    for (const booking of expiredBookings) {
+      try {
+        console.log('🔄 Processing expired booking:', booking._id);
+        
+        // Unlock seats in inventory
+        const Event = require('../events/event.model').default || require('../events/event.model');
+        const event = await Event.findById(booking.eventId);
+        
+        if (event) {
+          const seatingIndex = event.seatings.findIndex(
+            s => s._id.toString() === booking.seatingId.toString()
+          );
+          
+          if (seatingIndex !== -1) {
+            const seating = event.seatings[seatingIndex];
+            seating.lockedSeats = Math.max(0, seating.lockedSeats - booking.quantity);
+            await event.save();
+            console.log('🔓 Seats unlocked:', {
+              unlocked: booking.quantity,
+              totalLocked: seating.lockedSeats,
+              bookingId: booking._id
+            });
+          }
+        }
+        
+        // Mark booking as expired/cancelled
+        booking.status = 'cancelled';
+        booking.cancellationReason = 'Payment timeout - seat lock expired after 5 minutes';
+        booking.paymentStatus = 'failed';
+        await booking.save();
+        console.log('✅ Expired booking marked as cancelled:', booking._id);
+        
+      } catch (expiredError) {
+        console.error('❌ Error processing expired booking:', expiredError.message);
+      }
+    }
+    
+    console.log(`✅ Cleanup completed: ${expiredBookings.length} bookings processed`);
+    return expiredBookings.length;
+    
+  } catch (error) {
+    console.error('❌ Error in cleanupExpiredBookings:', error.message);
   }
 };

@@ -49,6 +49,23 @@ const bookingSchema = new mongoose.Schema(
       index: true
     },
     // Payment details
+    razorpayOrderId: {
+      type: String,
+      index: true
+    },
+    razorpayPaymentId: {
+      type: String
+    },
+    razorpaySignature: {
+      type: String
+    },
+    paymentVerified: {
+      type: Boolean,
+      default: false
+    },
+    paymentVerificationDetails: {
+      type: mongoose.Schema.Types.Mixed
+    },
     paymentId: {
       type: String
     },
@@ -59,7 +76,7 @@ const bookingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['card', 'upi', 'netbanking', 'wallet'],
+      enum: ['card', 'upi', 'netbanking', 'wallet', 'razorpay'],
       default: null
     },
     // Booking timestamps

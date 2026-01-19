@@ -3,14 +3,10 @@ const Booking = require('./booking_model');
 const User = require('../auth/auth.model');
 const catchAsync = require('../../shared/utils/catchAsync');
 const AppError = require('../../shared/utils/appError');
-const dynamodbService = require('../../services/aws/dynamodb.service');
 
 /**
  * TEMPORARY SEAT LOCK (BEFORE PAYMENT)
  * Creates temporary booking with 15-minute expiry
- * 
- * ✅ FACE VERIFICATION REQUIRED:
- * Only users with verified face records in DynamoDB can lock seats
  */
 exports.bookSeat = catchAsync(async (req, res, next) => {
   const { eventId, seatingId, userId, specialRequirements = null } = req.body;
@@ -25,34 +21,6 @@ exports.bookSeat = catchAsync(async (req, res, next) => {
   const user = await User.findById(userId);
   if (!user) {
     return next(new AppError('User not found', 404));
-  }
-
-  // ✅ FACE VERIFICATION CHECK (BEFORE LOCKING SEATS)
-  // Only users with verified face records in DynamoDB can proceed
-  try {
-    const userIdStr = userId.toString();
-    const hasFaceRecord = await dynamodbService.checkIfUserFaceExists(userIdStr);
-    
-    if (!hasFaceRecord) {
-      return next(new AppError(
-        'Face verification required. Please complete face verification before booking seats.',
-        403
-      ));
-    }
-
-    // Optional: Get face record details for logging
-    const faceRecord = await dynamodbService.getUserFaceRecord(userIdStr);
-    if (faceRecord && faceRecord.data) {
-      console.log(`✅ Face verification passed for user ${userIdStr}:`, {
-        rekognitionId: faceRecord.data.RekognitionId || faceRecord.data.rekognitionId,
-        status: faceRecord.data.Status || faceRecord.data.status,
-        verifiedAt: faceRecord.data.Timestamp || faceRecord.data.timestamp
-      });
-    }
-  } catch (error) {
-    console.error('❌ Face verification check error:', error.message);
-    // If DynamoDB is unavailable but other checks pass, allow continuation
-    console.warn('⚠️ Warning: Face verification check failed, but proceeding (DynamoDB may be unavailable)');
   }
 
   // ✅ Fetch event

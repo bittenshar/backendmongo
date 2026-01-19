@@ -593,28 +593,11 @@ exports.bookWithPayment = async (req, res, next) => {
       paymentData: paymentData.razorpayOrderId
     });
 
-    // ===== STEP 1: Create Razorpay order =====
-    let razorpayOrderId;
-    try {
-      const paymentService = require('../payment/payment.service');
-      
-      const paymentOrderData = {
-        userId,
-        amount: totalPrice,
-        description: `Event Booking - Seat Type: ${seatType}, Qty: ${quantity}`,
-        receipt: `BOOKING_${userId}_${Date.now()}`
-      };
-
-      console.log('💳 Step 1: Creating Razorpay order...');
-      const paymentResponse = await paymentService.createOrder(paymentOrderData);
-      razorpayOrderId = paymentResponse.razorpayOrderId;
-      
-      console.log('✅ Razorpay order created:', razorpayOrderId);
-
-    } catch (paymentError) {
-      console.error('❌ Payment order creation failed:', paymentError.message);
-      return next(new AppError(`Payment processing failed: ${paymentError.message}`, 400));
-    }
+    // ===== STEP 1: Use Razorpay order from frontend payment data =====
+    const razorpayOrderId = paymentData.razorpayOrderId;
+    
+    console.log('💳 Step 1: Using Razorpay order from frontend:', razorpayOrderId);
+    console.log('✅ Razorpay order ID confirmed:', razorpayOrderId);
 
     // ===== STEP 2: Create temporary booking =====
     let booking;
@@ -633,7 +616,7 @@ exports.bookWithPayment = async (req, res, next) => {
         paymentStatus: 'pending',
         specialRequirements,
         razorpayOrderId,
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min expiry
+        expiresAt: new Date(Date.now() + 1 * 60 * 1000) // 1 min expiry for seat lock
       });
 
       await booking.save();
@@ -642,6 +625,33 @@ exports.bookWithPayment = async (req, res, next) => {
     } catch (bookingError) {
       console.error('❌ Booking creation failed:', bookingError.message);
       return next(new AppError(`Booking creation failed: ${bookingError.message}`, 400));
+    }
+
+    // ===== STEP 2.5: Lock seats in inventory =====
+    try {
+      console.log('🔒 Step 2.5: Locking seats in inventory...');
+      const Event = require('../events/event.model').default || require('../events/event.model');
+      const event = await Event.findById(eventId);
+      
+      if (event) {
+        const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+        
+        if (seatingIndex !== -1) {
+          const seating = event.seatings[seatingIndex];
+          seating.lockedSeats += quantity;
+          await event.save();
+          console.log('🔒 Seats locked:', {
+            locked: quantity,
+            totalLocked: seating.lockedSeats,
+            remainingAvailable: seating.totalSeats - seating.seatsSold - seating.lockedSeats
+          });
+        } else {
+          console.warn('⚠️ Seating not found in event');
+        }
+      }
+    } catch (lockError) {
+      console.warn('⚠️ Could not lock seats in inventory:', lockError.message);
+      // Don't fail the booking if seat locking fails
     }
 
     // ===== STEP 3: Verify payment signature =====

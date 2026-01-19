@@ -28,6 +28,7 @@ const corsOptions = {
   origin: [
     'http://localhost:8080',  // Vite dev server
     'http://localhost:8081',  // Alternative Vite dev server port
+    'http://localhost:8000',  // Local HTTP server for HTML testing
     'http://localhost:3000',  // React dev server (if used)
     'http://localhost:5173',  // Alternative Vite port
     
@@ -321,6 +322,21 @@ const startServer = async () => {
         (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) 
         ? 'Configured'.green 
         : 'Not Configured'.red);
+      
+      // ===== START BOOKING CLEANUP SCHEDULER =====
+      console.log('🧹 Starting booking cleanup scheduler...'.cyan);
+      const bookingService = require('./features/booking/booking.service');
+      
+      // Run cleanup every 2 minutes to check for expired bookings
+      setInterval(async () => {
+        try {
+          await bookingService.cleanupExpiredBookings();
+        } catch (error) {
+          console.error('❌ Cleanup scheduler error:', error.message);
+        }
+      }, 2 * 60 * 1000); // 2 minutes
+      
+      console.log('✅ Booking cleanup scheduler started'.green);
     });
     
     // Handle graceful shutdown

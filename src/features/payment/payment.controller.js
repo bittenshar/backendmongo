@@ -8,7 +8,7 @@ const Payment = require('./payment.model');
  */
 exports.createOrder = async (req, res) => {
   try {
-    const { amount, description, receipt, notes, customer } = req.body;
+    const { amount, description, receipt, notes, customer, eventId, seatingId, quantity } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -23,6 +23,67 @@ exports.createOrder = async (req, res) => {
         success: false,
         message: 'Invalid amount',
       });
+    }
+
+    // ===== VERIFICATION STATUS CHECK =====
+    console.log('🔐 Checking user verification status for user:', userId);
+    try {
+      const User = require('../auth/auth.model');
+      const user = await User.findById(userId);
+      
+      if (!user) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'User not found',
+          code: 404
+        });
+      }
+
+      // Check verification status
+      if (user.verificationStatus !== 'verified') {
+        console.warn('❌ User not verified:', { userId, status: user.verificationStatus });
+        return res.status(403).json({
+          status: 'error',
+          message: `User verification required. Current status: ${user.verificationStatus}. Please verify your email/account before booking seats.`,
+          code: 403,
+          verificationStatus: user.verificationStatus
+        });
+      }
+      
+      console.log('✅ User verified:', { userId, status: user.verificationStatus });
+    } catch (verificationError) {
+      console.error('⚠️ Verification check failed:', verificationError.message);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Verification check failed'
+      });
+    }
+
+    // Lock seats if eventId and seatingId provided
+    if (eventId && seatingId && quantity) {
+      console.log('🔒 Locking seats for payment order...');
+      const Event = require('../events/event.model');
+      const event = await Event.findById(eventId);
+      
+      if (event) {
+        const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+        if (seatingIndex !== -1) {
+          const seating = event.seatings[seatingIndex];
+          const availableSeats = seating.totalSeats - seating.seatsSold - seating.lockedSeats;
+          
+          if (availableSeats >= quantity) {
+            seating.lockedSeats += quantity;
+            await event.save();
+            console.log('✅ Seats LOCKED for payment:', { 
+              quantity,
+              lockedSeats: seating.lockedSeats,
+              seatType: seating.seatType
+            });
+          } else {
+            console.warn('⚠️ Not enough seats to lock:', { availableSeats, requested: quantity });
+          }
+        }
+      }
     }
 
     const result = await paymentService.createOrder({
