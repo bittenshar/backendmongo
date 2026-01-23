@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "Booking with Face Verification + Razorpay Payment",
+    "description": "Complete flow: Face Verification Check → Booking Initiation → Razorpay Payment → Booking Confirmation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Check Face Verification Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.environment.set('isUserVerified', jsonData.data.isVerified);",
+              "    pm.environment.set('verificationStatus', jsonData.data.verificationStatus);",
+              "    console.log('Face Verification Status:', jsonData.data);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{userId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/booking-payment/verify-face-status",
+          "host": ["{{base_url}}"],
+          "path": ["booking-payment", "verify-face-status"]
+        }
+      }
+    },
+    {
+      "name": "2. Initiate Booking with Verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.status === 'success') {",
+              "        pm.environment.set('bookingId', jsonData.data.booking.bookingId);",
+              "        pm.environment.set('razorpayOrderId', jsonData.data.payment.razorpayOrderId);",
+              "        pm.environment.set('totalAmount', jsonData.data.booking.totalPrice);",
+              "        console.log('Booking initiated:', jsonData.data);",
+              "        console.log('Razorpay Order ID:', jsonData.data.payment.razorpayOrderId);",
+              "    } else if (jsonData.status === 'failed') {",
+              "        console.error('Face verification failed:', jsonData.data);",
+              "    }",
+              "} else if (pm.response.code === 403) {",
+              "    var jsonData = pm.response.json();",
+              "    console.error('User not face verified:', jsonData.message);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"eventId\": \"{{eventId}}\",\n  \"seatingId\": \"{{seatingId}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 2,\n  \"pricePerSeat\": 500\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/booking-payment/initiate-with-verification",
+          "host": ["{{base_url}}"],
+          "path": ["booking-payment", "initiate-with-verification"]
+        }
+      }
+    },
+    {
+      "name": "3. Generate Payment Signature (Pre-request Script)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// This request is just for reference",
+              "// The signature should be generated client-side after Razorpay payment",
+              "console.log('In production, generate signature after Razorpay payment');",
+              "console.log('Format: HMAC-SHA256(orderId|paymentId) with RAZORPAY_KEY_SECRET')"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/booking-payment",
+          "host": ["{{base_url}}"],
+          "path": ["booking-payment"]
+        }
+      }
+    },
+    {
+      "name": "4. Verify Payment & Confirm Booking",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.status === 'success') {",
+              "        pm.environment.set('bookingStatus', jsonData.data.booking.status);",
+              "        pm.environment.set('paymentId', jsonData.data.payment.paymentId);",
+              "        console.log('✓ Booking confirmed successfully!');",
+              "        console.log('Booking Status:', jsonData.data.booking.status);",
+              "        console.log('Payment Status:', jsonData.data.payment.status);",
+              "    }",
+              "} else if (pm.response.code === 400) {",
+              "    var jsonData = pm.response.json();",
+              "    console.error('Payment verification failed:', jsonData.message);",
+              "} else if (pm.response.code === 403) {",
+              "    var jsonData = pm.response.json();",
+              "    console.error('Face verification status changed:', jsonData.message);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/booking-payment/confirm-booking",
+          "host": ["{{base_url}}"],
+          "path": ["booking-payment", "confirm-booking"]
+        }
+      }
+    },
+    {
+      "name": "5. Get Booking Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    console.log('📋 BOOKING STATUS');",
+              "    console.log('Booking ID:', jsonData.data.booking.bookingId);",
+              "    console.log('Status:', jsonData.data.booking.status);",
+              "    console.log('Payment Status:', jsonData.data.booking.paymentStatus);",
+              "    console.log('Total Price:', jsonData.data.booking.totalPrice);",
+              "    console.log('');",
+              "    console.log('💳 PAYMENT DETAILS');",
+              "    console.log('Payment Verified:', jsonData.data.payment.paymentVerified);",
+              "    console.log('Amount:', jsonData.data.payment.amount);",
+              "    console.log('');",
+              "    console.log('🔐 VERIFICATION');",
+              "    console.log('User Verified:', jsonData.data.verification.userVerified);",
+              "    console.log('Status:', jsonData.data.verification.verificationStatus);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/booking-payment/status/{{bookingId}}",
+          "host": ["{{base_url}}"],
+          "path": ["booking-payment", "status", "{{bookingId}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Cancel Booking",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    console.log('✓ Booking cancelled');",
+              "    console.log('Status:', jsonData.data.status);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"User cancelled the booking\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/booking-payment/cancel/{{bookingId}}",
+          "host": ["{{base_url}}"],
+          "path": ["booking-payment", "cancel", "{{bookingId}}"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "user_id_here",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "event_id_here",
+      "type": "string"
+    },
+    {
+      "key": "seatingId",
+      "value": "seating_id_here",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpayOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpayPaymentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpaySignature",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "totalAmount",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "isUserVerified",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingStatus",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

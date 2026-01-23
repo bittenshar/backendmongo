@@ -39,18 +39,19 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      // Check verification status
-      if (user.verificationStatus !== 'verified') {
-        console.warn('❌ User not verified:', { userId, status: user.verificationStatus });
+      // Check if user is rejected (blocked from booking)
+      if (user.verificationStatus === 'rejected') {
+        console.warn('❌ User verification rejected:', { userId, status: user.verificationStatus });
         return res.status(403).json({
           status: 'error',
-          message: `User verification required. Current status: ${user.verificationStatus}. Please verify your email/account before booking seats.`,
+          message: 'Your account verification was rejected. Please contact support.',
           code: 403,
           verificationStatus: user.verificationStatus
         });
       }
       
-      console.log('✅ User verified:', { userId, status: user.verificationStatus });
+      // Allow payments for pending and verified users
+      console.log('✅ User verification status OK:', { userId, status: user.verificationStatus });
     } catch (verificationError) {
       console.error('⚠️ Verification check failed:', verificationError.message);
       return res.status(500).json({

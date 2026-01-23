@@ -37,7 +37,17 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: [
+    'X-Requested-With',
+    'X-RTO-Fingerprint-ID',
+    'x-rto-fingerprint-id',
+    'x-rto-fingerprint',
+    'X-Razorpay-Signature',
+    'x-razorpay-signature',
+    'RZP-Signature',
+    'Access-Control-Allow-Origin'
+  ]
 };
 
 // Import DB middleware
@@ -100,6 +110,7 @@ const testNotificationRoutes = require("./features/notificationfcm/test-notifica
 
 // Import booking routes
 const bookingRoutes = require('./features/booking/booking_route');
+const bookingPaymentRoutes = require('./features/booking/booking-with-payment.routes');
 const paymentRoutes = require('./features/payment/payment.routes');
 const aadhaarImageRoutes = require('./features/aadhaar/aadhaar.routes');
 
@@ -112,6 +123,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutesNew);
 app.use('/api/booking', bookingRoutes);
+app.use('/api/booking-payment', bookingPaymentRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use("/api/notifications", notificationRoutes);

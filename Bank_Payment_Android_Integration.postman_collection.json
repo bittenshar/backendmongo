@@ -1,0 +1,387 @@
+{
+  "info": {
+    "_postman_id": "bank-payment-android-test",
+    "name": "Bank Payment API - Android Integration",
+    "description": "Complete payment API for Android integration testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('userToken', jsonData.token);",
+                  "    pm.environment.set('userId', jsonData.data.user._id);",
+                  "    pm.environment.set('userEmail', jsonData.data.user.email);",
+                  "    console.log('✅ Login successful');",
+                  "    console.log('Token:', jsonData.token.substring(0, 20) + '...');",
+                  "    console.log('User ID:', jsonData.data.user._id);",
+                  "} else {",
+                  "    console.log('❌ Login failed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"test123\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Create Payment Order",
+      "item": [
+        {
+          "name": "Create Order - ₹500",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('razorpayOrderId', jsonData.razorpayOrderId);",
+                  "    pm.environment.set('orderId', jsonData.orderId);",
+                  "    console.log('✅ Order created successfully');",
+                  "    console.log('Order ID:', jsonData.razorpayOrderId);",
+                  "    console.log('Amount:', jsonData.amountInRupees, 'INR');",
+                  "} else {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('❌ Order creation failed');",
+                  "    console.log('Error:', jsonData.message || jsonData.error);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"amount\": 500,\n  \"description\": \"Test Payment - Bank\",\n  \"receipt\": \"test_{{$timestamp}}\",\n  \"notes\": {\n    \"testId\": \"android_integration\",\n    \"purpose\": \"Bank Payment Testing\"\n  },\n  \"customer\": {\n    \"email\": \"{{userEmail}}\",\n    \"phone\": \"9876543210\",\n    \"name\": \"Test User\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/payments/create-order",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments", "create-order"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order - ₹1000",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('razorpayOrderId', jsonData.razorpayOrderId);",
+                  "    pm.environment.set('orderId', jsonData.orderId);",
+                  "} else {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('Error:', jsonData);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"amount\": 1000,\n  \"description\": \"Test Payment - ₹1000\",\n  \"receipt\": \"test_{{$timestamp}}\",\n  \"notes\": {\n    \"testId\": \"android_integration\"\n  },\n  \"customer\": {\n    \"email\": \"{{userEmail}}\",\n    \"phone\": \"9876543210\",\n    \"name\": \"Test User\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/payments/create-order",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments", "create-order"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Verify Payment (After Bank Payment)",
+      "item": [
+        {
+          "name": "Verify Payment Signature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('✅ Payment verified successfully');",
+                  "    console.log('Payment Status:', jsonData.data.status);",
+                  "} else {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('❌ Verification failed');",
+                  "    console.log('Error:', jsonData.message || jsonData.error);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{razorpayOrderId}}\",\n  \"paymentId\": \"pay_XXXXXXXXXX\",\n  \"signature\": \"signature_from_payment_response\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/payments/verify",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments", "verify"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Get Payment Details",
+      "item": [
+        {
+          "name": "Get Payment by Payment ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('✅ Payment details retrieved');",
+                  "    console.log('Status:', jsonData.data.status);",
+                  "    console.log('Amount:', jsonData.data.amount / 100, 'INR');",
+                  "} else {",
+                  "    console.log('❌ Failed to get payment details');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/payments/pay_XXXXXXXXXX",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments", "pay_XXXXXXXXXX"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/payments/order/{{razorpayOrderId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments", "order", "{{razorpayOrderId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('✅ Payment history retrieved');",
+                  "    console.log('Total payments:', jsonData.data.length);",
+                  "} else {",
+                  "    console.log('❌ Failed to get payment history');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/payments",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Refund Payment",
+      "item": [
+        {
+          "name": "Refund Payment (Full)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"notes\": {\n    \"reason\": \"Customer Request\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/payments/pay_XXXXXXXXXX/refund",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "payments", "pay_XXXXXXXXXX", "refund"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "userToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userEmail",
+      "value": "test@example.com",
+      "type": "string"
+    },
+    {
+      "key": "razorpayOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

@@ -1,110 +1,115 @@
-// ============================================
-// WATI WhatsApp OTP Service
-// ============================================
-// Sends OTP via WhatsApp using WATI API
-// Replaces mock-otp.service.js with real WhatsApp delivery
+// src/features/auth/wati-otp.service.js
 
 const axios = require('axios');
 
-// In-memory store for OTP tracking (consider Redis for production)
+// ============================================
+// In-memory OTP store (use Redis in prod)
+// ============================================
 const otpStore = new Map();
-const otpExpiry = 5 * 60 * 1000; // 5 minutes expiry
+const OTP_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 // ============================================
-// Validate WATI configuration
+// Validate ENV config
 // ============================================
 const validateConfig = () => {
   if (!process.env.WATI_API_KEY) {
-    throw new Error('WATI_API_KEY is not configured in environment variables');
+    throw new Error('WATI_API_KEY is missing');
   }
   if (!process.env.WATI_BASE_URL) {
-    throw new Error('WATI_BASE_URL is not configured in environment variables');
+    throw new Error('WATI_BASE_URL is missing');
   }
 };
 
 // ============================================
-// @desc    Send OTP via WhatsApp using WATI
-// @access  Public
+// Normalize phone number (India)
 // ============================================
-exports.sendOTP = async (phoneNumber) => {
+const normalizePhone = (phone) => {
+  let cleaned = String(phone).replace(/\D/g, '');
+
+  // If only 10 digits, assume India
+  if (cleaned.length === 10) {
+    cleaned = '91' + cleaned;
+  }
+
+  // Final validation
+  if (!/^91\d{10}$/.test(cleaned)) {
+    return null;
+  }
+
+  return cleaned; // NO "+"
+};
+
+// ============================================
+// Send OTP
+// ============================================
+exports.sendOTP = async (phone) => {
   try {
     validateConfig();
 
-    // Validate phone number format
-    if (!phoneNumber || typeof phoneNumber !== 'string') {
+    if (!phone) {
       return {
         success: false,
         message: 'Invalid phone number format'
       };
     }
 
-    // Ensure phone number has country code (91 for India)
-    let formattedPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
-    if (!formattedPhone.startsWith('91') && formattedPhone.length === 10) {
-      formattedPhone = '91' + formattedPhone; // Add India country code
-    }
+    const normalizedPhone = normalizePhone(phone);
 
-    // Generate random 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Store OTP with expiry
-    const expiresAt = Date.now() + otpExpiry;
-    otpStore.set(phoneNumber, {
-      otp,
-      expiresAt,
-      attempts: 0,
-      formattedPhone
-    });
-
-    console.log(`\n🔐 [WATI OTP] Sending OTP to ${phoneNumber}`);
-    console.log(`📝 OTP Code: ${otp}`);
-
-    // Send via WATI WhatsApp
-    const response = await sendWATIMessage(formattedPhone, otp);
-
-    if (!response.success) {
-      // Clean up OTP if sending failed
-      otpStore.delete(phoneNumber);
+    if (!normalizedPhone) {
       return {
         success: false,
-        message: response.message || 'Failed to send OTP via WhatsApp'
+        message: 'Invalid phone number format'
       };
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store OTP
+    otpStore.set(normalizedPhone, {
+      otp,
+      expiresAt: Date.now() + OTP_EXPIRY,
+      attempts: 0
+    });
+
+    console.log('🔐 [WATI OTP] Sending OTP');
+    console.log('📱 Phone:', normalizedPhone);
+    console.log('📝 OTP:', otp);
+
+    // Send via WATI
+    const response = await sendWATIMessage(normalizedPhone, otp);
+
+    if (!response.success) {
+      otpStore.delete(normalizedPhone);
+      return response;
     }
 
     return {
       success: true,
-      message: 'OTP sent successfully via WhatsApp',
-      sid: response.messageId || `wati-${Date.now()}`,
-      otp: process.env.NODE_ENV !== 'production' ? otp : undefined, // Only show in dev
-      expiresIn: '5 minutes'
+      message: 'OTP sent successfully',
+      expiresIn: '5 minutes',
+      otp: process.env.NODE_ENV !== 'production' ? otp : undefined
     };
   } catch (error) {
-    console.error('❌ [WATI OTP] Error sending OTP:', error.message);
+    console.error('❌ [WATI OTP] Error:', error.message);
     return {
       success: false,
-      message: 'Failed to send OTP',
-      error: error.message
+      message: 'Failed to send OTP'
     };
   }
 };
 
 // ============================================
-// @desc    Send message via WATI API
-// @access  Private
+// Send WhatsApp message via WATI
 // ============================================
 const sendWATIMessage = async (phone, otp) => {
   try {
-    // WATI API endpoint: append /api/v1/sendTemplateMessage to base URL
-    // WATI_BASE_URL should be: https://live-mt-server.wati.io/1080383
     const url = `${process.env.WATI_BASE_URL}/api/v1/sendTemplateMessage`;
 
-    console.log(`🔄 [WATI API] Sending to endpoint: ${url}`);
-    console.log(`🔑 [WATI API] Using API Key: ${process.env.WATI_API_KEY?.substring(0, 20)}...`);
-
     const payload = {
-      whatsappNumber: phone,
-      template_name: process.env.WATI_TEMPLATE_NAME || 'login_otp',
-      broadcast_name: 'otp_auth',
+      phoneNumber: phone, // ✅ NO "+"
+      template_name: 'login_otp',
+      template_language: 'en',
       parameters: [
         {
           name: 'otp',
@@ -113,166 +118,73 @@ const sendWATIMessage = async (phone, otp) => {
       ]
     };
 
-    console.log(`📤 [WATI API] Payload:`, JSON.stringify(payload, null, 2));
+    console.log('📤 [WATI API] Payload:', payload);
 
     const response = await axios.post(url, payload, {
       headers: {
-        Authorization: `Bearer ${process.env.WATI_API_KEY}`,
+        Authorization: `Bearer ${process.env.WATI_API_KEY}`, // ✅ NO Bearer
         'Content-Type': 'application/json'
       },
-      timeout: 10000 // 10 second timeout
+      timeout: 10000
     });
 
-    console.log(`✅ [WATI API] Message sent successfully`);
-    console.log(`📊 Response:`, JSON.stringify(response.data, null, 2));
+    console.log('✅ [WATI API] Response:', response.data);
 
     return {
       success: true,
-      messageId: response.data.result?.messageId || response.data.result?.message_id,
       data: response.data
     };
   } catch (error) {
-    console.error('❌ [WATI API] Error:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      fullError: JSON.stringify(error.response?.data, null, 2)
-    });
-
-    // Handle specific WATI errors
-    if (error.response?.status === 401) {
-      return {
-        success: false,
-        message: 'WATI API authentication failed. Check WATI_API_KEY.'
-      };
-    }
-
-    if (error.response?.status === 404) {
-      return {
-        success: false,
-        message: 'WATI template not found. Check WATI_TEMPLATE_NAME and WATI_BASE_URL.'
-      };
-    }
-
-    if (error.response?.status === 400) {
-      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Bad request';
-      console.error('❌ [WATI API] 400 Error Details:', errorMsg);
-      return {
-        success: false,
-        message: `WATI API Error: ${errorMsg}`
-      };
-    }
+    console.error('❌ [WATI API] Error:', error.response?.data || error.message);
 
     return {
       success: false,
-      message: error.response?.data?.message || error.message
+      message:
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        'WATI API Error'
     };
   }
 };
 
 // ============================================
-// @desc    Verify OTP code
-// @access  Public
+// Verify OTP
 // ============================================
-exports.verifyOTP = async (phoneNumber, code) => {
-  try {
-    // Check if OTP exists
-    const storedOTP = otpStore.get(phoneNumber);
+exports.verifyOTP = async (phone, code) => {
+  const normalizedPhone = normalizePhone(phone);
 
-    if (!storedOTP) {
-      return {
-        success: false,
-        message: 'No OTP found for this phone number. Please send OTP first.'
-      };
-    }
+  if (!normalizedPhone) {
+    return { success: false, message: 'Invalid phone number' };
+  }
 
-    // Check if OTP has expired
-    if (Date.now() > storedOTP.expiresAt) {
-      otpStore.delete(phoneNumber);
-      return {
-        success: false,
-        message: 'OTP has expired. Please request a new one.'
-      };
-    }
+  const stored = otpStore.get(normalizedPhone);
 
-    // Check max attempts (3 attempts)
-    if (storedOTP.attempts >= 3) {
-      otpStore.delete(phoneNumber);
-      return {
-        success: false,
-        message: 'Too many failed attempts. Please request a new OTP.'
-      };
-    }
+  if (!stored) {
+    return { success: false, message: 'OTP not found' };
+  }
 
-    // Verify OTP code
-    if (storedOTP.otp !== code.toString()) {
-      storedOTP.attempts += 1;
-      const remainingAttempts = 3 - storedOTP.attempts;
-      return {
-        success: false,
-        message: `Invalid OTP. ${remainingAttempts} attempts remaining.`
-      };
-    }
+  if (Date.now() > stored.expiresAt) {
+    otpStore.delete(normalizedPhone);
+    return { success: false, message: 'OTP expired' };
+  }
 
-    // OTP verified successfully - clear it
-    otpStore.delete(phoneNumber);
+  if (stored.attempts >= 3) {
+    otpStore.delete(normalizedPhone);
+    return { success: false, message: 'Too many attempts' };
+  }
 
-    console.log(`✅ [WATI OTP] OTP verified for ${phoneNumber}`);
-
-    return {
-      success: true,
-      message: 'OTP verified successfully',
-      verified: true
-    };
-  } catch (error) {
-    console.error('❌ [WATI OTP] Error verifying OTP:', error.message);
+  if (stored.otp !== String(code)) {
+    stored.attempts += 1;
     return {
       success: false,
-      message: 'Failed to verify OTP',
-      error: error.message
+      message: `Invalid OTP. ${3 - stored.attempts} attempts left`
     };
   }
-};
 
-// ============================================
-// @desc    Get stored OTP (for testing only)
-// @access  Private
-// ============================================
-exports.getStoredOTP = (phoneNumber) => {
-  const storedOTP = otpStore.get(phoneNumber);
-  if (storedOTP) {
-    return storedOTP.otp;
-  }
-  return null;
-};
-
-// ============================================
-// @desc    Clear all stored OTPs (for testing)
-// @access  Private
-// ============================================
-exports.clearAllOTPs = () => {
-  otpStore.clear();
-  console.log('✅ All OTPs cleared');
-};
-
-// ============================================
-// @desc    Get OTP status (for debugging)
-// @access  Private
-// ============================================
-exports.getOTPStatus = (phoneNumber) => {
-  const storedOTP = otpStore.get(phoneNumber);
-  if (!storedOTP) {
-    return null;
-  }
-
-  const timeRemaining = Math.max(0, storedOTP.expiresAt - Date.now());
+  otpStore.delete(normalizedPhone);
 
   return {
-    phone: phoneNumber,
-    hasOTP: true,
-    expiresIn: `${Math.ceil(timeRemaining / 1000)} seconds`,
-    attempts: storedOTP.attempts,
-    attemptsRemaining: 3 - storedOTP.attempts
+    success: true,
+    message: 'OTP verified successfully'
   };
 };

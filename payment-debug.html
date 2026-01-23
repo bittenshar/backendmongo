@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Debug Test</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .panel {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .panel h2 {
+            color: #4ec9b0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #3e3e42;
+            padding-bottom: 10px;
+        }
+        .log-line {
+            padding: 5px;
+            margin: 2px 0;
+            background: #1e1e1e;
+            border-left: 3px solid #007acc;
+            padding-left: 10px;
+        }
+        .log-line.success {
+            border-left-color: #6a9955;
+            color: #6a9955;
+        }
+        .log-line.error {
+            border-left-color: #f48771;
+            color: #f48771;
+        }
+        .log-line.info {
+            border-left-color: #9cdcfe;
+            color: #9cdcfe;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        button.danger {
+            background: #d16969;
+        }
+        button.danger:hover {
+            background: #b55959;
+        }
+        .logs {
+            max-height: 500px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        input, textarea {
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #3e3e42;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 100%;
+            margin: 5px 0;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        .json {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 11px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.ok {
+            background: rgba(106, 153, 85, 0.3);
+            border: 1px solid #6a9955;
+            color: #6a9955;
+        }
+        .status.error {
+            background: rgba(244, 135, 113, 0.3);
+            border: 1px solid #f48771;
+            color: #f48771;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left: Control Panel -->
+        <div class="panel">
+            <h2>🔧 Payment Debug Control</h2>
+            
+            <div>
+                <label>API Base URL:</label>
+                <input type="text" id="apiUrl" value="http://localhost:3000/api">
+            </div>
+
+            <div>
+                <label>User Email:</label>
+                <input type="text" id="userEmail" value="test@example.com">
+            </div>
+
+            <div>
+                <label>Amount (₹):</label>
+                <input type="number" id="amount" value="500" min="1">
+            </div>
+
+            <div style="margin-top: 15px;">
+                <button onclick="testLogin()">1️⃣  Test Login</button>
+                <button onclick="testCreateOrder()">2️⃣  Create Order</button>
+                <button onclick="testPayment()">3️⃣  Open Payment</button>
+                <button class="danger" onclick="clearLogs()">Clear Logs</button>
+            </div>
+
+            <div id="status" class="status error" style="display:none;"></div>
+        </div>
+
+        <!-- Right: Logs -->
+        <div class="panel">
+            <h2>📋 Debug Logs</h2>
+            <div id="logs" class="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        let API_BASE_URL = 'http://localhost:3000/api';
+        let userToken = null;
+        let userId = null;
+        let orderData = null;
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let icon = 'ℹ️ ';
+            if (type === 'success') icon = '✅ ';
+            else if (type === 'error') icon = '❌ ';
+            else if (type === 'info') icon = '🔹 ';
+            
+            line.textContent = `[${timestamp}] ${icon} ${message}`;
+            logsDiv.appendChild(line);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function updateStatus(message, isSuccess) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${isSuccess ? 'ok' : 'error'}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        async function testLogin() {
+            API_BASE_URL = document.getElementById('apiUrl').value;
+            const email = document.getElementById('userEmail').value;
+            
+            log(`Logging in as: ${email}`, 'info');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password: 'test123' })
+                });
+
+                log(`Response Status: ${response.status}`, response.ok ? 'info' : 'error');
+                
+                const data = await response.json();
+                console.log('Login Response:', data);
+
+                if (response.ok && data.data?.user) {
+                    userToken = data.token;
+                    userId = data.data.user._id;
+                    log(`✓ Login successful`, 'success');
+                    log(`Token: ${userToken.substring(0, 20)}...`, 'success');
+                    log(`User ID: ${userId}`, 'success');
+                    updateStatus('✓ Login successful', true);
+                } else {
+                    log(`Login failed: ${data.message || 'Unknown error'}`, 'error');
+                    updateStatus('✗ Login failed', false);
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                updateStatus(`✗ Error: ${error.message}`, false);
+            }
+        }
+
+        async function testCreateOrder() {
+            if (!userToken || !userId) {
+                log('Please login first!', 'error');
+                return;
+            }
+
+            API_BASE_URL = document.getElementById('apiUrl').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            
+            log(`Creating order for ₹${amount}`, 'info');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/booking-payment/initiate-with-verification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`
+                    },
+                    body: JSON.stringify({
+                        userId,
+                        eventId: '694291bb1e613c43e1b18a76',
+                        seatingId: '694291bb1e613c43e1b18a77',
+                        seatType: 'Premium',
+                        quantity: 1,
+                        pricePerSeat: amount
+                    })
+                });
+
+                log(`Response Status: ${response.status}`, response.ok ? 'info' : 'error');
+                
+                const data = await response.json();
+                console.log('Order Response:', data);
+
+                if (response.ok && data.status === 'success') {
+                    orderData = data.data;
+                    log(`✓ Order created successfully`, 'success');
+                    log(`Razorpay Order ID: ${orderData.payment.razorpayOrderId}`, 'success');
+                    log(`Booking ID: ${orderData.booking.bookingId}`, 'success');
+                    updateStatus('✓ Order created', true);
+                } else {
+                    const errMsg = data.message || data.data?.message || 'Unknown error';
+                    log(`Order creation failed: ${errMsg}`, 'error');
+                    if (data.details) {
+                        log(`Details: ${JSON.stringify(data.details)}`, 'error');
+                    }
+                    updateStatus(`✗ ${errMsg}`, false);
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                updateStatus(`✗ Error: ${error.message}`, false);
+            }
+        }
+
+        async function testPayment() {
+            if (!orderData) {
+                log('Please create order first!', 'error');
+                return;
+            }
+
+            log(`Opening Razorpay payment for ${orderData.payment.razorpayOrderId}`, 'info');
+
+            const options = {
+                key: 'rzp_test_S70BEK0R4wzs2b',
+                amount: parseFloat(document.getElementById('amount').value) * 100,
+                currency: 'INR',
+                order_id: orderData.payment.razorpayOrderId,
+                name: 'AdminThrill Debug',
+                description: 'Test Payment',
+                prefill: {
+                    email: document.getElementById('userEmail').value,
+                    contact: '9876543210'
+                },
+                method: {
+                    netbanking: true,
+                    card: true,
+                    upi: true,
+                    wallet: true
+                },
+                handler: handlePaymentSuccess,
+                error: handlePaymentError
+            };
+
+            try {
+                log(`Payment options prepared`, 'info');
+                new Razorpay(options).open();
+            } catch (error) {
+                log(`Error opening payment: ${error.message}`, 'error');
+            }
+        }
+
+        async function handlePaymentSuccess(response) {
+            log(`Payment Success Response received`, 'success');
+            log(`Payment ID: ${response.razorpay_payment_id}`, 'success');
+            log(`Order ID: ${response.razorpay_order_id}`, 'success');
+            
+            log(`Verifying with backend...`, 'info');
+
+            try {
+                const confirmResponse = await fetch(`${API_BASE_URL}/booking-payment/confirm-booking`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`
+                    },
+                    body: JSON.stringify({
+                        bookingId: orderData.booking.bookingId,
+                        razorpayOrderId: response.razorpay_order_id,
+                        razorpayPaymentId: response.razorpay_payment_id,
+                        razorpaySignature: response.razorpay_signature
+                    })
+                });
+
+                log(`Verification Response Status: ${confirmResponse.status}`, confirmResponse.ok ? 'info' : 'error');
+                
+                const confirmData = await confirmResponse.json();
+                console.log('Verification Response:', confirmData);
+
+                if (confirmResponse.ok && confirmData.status === 'success') {
+                    log(`✓ Payment verified successfully!`, 'success');
+                    log(`Booking confirmed`, 'success');
+                    updateStatus('✓ Payment Successful!', true);
+                } else {
+                    const errMsg = confirmData.message || confirmData.data?.message || 'Verification failed';
+                    log(`✗ Verification failed: ${errMsg}`, 'error');
+                    log(`Response Data: ${JSON.stringify(confirmData)}`, 'error');
+                    updateStatus(`✗ ${errMsg}`, false);
+                }
+            } catch (error) {
+                log(`Error during verification: ${error.message}`, 'error');
+                updateStatus(`✗ Error: ${error.message}`, false);
+            }
+        }
+
+        function handlePaymentError(error) {
+            log(`Payment Error: ${error.description || error.message}`, 'error');
+            updateStatus(`✗ ${error.description || error.message}`, false);
+        }
+
+        // Initial log
+        log('Payment Debug Tool Ready', 'success');
+        log('Step 1: Enter your email and click "Test Login"', 'info');
+        log('Step 2: Click "Create Order"', 'info');
+        log('Step 3: Click "Open Payment" to test Razorpay', 'info');
+    </script>
+</body>
+</html>

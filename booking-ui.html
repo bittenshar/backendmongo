@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking & Payment - AdminThrill</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .status-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .status-box.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+
+        .status-box.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .status-box.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+
+        .status-label {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            color: #555;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-item label {
+            font-weight: 500;
+        }
+
+        .summary-item .value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .total-amount {
+            font-size: 28px !important;
+            color: #667eea !important;
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 2px solid #667eea !important;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .button-group.full {
+            grid-template-columns: 1fr;
+        }
+
+        button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .verification-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge-verified {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-unverified {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .payment-summary {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .success-checkmark {
+            color: #28a745;
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left: Booking Form -->
+        <div class="card">
+            <h2>🎫 Book Event</h2>
+
+            <div class="status-box warning" id="verificationStatus">
+                <div class="status-label">⚠️ Face Verification Status</div>
+                <div>Checking verification status...</div>
+            </div>
+
+            <form id="bookingForm">
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="email" value="test@example.com" disabled style="background: #f5f5f5; cursor: not-allowed;">
+                </div>
+
+                <div class="form-group">
+                    <label>📱 Phone</label>
+                    <input type="tel" id="phone" value="9876543210" disabled style="background: #f5f5f5; cursor: not-allowed;">
+                </div>
+
+                <div class="form-group">
+                    <label>🎬 Event</label>
+                    <select id="eventId" required>
+                        <option value="">Select Event</option>
+                        <option value="694291bb1e613c43e1b18a76">Test Concert 2026</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>🪑 Seating Type</label>
+                    <select id="seatType" required>
+                        <option value="">Select Seating</option>
+                        <option value="Premium">Premium - ₹500</option>
+                        <option value="Standard">Standard - ₹300</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>🎟️ Quantity</label>
+                    <input type="number" id="quantity" min="1" max="10" value="2" required>
+                </div>
+
+                <button type="submit" class="btn-primary" id="bookBtn" style="width: 100%;">
+                    Proceed to Payment
+                </button>
+            </form>
+        </div>
+
+        <!-- Right: Payment Summary -->
+        <div class="card">
+            <h2>💳 Payment Summary</h2>
+
+            <div id="bookingSummary" class="hidden">
+                <div class="summary-item">
+                    <label>Booking ID:</label>
+                    <span class="value" id="summaryBookingId">-</span>
+                </div>
+
+                <div class="summary-item">
+                    <label>Event:</label>
+                    <span class="value" id="summaryEvent">-</span>
+                </div>
+
+                <div class="summary-item">
+                    <label>Seating Type:</label>
+                    <span class="value" id="summarySeatType">-</span>
+                </div>
+
+                <div class="summary-item">
+                    <label>Quantity:</label>
+                    <span class="value" id="summaryQuantity">-</span>
+                </div>
+
+                <div class="summary-item">
+                    <label>Price per Seat:</label>
+                    <span class="value">₹<span id="summaryPricePerSeat">500</span></span>
+                </div>
+
+                <div class="summary-item total-amount">
+                    <label>Total Amount:</label>
+                    <span class="value">₹<span id="summaryTotalAmount">0</span></span>
+                </div>
+
+                <div class="payment-summary">
+                    <div class="summary-item">
+                        <label>Razorpay Order ID:</label>
+                        <span class="value" id="summaryOrderId" style="font-size: 12px; word-break: break-all;">-</span>
+                    </div>
+                </div>
+
+                <div class="button-group full">
+                    <button type="button" class="btn-primary" id="paymentBtn">
+                        💰 Pay Now with Razorpay
+                    </button>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+                </div>
+            </div>
+
+            <div id="loadingState" class="hidden">
+                <div class="spinner"></div>
+                <p style="text-align: center; color: #667eea; font-weight: 600;">Creating booking...</p>
+            </div>
+
+            <div id="successState" class="hidden">
+                <div class="success-checkmark">✅</div>
+                <p style="text-align: center; color: #28a745; font-weight: 600; font-size: 18px;">Payment Successful!</p>
+                <p style="text-align: center; color: #555; margin-top: 10px; line-height: 1.6;">
+                    Your booking has been confirmed.<br>
+                    Check your email for details.
+                </p>
+                <button type="button" class="btn-primary" id="newBookingBtn" style="width: 100%; margin-top: 20px;">
+                    Book Another Event
+                </button>
+            </div>
+
+            <div id="errorState" class="hidden">
+                <div style="font-size: 48px; text-align: center; margin-bottom: 20px;">❌</div>
+                <p style="text-align: center; color: #dc3545; font-weight: 600; font-size: 16px;">Payment Failed</p>
+                <p id="errorMessage" style="text-align: center; color: #555; margin-top: 15px;"></p>
+                <button type="button" class="btn-primary" id="retryBtn" style="width: 100%; margin-top: 20px;">
+                    Retry Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+        let bookingData = null;
+        let userToken = null;
+        let userId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeUser();
+            setupEventListeners();
+        });
+
+        async function initializeUser() {
+            try {
+                // Login user
+                const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@example.com', password: 'test123' })
+                });
+
+                const loginData = await loginRes.json();
+                userToken = loginData.token;
+                userId = loginData.data.user._id;
+                document.getElementById('email').value = loginData.data.user.email;
+                document.getElementById('phone').value = loginData.data.user.phone;
+
+                // Check face verification
+                await checkFaceVerification();
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Failed to initialize user');
+            }
+        }
+////////////////////////////////////////////////////////////
+        async function checkFaceVerification() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/booking-payment/verify-face-status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`
+                    },
+                    body: JSON.stringify({ userId })
+                });
+
+                const data = await response.json();
+                const status = document.getElementById('verificationStatus');
+
+                if (data.data.isVerified) {
+                    status.className = 'status-box success';
+                    status.innerHTML = `
+                        <div class="status-label">✅ Face Verified</div>
+                        <div>You are verified and ready to book events!</div>
+                    `;
+                    document.getElementById('bookingForm').style.opacity = '1';
+                } else {
+                    status.className = 'status-box error';
+                    status.innerHTML = `
+                        <div class="status-label">❌ Not Verified</div>
+                        <div>Please complete face verification to book events.</div>
+                    `;
+                    document.getElementById('bookingForm').style.opacity = '0.5';
+                    document.getElementById('bookBtn').disabled = true;
+                }
+            } catch (error) {
+                console.error('Verification check error:', error);
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('bookingForm').addEventListener('submit', handleBookingSubmit);
+            document.getElementById('paymentBtn').addEventListener('click', handlePaymentClick);
+            document.getElementById('cancelBtn').addEventListener('click', resetForm);
+            document.getElementById('newBookingBtn').addEventListener('click', resetForm);
+            document.getElementById('retryBtn').addEventListener('click', handlePaymentClick);
+
+            document.getElementById('quantity').addEventListener('change', updateSummary);
+            document.getElementById('seatType').addEventListener('change', updateSummary);
+        }
+
+        function updateSummary() {
+            const quantity = parseInt(document.getElementById('quantity').value) || 1;
+            const seatType = document.getElementById('seatType').value;
+            const priceMap = { 'Premium': 500, 'Standard': 300 };
+            const pricePerSeat = priceMap[seatType] || 500;
+            const total = quantity * pricePerSeat;
+
+            document.getElementById('summaryQuantity').textContent = quantity;
+            document.getElementById('summarySeatType').textContent = seatType || '-';
+            document.getElementById('summaryPricePerSeat').textContent = pricePerSeat;
+            document.getElementById('summaryTotalAmount').textContent = total.toLocaleString('en-IN');
+        }
+
+        async function handleBookingSubmit(e) {
+            e.preventDefault();
+
+            const eventId = document.getElementById('eventId').value;
+            const seatType = document.getElementById('seatType').value;
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const priceMap = { 'Premium': 500, 'Standard': 300 };
+            const pricePerSeat = priceMap[seatType];
+
+            if (!eventId || !seatType) {
+                alert('Please select event and seating type');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/booking-payment/initiate-with-verification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`
+                    },
+                    body: JSON.stringify({
+                        userId,
+                        eventId,
+                        seatingId: '694291bb1e613c43e1b18a77',
+                        seatType,
+                        quantity,
+                        pricePerSeat
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    bookingData = data.data;
+                    displaySummary();
+                } else {
+                    showError(data.message || 'Failed to create booking');
+                    showLoading(false);
+                }
+            } catch (error) {
+                console.error('Booking error:', error);
+                showError('Network error: ' + error.message);
+                showLoading(false);
+            }
+        }
+
+        function displaySummary() {
+            document.getElementById('bookingForm').style.display = 'none';
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('bookingSummary').classList.remove('hidden');
+
+            document.getElementById('summaryBookingId').textContent = bookingData.booking.bookingId;
+            document.getElementById('summaryEvent').textContent = 'Test Concert 2026';
+            document.getElementById('summaryQuantity').textContent = bookingData.booking.quantity;
+            document.getElementById('summarySeatType').textContent = bookingData.booking.seatType || '-';
+            document.getElementById('summaryTotalAmount').textContent = bookingData.booking.totalPrice.toLocaleString('en-IN');
+            document.getElementById('summaryOrderId').textContent = bookingData.payment.razorpayOrderId;
+        }
+
+        function handlePaymentClick() {
+            const options = {
+                key: 'rzp_test_S70BEK0R4wzs2b', // Your Razorpay Key ID
+                amount: bookingData.booking.totalPrice * 100, // Convert to paise
+                currency: 'INR',
+                order_id: bookingData.payment.razorpayOrderId,
+                name: 'AdminThrill',
+                description: `Booking for ${bookingData.booking.quantity} tickets`,
+                image: 'https://via.placeholder.com/200',
+                handler: handlePaymentSuccess,
+                prefill: {
+                    name: document.getElementById('email').value.split('@')[0],
+                    email: document.getElementById('email').value,
+                    contact: document.getElementById('phone').value
+                },
+                theme: {
+                    color: '#667eea'
+                },
+                // Enable all payment methods including bank/card
+                method: {
+                    netbanking: true,
+                    card: true,
+                    upi: true,
+                    wallet: true,
+                    emandate: false,
+                    recurring: false
+                },
+                // Bank transfer options
+                banks: ['HDFC', 'ICIC', 'AXIS', 'UTIB', 'HDFC_CORP', 'INDUS', 'UTIB_CORP', 'HDFC_CORP', 'ICIC_CORP', 'YES_CORP'],
+                // Timeout for payment
+                timeout: 900,
+                // Show all payment options
+                display: {
+                    blocks: {
+                        banks: {
+                            name: 'Banks',
+                            instruments: []
+                        }
+                    },
+                    sequence: ['block.banks', 'netbanking', 'card', 'upi', 'wallet'],
+                    preferences: {
+                        show_default_blocks: true
+                    }
+                },
+                modal: {
+                    ondismiss: () => {
+                        console.log('Payment modal closed');
+                    },
+                    escape: true,
+                    backdropClose: false
+                },
+                // Enable backup methods
+                backupMethods: ['netbanking', 'card', 'wallet', 'emandate'],
+                // Recurring payments disabled for now
+                recurring: false,
+                // Error callback
+                error: handlePaymentError
+            };
+
+            console.log('Opening Razorpay checkout with options:', options);
+            
+            try {
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                console.error('Razorpay error:', error);
+                showError('Failed to open payment gateway: ' + error.message);
+            }
+        }
+
+        function handlePaymentError(error) {
+            console.error('Payment Error:', error);
+            showError('Payment error: ' + (error.description || error.message || 'Unknown error'));
+        }
+
+        async function handlePaymentSuccess(response) {
+            try {
+                console.log('✅ Payment Success Response:', {
+                    orderId: response.razorpay_order_id,
+                    paymentId: response.razorpay_payment_id,
+                    signature: response.razorpay_signature
+                });
+
+                // Verify payment with backend
+                const confirmResponse = await fetch(`${API_BASE_URL}/booking-payment/confirm-booking`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`
+                    },
+                    body: JSON.stringify({
+                        bookingId: bookingData.booking.bookingId,
+                        razorpayOrderId: response.razorpay_order_id,
+                        razorpayPaymentId: response.razorpay_payment_id,
+                        razorpaySignature: response.razorpay_signature
+                    })
+                });
+
+                const confirmData = await confirmResponse.json();
+
+                console.log('📝 Backend Response:', {
+                    status: confirmResponse.status,
+                    responseStatus: confirmData.status,
+                    message: confirmData.message
+                });
+
+                if (confirmResponse.ok && confirmData.status === 'success') {
+                    console.log('🎉 Payment Confirmed!');
+                    showSuccess();
+                } else {
+                    const errorMsg = confirmData.message || confirmData.data?.message || 'Payment verification failed';
+                    console.error('❌ Payment Failed:', errorMsg);
+                    console.error('Full response:', confirmData);
+                    showError(errorMsg);
+                }
+            } catch (error) {
+                console.error('❌ Confirmation error:', error);
+                showError('Payment verification failed: ' + error.message);
+            }
+        }
+
+        function handlePaymentError(error) {
+            console.error('❌ Razorpay Payment Error:', error);
+            const errorMsg = error.description || error.message || 'Payment gateway error';
+            showError(errorMsg);
+        }
+
+        function showLoading(show = true) {
+            document.getElementById('bookingForm').style.display = show ? 'none' : 'block';
+            document.getElementById('loadingState').classList.toggle('hidden', !show);
+            document.getElementById('bookingSummary').classList.add('hidden');
+        }
+
+        function showSuccess() {
+            document.getElementById('bookingSummary').classList.add('hidden');
+            document.getElementById('errorState').classList.add('hidden');
+            document.getElementById('successState').classList.remove('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('bookingSummary').classList.add('hidden');
+            document.getElementById('successState').classList.add('hidden');
+            document.getElementById('errorState').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function resetForm() {
+            document.getElementById('bookingForm').style.display = 'block';
+            document.getElementById('bookingSummary').classList.add('hidden');
+            document.getElementById('errorState').classList.add('hidden');
+            document.getElementById('successState').classList.add('hidden');
+            document.getElementById('bookingForm').reset();
+            bookingData = null;
+        }
+    </script>
+</body>
+</html>

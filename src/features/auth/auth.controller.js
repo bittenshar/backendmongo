@@ -150,8 +150,13 @@ exports.resendOTP = catchAsync(async (req, res, next) => {
 ////////////////////////////////////////////////////////////////////
 
 ///////new      .//////////////////////////////////
+
+
 exports.sendOTPnew = catchAsync(async (req, res, next) => {
   const { phone } = req.body;
+
+  console.log(`📞 [Controller] Received phone from request:`, phone);
+  console.log(`📞 [Controller] Request body:`, req.body);
 
   // Validate phone number
   if (!phone) {
@@ -163,7 +168,7 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
 
   const phoneStatus = user ? 'existing' : 'new';
 
-  // Send OTP using Mock OTP Service
+  // Send OTP using mock OTP Service
   const result = await mockOtpService.sendOTP(phone);
 
   if (!result.success) {
@@ -183,7 +188,48 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
   });
 });
 
+/*
+exports.sendOTPnew = catchAsync(async (req, res, next) => {
+  // ✅ Accept multiple keys safely
+  const phoneRaw =
+    req.body.phone ||
+    req.body.phoneNumber ||
+    req.body.mobile;
 
+  console.log('📞 [Controller] Request body:', req.body);
+  console.log('📞 [Controller] Raw phone:', phoneRaw);
+
+  if (!phoneRaw) {
+    return next(new AppError('Please provide a phone number', 400));
+  }
+
+  // ✅ FORCE STRING
+  const phone = String(phoneRaw);
+
+  // Check if user exists
+  const user = await User.findOne({ phone });
+  const phoneStatus = user ? 'existing' : 'new';
+
+  // Send OTP
+  const result = await mockOtpService.sendOTP(phone);
+
+  if (!result.success) {
+    return next(new AppError(result.message, 400));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: result.message,
+    data: {
+      phone,
+      phoneStatus, // existing | new
+      sid: result.sid,
+      otp: result.otp // ⚠️ remove in production
+    }
+  });
+});
+
+*/
 exports.verifyOTPnew = catchAsync(async (req, res, next) => {
   const { phone, code, otp } = req.body;
   const otpCode = code || otp; // Accept both 'code' and 'otp' parameter names
@@ -192,7 +238,7 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide phone number and OTP code', 400));
   }
 
-  // Verify OTP with Mock OTP Service
+  // Verify OTP with mock OTP Service
   const verificationResult = await mockOtpService.verifyOTP(phone, otpCode);
 
   if (!verificationResult.success) {
@@ -258,8 +304,4 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
   // Generate token and send response
   await authService.createSendToken(tempUser, 201, res);
 });
-
-
-
-
 

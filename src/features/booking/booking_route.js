@@ -45,8 +45,9 @@ router.post('/:bookingId/cancel-with-refund', bookingController.cancelBookingWit
 // EXISTING ROUTES
 // ==========================================
 
-// Book seats (temporary lock)
-router.post('/book', bookSeat);
+// Book seats (temporary lock) - OLD endpoint, kept for backward compatibility
+// NOTE: POST /book is handled by unified payment endpoint above
+router.post('/book-seat', bookSeat);
 
 // Confirm booking after payment
 router.post('/confirm', confirmSeatAfterPayment);

@@ -112,7 +112,8 @@ exports.createOrder = async ({
       success: true,
       orderId,
       razorpayOrderId: razorpayOrder.id,
-      amount,
+      amount: Math.round(amount * 100), // Return amount in paise (for verification)
+      amountInRupees: amount, // Also return in rupees for display
       currency: 'INR',
       key: process.env.RAZORPAY_KEY_ID,
       payment: payment.toObject(),
