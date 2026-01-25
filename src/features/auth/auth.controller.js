@@ -284,9 +284,85 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
   }
 });
 
+// ============================================
+// @desc    Get current user's profile details
+// @route   GET /api/auth/complete-profile
+// @access  Private - Requires authentication
+// ============================================
+exports.getCompleteProfile = catchAsync(async (req, res, next) => {
+  const user = req.user;
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User profile retrieved successfully',
+    data: {
+      user: {
+        _id: user._id,
+        userId: user._id.toString(),
+        name: user.name,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+        verificationStatus: user.verificationStatus,
+        uploadedPhoto: user.uploadedPhoto || null,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        permissions: user.permissions || []
+      }
+    }
+  });
+});
+
+// ============================================
+// @desc    Update user's profile details
+// @route   POST /api/auth/complete-profile
+// @access  Private - Requires authentication
+// ============================================
 exports.completeProfile = catchAsync(async (req, res, next) => {
   const { tempUserId, name, email, lastname } = req.body;
+  const userId = req.user._id;
 
+  // If updating existing user (POST with auth token)
+  if (userId && !tempUserId) {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    // Update user profile
+    user.name = name || user.name;
+    user.email = email || user.email;
+    user.lastname = lastname || user.lastname;
+
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Profile updated successfully',
+      data: {
+        user: {
+          _id: user._id,
+          userId: user._id.toString(),
+          name: user.name,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          status: user.status,
+          verificationStatus: user.verificationStatus,
+          uploadedPhoto: user.uploadedPhoto || null
+        }
+      }
+    });
+    return;
+  }
+
+  // If completing temp user profile (old flow)
   if (!tempUserId) {
     return next(new AppError('Invalid session. Please start over.', 400));
   }

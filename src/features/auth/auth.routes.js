@@ -26,6 +26,9 @@ router.post('/resend-otp', authController.resendOTP);
 
 router.post('/send-otp-new', authController.sendOTPnew);
 router.post('/verify-otp-new', authController.verifyOTPnew);
-router.post('/complete-profile', authController.completeProfile);
 
+// Complete Profile - GET (retrieve) and POST (update)
+router.get('/complete-profile', authController.protect, authController.getCompleteProfile);
+router.post('/complete-profile', authController.protect, authController.completeProfile);
+rout
 module.exports = router;
