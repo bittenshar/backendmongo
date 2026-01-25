@@ -292,6 +292,22 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
 // ============================================
 exports.getCompleteProfile = catchAsync(async (req, res, next) => {
   const user = req.user;
+  const userId = user._id;
+
+  // Get Aadhaar upload status
+  const aadhaarImage = await AadhaarImage.findOne({ userId, imageType: 'front' });
+
+  const aadhaarStatus = aadhaarImage ? {
+    uploaded: true,
+    imageId: aadhaarImage._id,
+    status: aadhaarImage.status,
+    fullName: aadhaarImage.fullName,
+    uploadedAt: aadhaarImage.uploadedAt
+  } : {
+    uploaded: false,
+    imageId: null,
+    status: null
+  };
 
   res.status(200).json({
     status: 'success',
@@ -310,7 +326,8 @@ exports.getCompleteProfile = catchAsync(async (req, res, next) => {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         permissions: user.permissions || []
-      }
+      },
+      aadhaarStatus: aadhaarStatus
     }
   });
 });
