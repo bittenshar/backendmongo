@@ -96,15 +96,24 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     return next(new AppError(result.message || 'OTP verification failed', 400));
   }
 
-  res.status(200).json({
-    status: 'success',
-    message: result.message,
-    data: {
-      phone,
-      verified: result.verified,
-      status: 'approved'
-    }
-  });
+  // Find user by phone number
+  const user = await User.findOne({ phone });
+
+  if (!user) {
+    return res.status(200).json({
+      status: 'success',
+      message: result.message,
+      data: {
+        phone,
+        verified: result.verified,
+        status: 'approved',
+        userExists: false
+      }
+    });
+  }
+
+  // Generate JWT token and send response with user details (like login)
+  await authService.createSendToken(user, 200, res);
 });
 
 // ============================================

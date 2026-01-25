@@ -79,11 +79,34 @@ router.post(
 /**
  * GET /api/aadhaar/images
  * Get all Aadhaar images for authenticated user
+ * Returns upload status by userId (from token)
  */
 router.get(
   '/images',
   catchAsync(aadhaarController.getAadhaarImages)
 );
+
+/**
+ * GET /api/aadhaar/status
+ * Check if Aadhaar image is uploaded for authenticated user
+ * Returns: { uploaded: true/false, imageId: "...", status: "..." }
+ */
+router.get(
+  '/status',
+  catchAsync(aadhaarController.checkAadhaarUploadStatus)
+);
+
+/**
+ * GET /api/aadhaar/images/:imageId
+ * Get specific Aadhaar image by ID
+ * Requires: Authorization token
+ */
+router.get(
+  '/images/:imageId',
+  authMiddleware.protect,
+  catchAsync(aadhaarController.getAadhaarImageById)
+);
+
 
 /**
  * DELETE /api/aadhaar/images/:imageId
