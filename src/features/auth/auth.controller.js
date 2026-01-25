@@ -3,6 +3,7 @@ const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
 const mockOtpService = require('../../shared/services/mock-otp.service');
 const User = require('./auth.model');
+const AadhaarImage = require('../aadhaar/aadhaar.model');
 
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await authService.signup({
@@ -297,13 +298,13 @@ exports.getCompleteProfile = catchAsync(async (req, res, next) => {
     message: 'User profile retrieved successfully',
     data: {
       user: {
-        _id: user._id,
         userId: user._id.toString(),
-        name: user.name,
+        name: `${user.firstname || ''} ${user.lastname || ''}`.trim(),
         firstname: user.firstname,
         lastname: user.lastname,
         email: user.email,
         phone: user.phone,
+        state: user.state || null,
         role: user.role,
         status: user.status,
         verificationStatus: user.verificationStatus,
@@ -340,23 +341,39 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
 
     await user.save({ validateBeforeSave: false });
 
+    // Get Aadhaar upload status
+    const aadhaarImage = await AadhaarImage.findOne({ userId, imageType: 'front' });
+
+    const aadhaarStatus = aadhaarImage ? {
+      uploaded: true,
+      imageId: aadhaarImage._id,
+      status: aadhaarImage.status,
+      fullName: aadhaarImage.fullName,
+      uploadedAt: aadhaarImage.uploadedAt
+    } : {
+      uploaded: false,
+      imageId: null,
+      status: null
+    };
+
     res.status(200).json({
       status: 'success',
       message: 'Profile updated successfully',
       data: {
         user: {
-          _id: user._id,
           userId: user._id.toString(),
-          name: user.name,
+          name: `${user.firstname || ''} ${user.lastname || ''}`.trim(),
           firstname: user.firstname,
           lastname: user.lastname,
           email: user.email,
           phone: user.phone,
+          state: user.state || null,
           role: user.role,
           status: user.status,
           verificationStatus: user.verificationStatus,
           uploadedPhoto: user.uploadedPhoto || null
-        }
+        },
+        aadhaarStatus: aadhaarStatus
       }
     });
     return;
