@@ -299,9 +299,7 @@ exports.getCompleteProfile = catchAsync(async (req, res, next) => {
     data: {
       user: {
         userId: user._id.toString(),
-        name: `${user.firstname || ''} ${user.lastname || ''}`.trim(),
-        firstname: user.firstname,
-        lastname: user.lastname,
+        name: user.name,
         email: user.email,
         phone: user.phone,
         state: user.state || null,
@@ -363,8 +361,6 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
         user: {
           userId: user._id.toString(),
           name: `${user.firstname || ''} ${user.lastname || ''}`.trim(),
-          firstname: user.firstname,
-          lastname: user.lastname,
           email: user.email,
           phone: user.phone,
           state: user.state || null,
