@@ -286,49 +286,102 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
 });
 
 // ============================================
-// @desc    Get current user's profile details
-// @route   GET /api/auth/complete-profile
+// @desc    Get current user's profile details with optional filtering
+// @route   GET /api/auth/complete-profile?filter=user,aadhaar,face
 // @access  Private - Requires authentication
 // ============================================
 exports.getCompleteProfile = catchAsync(async (req, res, next) => {
   const user = req.user;
   const userId = user._id;
+  const filterParam = req.query.filter; // e.g., "user,aadhaar,face"
+  
+  // Parse filter - if no filter provided, return all
+  const filters = filterParam ? filterParam.split(',').map(f => f.trim().toLowerCase()) : ['user', 'aadhaar', 'face'];
+  
+  const data = {};
 
-  // Get Aadhaar upload status
-  const aadhaarImage = await AadhaarImage.findOne({ userId, imageType: 'front' });
+  // Get user data if requested
+  if (filters.includes('user')) {
+    data.user = {
+      userId: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      state: user.state || null,
+      role: user.role,
+      status: user.status,
+      verificationStatus: user.verificationStatus,
+      uploadedPhoto: user.uploadedPhoto || null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      permissions: user.permissions || []
+    };
+  }
 
-  const aadhaarStatus = aadhaarImage ? {
-    uploaded: true,
-    imageId: aadhaarImage._id,
-    status: aadhaarImage.status,
-    fullName: aadhaarImage.fullName,
-    uploadedAt: aadhaarImage.uploadedAt
-  } : {
-    uploaded: false,
-    imageId: null,
-    status: null
-  };
+  // Get Aadhaar status if requested
+  if (filters.includes('aadhaar')) {
+    const aadhaarImage = await AadhaarImage.findOne({ userId, imageType: 'front' });
+
+    data.aadhaarStatus = aadhaarImage ? {
+      uploaded: true,
+      imageId: aadhaarImage._id,
+      status: aadhaarImage.status,
+      fullName: aadhaarImage.fullName,
+      uploadedAt: aadhaarImage.uploadedAt
+    } : {
+      uploaded: false,
+      imageId: null,
+      status: null
+    };
+  }
+
+  // Check face verification if requested
+  if (filters.includes('face')) {
+    let hasFaceRecord = false;
+    let faceId = null;
+    let faceDebug = null;
+
+    try {
+      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_ACCESS_KEY_ID !== 'YOUR_ACTUAL_ACCESS_KEY_HERE') {
+        const dynamodbService = require('../../services/aws/dynamodb.service');
+        const userIdStr = userId.toString();
+        
+        console.log('🔍 [Face Check] Querying DynamoDB for userId:', userIdStr);
+        
+        const faceRecord = await dynamodbService.getUserFaceRecord(userIdStr);
+        
+        console.log('📊 [Face Check] DynamoDB Response:', JSON.stringify(faceRecord, null, 2));
+        
+        const recData = faceRecord && (faceRecord.data || faceRecord);
+        
+        console.log('📋 [Face Check] Parsed Data:', JSON.stringify(recData, null, 2));
+        
+        if (recData && (recData.RekognitionId || recData.rekognitionId)) {
+          hasFaceRecord = true;
+          faceId = recData.RekognitionId || recData.rekognitionId;
+          console.log('✅ [Face Check] Face record found! faceId:', faceId);
+        } else {
+          console.log('⚠️ [Face Check] No RekognitionId found in response');
+          faceDebug = { received: recData, hasRekognitionId: recData?.RekognitionId || recData?.rekognitionId };
+        }
+      }
+    } catch (err) {
+      console.log('❌ [Face Check] DynamoDB Error:', err.message);
+      faceDebug = { error: err.message };
+      hasFaceRecord = false;
+    }
+
+    data.faceVerification = {
+      verified: hasFaceRecord,
+      faceId: faceId,
+      debug: process.env.NODE_ENV === 'development' ? faceDebug : undefined
+    };
+  }
 
   res.status(200).json({
     status: 'success',
     message: 'User profile retrieved successfully',
-    data: {
-      user: {
-        userId: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        state: user.state || null,
-        role: user.role,
-        status: user.status,
-        verificationStatus: user.verificationStatus,
-        uploadedPhoto: user.uploadedPhoto || null,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        permissions: user.permissions || []
-      },
-      aadhaarStatus: aadhaarStatus
-    }
+    data: data
   });
 });
 
@@ -338,7 +391,7 @@ exports.getCompleteProfile = catchAsync(async (req, res, next) => {
 // @access  Private - Requires authentication
 // ============================================
 exports.completeProfile = catchAsync(async (req, res, next) => {
-  const { tempUserId, name, email, lastname } = req.body;
+  const { tempUserId, name, email, lastname, state } = req.body;
   const userId = req.user._id;
 
   // If updating existing user (POST with auth token)
@@ -353,6 +406,7 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
     user.name = name || user.name;
     user.email = email || user.email;
     user.lastname = lastname || user.lastname;
+    user.state = state || user.state;
 
     await user.save({ validateBeforeSave: false });
 
@@ -371,6 +425,27 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
       status: null
     };
 
+    // Check if user has face record in DynamoDB
+    let hasFaceRecord = false;
+    let faceId = null;
+
+    try {
+      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_ACCESS_KEY_ID !== 'YOUR_ACTUAL_ACCESS_KEY_HERE') {
+        const dynamodbService = require('../../services/aws/dynamodb.service');
+        const userIdStr = userId.toString();
+        const faceRecord = await dynamodbService.getUserFaceRecord(userIdStr);
+        const data = faceRecord && (faceRecord.data || faceRecord);
+        
+        if (data && data.RekognitionId) {
+          hasFaceRecord = true;
+          faceId = data.RekognitionId || data.rekognitionId;
+        }
+      }
+    } catch (err) {
+      // Gracefully skip DynamoDB errors
+      hasFaceRecord = false;
+    }
+
     res.status(200).json({
       status: 'success',
       message: 'Profile updated successfully',
@@ -386,7 +461,11 @@ exports.completeProfile = catchAsync(async (req, res, next) => {
           verificationStatus: user.verificationStatus,
           uploadedPhoto: user.uploadedPhoto || null
         },
-        aadhaarStatus: aadhaarStatus
+        aadhaarStatus: aadhaarStatus,
+        faceVerification: {
+          verified: hasFaceRecord,
+          faceId: faceId
+        }
       }
     });
     return;

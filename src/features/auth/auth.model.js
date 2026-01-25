@@ -77,6 +77,7 @@ const userSchema = new mongoose.Schema({
   uploadedPhotoAt: { type: Date },
   lastLogin: { type: Date },
   status: { type: String, enum: ['active', 'suspended'], default: 'active' },
+  state: { type: String, default: null },
   
   // OTP Verification Fields
   phoneVerified: { type: Boolean, default: false },

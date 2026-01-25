@@ -28,6 +28,7 @@ router.post('/send-otp-new', authController.sendOTPnew);
 router.post('/verify-otp-new', authController.verifyOTPnew);
 
 // Complete Profile - GET (retrieve) and POST (update)
+// GET supports filter query param: ?filter=user,aadhaar,face (comma-separated)
 router.get('/complete-profile', authController.protect, authController.getCompleteProfile);
 router.post('/complete-profile', authController.protect, authController.completeProfile);
 
