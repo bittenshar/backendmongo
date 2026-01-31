@@ -25,6 +25,29 @@ const initializeRazorpay = () => {
 };
 
 /**
+ * Calculate convenience fee based on amount and percentage
+ * @param {number} baseAmount - Base amount in rupees
+ * @param {number} feePercentage - Fee percentage (e.g., 2.36 for 2.36%). Defaults to env RAZORPAY_CONVENIENCE_FEE_PERCENTAGE
+ * @returns {Object} { baseAmount, fee, totalAmount }
+ */
+exports.calculateConvenienceFee = (baseAmount, feePercentage) => {
+  // Use provided percentage or fall back to environment variable or default
+  const percentage = feePercentage || parseFloat(process.env.RAZORPAY_CONVENIENCE_FEE_PERCENTAGE || 2.36);
+  
+  const fee = Math.round((baseAmount * percentage) / 100);
+  const totalAmount = baseAmount + fee;
+  
+  console.log('💰 Convenience Fee Calculation:', {
+    baseAmount,
+    feePercentage: `${percentage}%`,
+    fee,
+    totalAmount
+  });
+  
+  return { baseAmount, fee, totalAmount };
+};
+
+/**
  * Create Razorpay order for booking
  * @param {number} amount - Amount in rupees
  * @param {string} bookingId - Booking ID
@@ -211,9 +234,98 @@ exports.refundPayment = async (paymentId, amount, notes) => {
   }
 };
 
+/**
+ * Create Razorpay order with convenience fee
+ * @param {number} baseAmount - Base amount in rupees (without fee)
+ * @param {string} bookingId - Booking ID
+ * @param {string} email - Customer email
+ * @param {string} phone - Customer phone
+ * @param {string} name - Customer name
+ * @param {number} feePercentage - Fee percentage (default: 2.36)
+ * @returns {Promise<Object>} Razorpay order object with fee breakdown
+ */
+exports.createRazorpayOrderWithFee = async (
+  baseAmount,
+  bookingId,
+  email,
+  phone,
+  name,
+  feePercentage = 2.36
+) => {
+  try {
+    const rz = initializeRazorpay();
+
+    // Calculate convenience fee
+    const { fee, totalAmount } = exports.calculateConvenienceFee(baseAmount, feePercentage);
+
+    // Generate unique receipt
+    const receipt = `BOOKING_${bookingId.substring(0, 8)}_${Date.now().toString().slice(-6)}`;
+
+    const options = {
+      amount: Math.round(totalAmount * 100), // Convert to paise
+      currency: 'INR',
+      receipt,
+      description: `Booking Payment - ${bookingId}`,
+      notes: {
+        bookingId,
+        type: 'booking_payment',
+        baseAmount,
+        convenienceFee: fee,
+        feePercentage,
+        totalAmount,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    console.log('📝 Creating Razorpay order with convenience fee:', {
+      bookingId,
+      baseAmount,
+      convenienceFee: fee,
+      totalAmount,
+      email,
+      phone
+    });
+
+    const order = await rz.orders.create(options);
+
+    console.log('✅ Razorpay order with fee created:', order.id);
+
+    return {
+      id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      baseAmount,
+      convenienceFee: fee,
+      totalAmount,
+      feePercentage,
+      receipt: order.receipt,
+      status: order.status,
+      createdAt: order.created_at
+    };
+  } catch (error) {
+    console.error('❌ Error creating Razorpay order with fee');
+    console.error('   Error message:', error.message);
+
+    let errorMsg = 'Unknown error';
+    try {
+      if (error.message) errorMsg = error.message;
+      else if (error.error) errorMsg = JSON.stringify(error.error);
+      else if (error.response && error.response.body) errorMsg = JSON.stringify(error.response.body);
+      else errorMsg = JSON.stringify(error);
+    } catch (e) {
+      errorMsg = 'Unable to parse error';
+    }
+
+    console.error('   Parsed message:', errorMsg);
+    throw new Error(`Razorpay Order Creation Failed: ${errorMsg}`);
+  }
+};
+
 module.exports = {
   initializeRazorpay,
+  calculateConvenienceFee: exports.calculateConvenienceFee,
   createRazorpayOrder: exports.createRazorpayOrder,
+  createRazorpayOrderWithFee: exports.createRazorpayOrderWithFee,
   verifyRazorpayPayment: exports.verifyRazorpayPayment,
   fetchPaymentDetails: exports.fetchPaymentDetails,
   refundPayment: exports.refundPayment

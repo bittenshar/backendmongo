@@ -7,6 +7,9 @@ const router = express.Router();
 // Public webhook endpoint (no auth required)
 router.post('/webhook', paymentController.handleWebhook);
 
+// Public convenience fee endpoint (no auth required)
+router.get('/convenience-fee', paymentController.getConvenienceFee);
+
 // Protected routes
 router.use(authMiddleware.protect);
 

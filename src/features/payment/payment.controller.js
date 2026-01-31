@@ -319,3 +319,62 @@ exports.getPaymentByOrderId = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get convenience fee for a given amount
+ * GET /api/payments/convenience-fee?amount=1000&feePercentage=2.36
+ */
+exports.getConvenienceFee = async (req, res) => {
+  try {
+    const razorpayService = require('../../services/razorpay.service');
+    const { amount, feePercentage } = req.query;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid amount. Must be greater than 0',
+        code: 400
+      });
+    }
+
+    const baseAmount = parseFloat(amount);
+    
+    // Use provided percentage or fall back to environment variable
+    const percentage = feePercentage ? parseFloat(feePercentage) : parseFloat(process.env.RAZORPAY_CONVENIENCE_FEE_PERCENTAGE || 2.36);
+
+    // Calculate convenience fee
+    const { fee, totalAmount } = razorpayService.calculateConvenienceFee(
+      baseAmount,
+      percentage
+    );
+
+    console.log('📊 Convenience Fee Calculation:', {
+      baseAmount,
+      feePercentage: percentage,
+      fee,
+      totalAmount
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Convenience fee calculated',
+      data: {
+        baseAmount,
+        feePercentage: percentage,
+        convenienceFee: fee,
+        totalAmount,
+        breakdown: {
+          base: baseAmount,
+          fee: fee,
+          total: totalAmount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get convenience fee error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+};
