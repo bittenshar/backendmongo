@@ -36,11 +36,11 @@ exports.calculateConvenienceFee = (baseAmount, feePercentage, gstPercentage) => 
   const percentage = feePercentage || parseFloat(process.env.RAZORPAY_CONVENIENCE_FEE_PERCENTAGE || 2.36);
   const gstPercent = gstPercentage || parseFloat(process.env.RAZORPAY_GST_PERCENTAGE || 18);
   
-  // Calculate convenience fee
-  const convenienceFee = Math.round((baseAmount * percentage) / 100);
+  // Calculate convenience fee (no rounding)
+  const convenienceFee = (baseAmount * percentage) / 100;
   
   // Calculate GST on convenience fee (18% of fee)
-  const gstOnFee = Math.round((convenienceFee * gstPercent) / 100);
+  const gstOnFee = (convenienceFee * gstPercent) / 100;
   
   // Total fee (fee + GST)
   const totalFee = convenienceFee + gstOnFee;
@@ -51,14 +51,20 @@ exports.calculateConvenienceFee = (baseAmount, feePercentage, gstPercentage) => 
   console.log('💰 Convenience Fee Calculation (with GST):', {
     baseAmount,
     feePercentage: `${percentage}%`,
-    convenienceFee,
+    convenienceFee: parseFloat(convenienceFee.toFixed(2)),
     gstPercentage: `${gstPercent}%`,
-    gstOnFee,
-    totalFee,
-    totalAmount
+    gstOnFee: parseFloat(gstOnFee.toFixed(2)),
+    totalFee: parseFloat(totalFee.toFixed(2)),
+    totalAmount: parseFloat(totalAmount.toFixed(2))
   });
   
-  return { baseAmount, convenienceFee, gstOnFee, totalFee, totalAmount };
+  return { 
+    baseAmount, 
+    convenienceFee: parseFloat(convenienceFee.toFixed(2)), 
+    gstOnFee: parseFloat(gstOnFee.toFixed(2)), 
+    totalFee: parseFloat(totalFee.toFixed(2)), 
+    totalAmount: parseFloat(totalAmount.toFixed(2))
+  };
 };
 
 /**
@@ -282,7 +288,7 @@ exports.createRazorpayOrderWithFee = async (
     const receipt = `BOOKING_${bookingId.substring(0, 8)}_${Date.now().toString().slice(-6)}`;
 
     const options = {
-      amount: Math.round(totalAmount * 100), // Convert to paise
+      amount: Math.ceil(totalAmount * 100), // Convert to paise (ceiling for decimal values)
       currency: 'INR',
       receipt,
       description: `Booking Payment - ${bookingId}`,
