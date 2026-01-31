@@ -322,12 +322,12 @@ exports.getPaymentByOrderId = async (req, res) => {
 
 /**
  * Get convenience fee for a given amount
- * GET /api/payments/convenience-fee?amount=1000&feePercentage=2.36
+ * GET /api/payments/convenience-fee?amount=1000&feePercentage=2.36&gstPercentage=18
  */
 exports.getConvenienceFee = async (req, res) => {
   try {
     const razorpayService = require('../../services/razorpay.service');
-    const { amount, feePercentage } = req.query;
+    const { amount, feePercentage, gstPercentage } = req.query;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({
@@ -339,33 +339,42 @@ exports.getConvenienceFee = async (req, res) => {
 
     const baseAmount = parseFloat(amount);
     
-    // Use provided percentage or fall back to environment variable
+    // Use provided values or fall back to environment variables
     const percentage = feePercentage ? parseFloat(feePercentage) : parseFloat(process.env.RAZORPAY_CONVENIENCE_FEE_PERCENTAGE || 2.36);
+    const gstPercent = gstPercentage ? parseFloat(gstPercentage) : parseFloat(process.env.RAZORPAY_GST_PERCENTAGE || 18);
 
-    // Calculate convenience fee
-    const { fee, totalAmount } = razorpayService.calculateConvenienceFee(
+    // Calculate convenience fee with GST
+    const { convenienceFee, gstOnFee, totalFee, totalAmount } = razorpayService.calculateConvenienceFee(
       baseAmount,
-      percentage
+      percentage,
+      gstPercent
     );
 
-    console.log('📊 Convenience Fee Calculation:', {
+    console.log('📊 Convenience Fee Calculation (with GST):', {
       baseAmount,
       feePercentage: percentage,
-      fee,
+      convenienceFee,
+      gstPercentage: gstPercent,
+      gstOnFee,
+      totalFee,
       totalAmount
     });
 
     res.status(200).json({
       status: 'success',
-      message: 'Convenience fee calculated',
+      message: 'Convenience fee calculated with GST',
       data: {
         baseAmount,
         feePercentage: percentage,
-        convenienceFee: fee,
+        convenienceFee,
+        gstPercentage: gstPercent,
+        gstOnFee,
+        totalFee,
         totalAmount,
         breakdown: {
           base: baseAmount,
-          fee: fee,
+          convenienceFee: convenienceFee,
+          gst: gstOnFee,
           total: totalAmount
         }
       }

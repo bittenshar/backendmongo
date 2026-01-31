@@ -28,23 +28,37 @@ const initializeRazorpay = () => {
  * Calculate convenience fee based on amount and percentage
  * @param {number} baseAmount - Base amount in rupees
  * @param {number} feePercentage - Fee percentage (e.g., 2.36 for 2.36%). Defaults to env RAZORPAY_CONVENIENCE_FEE_PERCENTAGE
- * @returns {Object} { baseAmount, fee, totalAmount }
+ * @param {number} gstPercentage - GST percentage on fee (e.g., 18 for 18%). Defaults to env RAZORPAY_GST_PERCENTAGE
+ * @returns {Object} { baseAmount, convenienceFee, gstOnFee, totalFee, totalAmount }
  */
-exports.calculateConvenienceFee = (baseAmount, feePercentage) => {
-  // Use provided percentage or fall back to environment variable or default
+exports.calculateConvenienceFee = (baseAmount, feePercentage, gstPercentage) => {
+  // Use provided values or fall back to environment variables or defaults
   const percentage = feePercentage || parseFloat(process.env.RAZORPAY_CONVENIENCE_FEE_PERCENTAGE || 2.36);
+  const gstPercent = gstPercentage || parseFloat(process.env.RAZORPAY_GST_PERCENTAGE || 18);
   
-  const fee = Math.round((baseAmount * percentage) / 100);
-  const totalAmount = baseAmount + fee;
+  // Calculate convenience fee
+  const convenienceFee = Math.round((baseAmount * percentage) / 100);
   
-  console.log('💰 Convenience Fee Calculation:', {
+  // Calculate GST on convenience fee (18% of fee)
+  const gstOnFee = Math.round((convenienceFee * gstPercent) / 100);
+  
+  // Total fee (fee + GST)
+  const totalFee = convenienceFee + gstOnFee;
+  
+  // Total amount to be paid
+  const totalAmount = baseAmount + totalFee;
+  
+  console.log('💰 Convenience Fee Calculation (with GST):', {
     baseAmount,
     feePercentage: `${percentage}%`,
-    fee,
+    convenienceFee,
+    gstPercentage: `${gstPercent}%`,
+    gstOnFee,
+    totalFee,
     totalAmount
   });
   
-  return { baseAmount, fee, totalAmount };
+  return { baseAmount, convenienceFee, gstOnFee, totalFee, totalAmount };
 };
 
 /**
@@ -241,7 +255,8 @@ exports.refundPayment = async (paymentId, amount, notes) => {
  * @param {string} email - Customer email
  * @param {string} phone - Customer phone
  * @param {string} name - Customer name
- * @param {number} feePercentage - Fee percentage (default: 2.36)
+ * @param {number} feePercentage - Fee percentage (default: from env)
+ * @param {number} gstPercentage - GST percentage (default: from env)
  * @returns {Promise<Object>} Razorpay order object with fee breakdown
  */
 exports.createRazorpayOrderWithFee = async (
@@ -250,13 +265,18 @@ exports.createRazorpayOrderWithFee = async (
   email,
   phone,
   name,
-  feePercentage = 2.36
+  feePercentage,
+  gstPercentage
 ) => {
   try {
     const rz = initializeRazorpay();
 
-    // Calculate convenience fee
-    const { fee, totalAmount } = exports.calculateConvenienceFee(baseAmount, feePercentage);
+    // Calculate convenience fee with GST
+    const { convenienceFee, gstOnFee, totalFee, totalAmount } = exports.calculateConvenienceFee(
+      baseAmount,
+      feePercentage,
+      gstPercentage
+    );
 
     // Generate unique receipt
     const receipt = `BOOKING_${bookingId.substring(0, 8)}_${Date.now().toString().slice(-6)}`;
@@ -270,17 +290,20 @@ exports.createRazorpayOrderWithFee = async (
         bookingId,
         type: 'booking_payment',
         baseAmount,
-        convenienceFee: fee,
-        feePercentage,
+        convenienceFee,
+        gstOnFee,
+        totalFee,
         totalAmount,
         timestamp: new Date().toISOString()
       }
     };
 
-    console.log('📝 Creating Razorpay order with convenience fee:', {
+    console.log('📝 Creating Razorpay order with convenience fee + GST:', {
       bookingId,
       baseAmount,
-      convenienceFee: fee,
+      convenienceFee,
+      gstOnFee,
+      totalFee,
       totalAmount,
       email,
       phone
@@ -295,9 +318,10 @@ exports.createRazorpayOrderWithFee = async (
       amount: order.amount,
       currency: order.currency,
       baseAmount,
-      convenienceFee: fee,
+      convenienceFee,
+      gstOnFee,
+      totalFee,
       totalAmount,
-      feePercentage,
       receipt: order.receipt,
       status: order.status,
       createdAt: order.created_at
