@@ -598,10 +598,11 @@
                 return;
             }
 
+            // Use correct Razorpay field names
             const verifyData = {
-                orderId: env.razorpayOrderId,
-                paymentId: 'pay_test_' + Date.now(),
-                signature: 'test_signature_' + Date.now()
+                razorpayOrderId: env.razorpayOrderId,
+                razorpayPaymentId: 'pay_test_' + Date.now(),
+                razorpaySignature: 'test_signature_' + Date.now()
             };
 
             showLoader('paymentLoader', true);
