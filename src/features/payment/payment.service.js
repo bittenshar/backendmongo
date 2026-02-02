@@ -172,20 +172,14 @@ exports.verifyPaymentSignature = async ({
       throw new Error(`Payment record not found for orderId: ${orderId}`);
     }
 
-    // Create signature hash using razorpayOrderId and paymentId
-    const generateSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${payment.razorpayOrderId}|${paymentId}`)
-      .digest('hex');
-
     // Verify signature using razorpayOrderId (SECURE)
-    const generateSignature = razorpayService.verifyRazorpayPayment(
+    const isSignatureValid = razorpayService.verifyRazorpayPayment(
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature
     );
 
-    if (!generateSignature) {
+    if (!isSignatureValid) {
       console.error('❌ Signature verification FAILED:', {
         razorpayOrderId,
         razorpayPaymentId,
