@@ -118,22 +118,23 @@ exports.createOrder = async (req, res) => {
 /**
  * Verify payment
  * POST /api/payments/verify
+ * Body: { razorpayOrderId, razorpayPaymentId, razorpaySignature }
  */
 exports.verifyPayment = async (req, res) => {
   try {
-    const { orderId, paymentId, signature } = req.body;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
 
-    if (!orderId || !paymentId || !signature) {
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: orderId, paymentId, signature',
+        message: 'Missing required fields: razorpayOrderId, razorpayPaymentId, razorpaySignature',
       });
     }
 
     const result = await paymentService.verifyPaymentSignature({
-      orderId,
-      paymentId,
-      signature,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
     });
 
     res.status(200).json({

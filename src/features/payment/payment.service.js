@@ -144,12 +144,14 @@ exports.createOrder = async ({
 };
 
 /**
- * Verify payment signature
+ * Verify payment signature (SECURE)
+ * Requires: razorpayOrderId, razorpayPaymentId, razorpaySignature
  */
 exports.verifyPaymentSignature = async ({
-  orderId,
-  paymentId,
-  signature,
+  razorpayOrderId,
+  razorpayPaymentId,
+  razorpaySignature,
+  orderId, // Optional: user's internal order ID for tracking
 }) => {
   try {
     // Check if Razorpay is initialized (warning only, signature verification works without it)
@@ -157,24 +159,13 @@ exports.verifyPaymentSignature = async ({
       console.warn('⚠️ Razorpay not configured - payment details fetch will be skipped');
     }
 
-    // Try to find payment by orderId (could be ORD_... or order_...)
+    // Try to find payment by orderId or razorpayOrderId
     let payment = null;
     
-    // First, try finding by orderId (user's order ID)
-    if (orderId.startsWith('ORD_')) {
+    if (razorpayOrderId) {
+      payment = await Payment.findOne({ razorpayOrderId });
+    } else if (orderId) {
       payment = await Payment.findOne({ orderId });
-    }
-    
-    // If not found, try by razorpayOrderId
-    if (!payment && orderId.startsWith('order_')) {
-      payment = await Payment.findOne({ razorpayOrderId: orderId });
-    }
-    
-    // If still not found, try both ways more broadly
-    if (!payment) {
-      payment = await Payment.findOne({ 
-        $or: [{ orderId }, { razorpayOrderId: orderId }] 
-      });
     }
 
     if (!payment) {
@@ -187,16 +178,23 @@ exports.verifyPaymentSignature = async ({
       .update(`${payment.razorpayOrderId}|${paymentId}`)
       .digest('hex');
 
-    // Verify signature
-    if (generateSignature !== signature) {
-      console.error('Signature mismatch:', {
-        expected: generateSignature,
-        received: signature,
-        razorpayOrderId: payment.razorpayOrderId,
-        paymentId
+    // Verify signature using razorpayOrderId (SECURE)
+    const generateSignature = razorpayService.verifyRazorpayPayment(
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    );
+
+    if (!generateSignature) {
+      console.error('❌ Signature verification FAILED:', {
+        razorpayOrderId,
+        razorpayPaymentId,
+        signature: razorpaySignature
       });
-      throw new Error('Invalid payment signature');
+      throw new Error('Invalid payment signature - Payment could be tampered or fake');
     }
+
+    console.log('✅ Signature verified successfully');
 
     // Try to fetch payment details from Razorpay
     let paymentDetails = null;
@@ -204,7 +202,7 @@ exports.verifyPaymentSignature = async ({
     
     if (razorpay) {
       try {
-        paymentDetails = await razorpay.payments.fetch(paymentId);
+        paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
         console.log('✅ Fetched payment details from Razorpay:', paymentDetails.id);
       } catch (err) {
         // If payment doesn't exist in Razorpay (test scenario), that's okay
@@ -215,7 +213,7 @@ exports.verifyPaymentSignature = async ({
         
         // Use default status if we couldn't fetch from Razorpay
         paymentDetails = {
-          id: paymentId,
+          id: razorpayPaymentId,
           status: 'captured', // Assume captured if signature is valid
           amount: payment.amount,
           currency: payment.currency
@@ -225,7 +223,7 @@ exports.verifyPaymentSignature = async ({
       // Razorpay not configured - use default status
       console.log('Using default payment status (Razorpay not configured)');
       paymentDetails = {
-        id: paymentId,
+        id: razorpayPaymentId,
         status: 'captured', // Assume captured if signature is valid
         amount: payment.amount,
         currency: payment.currency

@@ -136,13 +136,13 @@ exports.createRazorpayOrder = async (amount, bookingId, email, phone, name) => {
 };
 
 /**
- * Verify Razorpay payment signature
- * @param {string} orderId - Razorpay order ID
- * @param {string} paymentId - Razorpay payment ID
- * @param {string} signature - Razorpay signature
+ * Verify Razorpay payment signature (SECURE)
+ * @param {string} razorpayOrderId - Razorpay order ID
+ * @param {string} razorpayPaymentId - Razorpay payment ID
+ * @param {string} razorpaySignature - Razorpay signature from response
  * @returns {boolean} Whether payment is verified
  */
-exports.verifyRazorpayPayment = (orderId, paymentId, signature) => {
+exports.verifyRazorpayPayment = (razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
   try {
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -150,20 +150,20 @@ exports.verifyRazorpayPayment = (orderId, paymentId, signature) => {
       throw new Error('Razorpay key secret not configured');
     }
 
-    // Create the signature source
+    // Create the signature source (MUST include order ID)
     const shasum = crypto.createHmac('sha256', keySecret);
-    const data = `${orderId}|${paymentId}`;
+    const data = `${razorpayOrderId}|${razorpayPaymentId}`;
 
     shasum.update(data);
     const expectedSignature = shasum.digest('hex');
 
-    console.log('🔐 Payment Verification:');
-    console.log('  Order ID:', orderId);
-    console.log('  Payment ID:', paymentId);
+    console.log('🔐 Payment Verification (SECURE):');
+    console.log('  Razorpay Order ID:', razorpayOrderId);
+    console.log('  Razorpay Payment ID:', razorpayPaymentId);
     console.log('  Expected Signature:', expectedSignature);
-    console.log('  Provided Signature:', signature);
+    console.log('  Provided Signature:', razorpaySignature);
 
-    const isValid = expectedSignature === signature;
+    const isValid = expectedSignature === razorpaySignature;
 
     if (isValid) {
       console.log('✅ Payment signature verified successfully');
