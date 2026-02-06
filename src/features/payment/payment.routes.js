@@ -19,6 +19,9 @@ router.use(authMiddleware.protect);
 // Create payment order
 router.post('/create-order', paymentController.createOrder);
 
+// Fetch payment details from Razorpay
+router.post('/fetch-razorpay-payment', paymentController.fetchRazorpayPayment);
+
 // Verify payment
 router.post('/verify', paymentController.verifyPayment);
 

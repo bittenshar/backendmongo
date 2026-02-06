@@ -64,6 +64,9 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(attachDBMiddleware);
 
+// Serve static files from root directory (for HTML test files)
+app.use(express.static(path.join(__dirname, '..')));
+
 // Debug middleware for user routes
 app.use('/api/users/:userId/*', (req, res, next) => {
     console.log('🔍 User ID Debug:', {

@@ -598,18 +598,51 @@
                 return;
             }
 
-            // Use correct Razorpay field names
-            const verifyData = {
-                razorpayOrderId: env.razorpayOrderId,
-                razorpayPaymentId: 'pay_test_' + Date.now(),
-                razorpaySignature: 'test_signature_' + Date.now()
-            };
-
             showLoader('paymentLoader', true);
-            showStatus('paymentStatus', 'Verifying payment...', 'info');
+            showStatus('paymentStatus', 'Getting payment details from Razorpay...', 'info');
 
             try {
-                const response = await fetch(`${API_BASE()}/api/payments/verify`, {
+                // Step 1: Fetch payment details from Razorpay API using orderId
+                const fetchResponse = await fetch(`${API_BASE()}/api/payments/fetch-razorpay-payment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${env.userToken}`
+                    },
+                    body: JSON.stringify({
+                        razorpayOrderId: env.razorpayOrderId
+                    })
+                });
+
+                if (!fetchResponse.ok) {
+                    showLoader('paymentLoader', false);
+                    const errorData = await fetchResponse.json();
+                    showStatus('paymentStatus', `❌ Failed to fetch payment: ${errorData.message}`, 'error');
+                    showResponse('paymentResponse', 'paymentContent', errorData);
+                    return;
+                }
+
+                const paymentData = await fetchResponse.json();
+                const razorpayPaymentId = paymentData.razorpayPaymentId || paymentData.paymentId;
+                const razorpaySignature = paymentData.razorpaySignature || paymentData.signature;
+
+                if (!razorpayPaymentId || !razorpaySignature) {
+                    showLoader('paymentLoader', false);
+                    showStatus('paymentStatus', '❌ Could not retrieve payment details from Razorpay', 'error');
+                    showResponse('paymentResponse', 'paymentContent', paymentData);
+                    return;
+                }
+
+                // Step 2: Verify the payment signature
+                showStatus('paymentStatus', 'Verifying payment signature...', 'info');
+
+                const verifyData = {
+                    razorpayOrderId: env.razorpayOrderId,
+                    razorpayPaymentId: razorpayPaymentId,
+                    razorpaySignature: razorpaySignature
+                };
+
+                const verifyResponse = await fetch(`${API_BASE()}/api/payments/verify`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -618,19 +651,20 @@
                     body: JSON.stringify(verifyData)
                 });
 
-                const data = await response.json();
+                const verifyResult = await verifyResponse.json();
                 showLoader('paymentLoader', false);
 
-                if (response.ok) {
+                if (verifyResponse.ok) {
                     showStatus('paymentStatus', '✅ Payment verified successfully!', 'success');
-                    showResponse('paymentResponse', 'paymentContent', data);
+                    showResponse('paymentResponse', 'paymentContent', verifyResult);
                 } else {
-                    showStatus('paymentStatus', `⚠️ Verification response: ${data.message || 'Check details'}`, 'info');
-                    showResponse('paymentResponse', 'paymentContent', data);
+                    showStatus('paymentStatus', `⚠️ Verification response: ${verifyResult.message || 'Check details'}`, 'info');
+                    showResponse('paymentResponse', 'paymentContent', verifyResult);
                 }
             } catch (error) {
                 showLoader('paymentLoader', false);
                 showStatus('paymentStatus', `❌ Error: ${error.message}`, 'error');
+                console.error('Verify payment error:', error);
             }
         }
 

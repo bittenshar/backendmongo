@@ -152,6 +152,38 @@ exports.verifyPayment = async (req, res) => {
 };
 
 /**
+ * Fetch payment details from Razorpay using order ID
+ * POST /api/payments/fetch-razorpay-payment
+ * Body: { razorpayOrderId }
+ */
+exports.fetchRazorpayPayment = async (req, res) => {
+  try {
+    const { razorpayOrderId } = req.body;
+
+    if (!razorpayOrderId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required field: razorpayOrderId',
+      });
+    }
+
+    const result = await paymentService.fetchPaymentFromRazorpay(razorpayOrderId);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Payment details fetched successfully',
+      ...result,
+    });
+  } catch (error) {
+    console.error('Fetch Razorpay payment error:', error);
+    res.status(400).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+};
+
+/**
  * Get payment details
  * GET /api/payments/:paymentId
  */
