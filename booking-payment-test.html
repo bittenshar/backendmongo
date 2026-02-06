@@ -376,6 +376,23 @@
                     <button class="btn-secondary" onclick="verifyPayment()">Verify Payment</button>
                 </div>
 
+                <!-- Manual Verification Section -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
+                    <h3 style="color: #667eea; margin-bottom: 10px;">Manual Verification</h3>
+                    
+                    <div class="form-group">
+                        <label for="paymentId">Payment ID (from Razorpay)</label>
+                        <input type="text" id="paymentId" placeholder="pay_xxxxx">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="paymentSignature">Signature (from Razorpay)</label>
+                        <input type="text" id="paymentSignature" placeholder="signature_hash">
+                    </div>
+
+                    <button class="btn-secondary" onclick="verifyPaymentManual()">Verify with Manual Details</button>
+                </div>
+
                 <div id="paymentStatus" class="status"></div>
                 <div id="paymentLoader" class="loader"></div>
 
@@ -633,6 +650,10 @@
                     return;
                 }
 
+                // Populate manual fields for reference
+                document.getElementById('paymentId').value = razorpayPaymentId;
+                document.getElementById('paymentSignature').value = razorpaySignature;
+
                 // Step 2: Verify the payment signature
                 showStatus('paymentStatus', 'Verifying payment signature...', 'info');
 
@@ -665,6 +686,60 @@
                 showLoader('paymentLoader', false);
                 showStatus('paymentStatus', `❌ Error: ${error.message}`, 'error');
                 console.error('Verify payment error:', error);
+            }
+        }
+
+        async function verifyPaymentManual() {
+            if (!env.userToken || !env.razorpayOrderId) {
+                showStatus('paymentStatus', '❌ Please create a payment order first', 'error');
+                return;
+            }
+
+            const razorpayPaymentId = document.getElementById('paymentId').value;
+            const razorpaySignature = document.getElementById('paymentSignature').value;
+
+            if (!razorpayPaymentId || !razorpaySignature) {
+                showStatus('paymentStatus', '❌ Please enter Payment ID and Signature', 'error');
+                return;
+            }
+
+            showLoader('paymentLoader', true);
+            showStatus('paymentStatus', 'Verifying payment with manual details...', 'info');
+
+            try {
+                const verifyData = {
+                    razorpayOrderId: env.razorpayOrderId,
+                    razorpayPaymentId: razorpayPaymentId,
+                    razorpaySignature: razorpaySignature
+                };
+
+                console.log('Sending verification request:', verifyData);
+
+                const verifyResponse = await fetch(`${API_BASE()}/api/payments/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${env.userToken}`
+                    },
+                    body: JSON.stringify(verifyData)
+                });
+
+                const verifyResult = await verifyResponse.json();
+                console.log('Verification response:', verifyResult);
+                
+                showLoader('paymentLoader', false);
+
+                if (verifyResponse.ok) {
+                    showStatus('paymentStatus', '✅ Payment verified successfully!', 'success');
+                    showResponse('paymentResponse', 'paymentContent', verifyResult);
+                } else {
+                    showStatus('paymentStatus', `❌ Verification failed: ${verifyResult.message || 'Unknown error'}`, 'error');
+                    showResponse('paymentResponse', 'paymentContent', verifyResult);
+                }
+            } catch (error) {
+                showLoader('paymentLoader', false);
+                showStatus('paymentStatus', `❌ Error: ${error.message}`, 'error');
+                console.error('Manual verification error:', error);
             }
         }
 

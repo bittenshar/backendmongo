@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Payment = require('./payment.model');
+const razorpayService = require('../../services/razorpay.service');
 
 // Validate Razorpay initialization
 let razorpay = null;
@@ -297,8 +298,8 @@ exports.verifyPaymentSignature = async ({
     payment = await Payment.findOneAndUpdate(
       { _id: payment._id },
       {
-        razorpayPaymentId: paymentId,
-        razorpaySignature: signature,
+        razorpayPaymentId: razorpayPaymentId,
+        razorpaySignature: razorpaySignature,
         status: (paymentDetails?.status === 'captured' || paymentDetails?.status === 'authorized') ? 'success' : (paymentDetails?.status || 'success'),
         metadata: paymentDetails,
         updatedAt: new Date(),
