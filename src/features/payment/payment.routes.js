@@ -10,6 +10,9 @@ router.post('/webhook', paymentController.handleWebhook);
 // Public convenience fee endpoint (no auth required)
 router.get('/convenience-fee', paymentController.getConvenienceFee);
 
+// DEVELOPMENT ONLY: Test signature generation (for Postman testing)
+router.post('/test-generate-signature', paymentController.generateTestSignature);
+
 // Protected routes
 router.use(authMiddleware.protect);
 

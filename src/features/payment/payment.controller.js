@@ -388,3 +388,67 @@ exports.getConvenienceFee = async (req, res) => {
     });
   }
 };
+
+/**
+ * TESTING ONLY: Generate test signature for payment verification
+ * POST /api/payments/test-generate-signature
+ * Body: { razorpayOrderId, razorpayPaymentId }
+ */
+exports.generateTestSignature = async (req, res) => {
+  try {
+    // Only allow in development/test environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'This endpoint is not available in production. Use actual Razorpay payment responses.'
+      });
+    }
+
+    const { razorpayOrderId, razorpayPaymentId } = req.body;
+
+    if (!razorpayOrderId || !razorpayPaymentId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Missing required fields: razorpayOrderId, razorpayPaymentId'
+      });
+    }
+
+    const crypto = require('crypto');
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keySecret) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'RAZORPAY_KEY_SECRET not configured'
+      });
+    }
+
+    // Generate signature
+    const signature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex');
+
+    console.log('🔐 Test Signature Generated:');
+    console.log('  Order ID:', razorpayOrderId);
+    console.log('  Payment ID:', razorpayPaymentId);
+    console.log('  Signature:', signature);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Test signature generated (development only)',
+      data: {
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature: signature
+      }
+    });
+  } catch (error) {
+    console.error('Test signature generation error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};
+

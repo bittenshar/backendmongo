@@ -618,10 +618,35 @@
 
         async function handlePaymentSuccess(response) {
             try {
+                // Validate Razorpay response has all required fields
+                if (!response.razorpay_order_id || !response.razorpay_payment_id) {
+                    throw new Error('Razorpay response missing required fields (orderId or paymentId)');
+                }
+
+                // Check if signature is present - CRITICAL for verification
+                if (!response.razorpay_signature) {
+                    console.warn('⚠️ razorpay_signature is missing from Razorpay response');
+                    console.warn('This may happen in test mode or incomplete payments');
+                    // For now, proceed but backend will require valid signature
+                }
+
                 console.log('✅ Payment Success Response:', {
                     orderId: response.razorpay_order_id,
                     paymentId: response.razorpay_payment_id,
-                    signature: response.razorpay_signature
+                    signature: response.razorpay_signature || 'MISSING'
+                });
+
+                // Prepare confirmation payload
+                const confirmPayload = {
+                    bookingId: bookingData.booking.bookingId,
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpaySignature: response.razorpay_signature
+                };
+
+                console.log('📤 Sending to backend:', {
+                    ...confirmPayload,
+                    razorpaySignature: confirmPayload.razorpaySignature ? '***present***' : '***MISSING***'
                 });
 
                 // Verify payment with backend
@@ -631,12 +656,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${userToken}`
                     },
-                    body: JSON.stringify({
-                        bookingId: bookingData.booking.bookingId,
-                        razorpayOrderId: response.razorpay_order_id,
-                        razorpayPaymentId: response.razorpay_payment_id,
-                        razorpaySignature: response.razorpay_signature
-                    })
+                    body: JSON.stringify(confirmPayload)
                 });
 
                 const confirmData = await confirmResponse.json();
