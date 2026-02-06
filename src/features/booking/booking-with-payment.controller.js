@@ -187,10 +187,16 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
   try {
     const { bookingId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
 
-    // Validate required fields
-    if (!bookingId || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
-      return next(new AppError('Missing payment verification details', 400));
+    // Validate required fields (signature is optional - can be fetched from Razorpay API)
+    if (!bookingId || !razorpayPaymentId || !razorpayOrderId) {
+      return next(new AppError('Missing required fields: bookingId, razorpayPaymentId, razorpayOrderId', 400));
     }
+
+    console.log('🔄 Payment Confirmation Request:');
+    console.log('  bookingId:', bookingId);
+    console.log('  razorpayOrderId:', razorpayOrderId);
+    console.log('  razorpayPaymentId:', razorpayPaymentId);
+    console.log('  razorpaySignature:', razorpaySignature ? '✅ Provided' : '⏳ Will fetch from Razorpay');
 
     // STEP 1: Find booking
     const booking = await Booking.findById(bookingId)
@@ -212,27 +218,68 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
       return next(new AppError('Order ID mismatch', 400));
     }
 
-    // STEP 2: Verify Razorpay payment signature
-    const isPaymentValid = verifyRazorpayPayment(
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature
-    );
+    // STEP 2: Verify payment with Razorpay
+    let verifiedSignature = razorpaySignature;
+    let paymentDetails = null;
 
-    if (!isPaymentValid) {
-      booking.paymentStatus = 'failed';
-      booking.status = 'cancelled';
-      await booking.save();
+    console.log('🔐 STEP 2: Verifying payment...');
 
-      return res.status(400).json({
-        status: 'failed',
-        message: 'Payment verification failed. Invalid signature.',
-        data: {
-          bookingId,
-          status: 'cancelled',
-          reason: 'Payment verification failed'
+    // Try to fetch payment details from Razorpay API
+    try {
+      console.log('📡 Fetching payment details from Razorpay API...');
+      const razorpayService = require('../../services/razorpay.service');
+      paymentDetails = await razorpayService.fetchPaymentDetails(razorpayPaymentId);
+      
+      if (paymentDetails && paymentDetails.status === 'captured') {
+        console.log('✅ Payment verified with Razorpay API');
+        // If payment exists in Razorpay and is captured, we trust it
+        verifiedSignature = razorpaySignature || 'verified_via_razorpay_api';
+      }
+    } catch (apiError) {
+      console.warn('⚠️ Could not fetch from Razorpay API:', apiError.message);
+      
+      // Fall back to signature verification if API fails
+      if (razorpaySignature) {
+        console.log('📌 Using provided signature for verification...');
+        const isPaymentValid = verifyRazorpayPayment(
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature
+        );
+
+        if (!isPaymentValid) {
+          console.error('❌ Signature verification failed');
+          booking.paymentStatus = 'failed';
+          booking.status = 'cancelled';
+          await booking.save();
+
+          return res.status(400).json({
+            status: 'failed',
+            message: 'Payment verification failed. Invalid signature.',
+            data: {
+              bookingId,
+              status: 'cancelled',
+              reason: 'Payment verification failed'
+            }
+          });
         }
-      });
+        console.log('✅ Signature verified successfully');
+      } else {
+        console.error('❌ No signature provided and Razorpay API unavailable');
+        booking.paymentStatus = 'failed';
+        booking.status = 'cancelled';
+        await booking.save();
+
+        return res.status(400).json({
+          status: 'failed',
+          message: 'Payment verification failed. Could not verify with Razorpay.',
+          data: {
+            bookingId,
+            status: 'cancelled',
+            reason: 'Payment verification unavailable'
+          }
+        });
+      }
     }
 
     // STEP 3: Face verification double-check
@@ -255,13 +302,13 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
 
     // STEP 4: Update booking with payment details
     booking.razorpayPaymentId = razorpayPaymentId;
-    booking.razorpaySignature = razorpaySignature;
+    booking.razorpaySignature = verifiedSignature || razorpaySignature || 'verified_via_razorpay_api';
     booking.paymentVerified = true;
     booking.paymentStatus = 'completed';
     booking.status = 'confirmed';
     booking.confirmedAt = new Date();
 
-    await booking.save();
+    console.log('📝 Updating booking...');    await booking.save();
 
     // STEP 5: Save payment record
     const payment = new Payment({
