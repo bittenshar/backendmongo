@@ -185,81 +185,158 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
  */
 exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
   try {
-    const { bookingId, razorpayPaymentId, razorpayOrderId } = req.body;
+    const { bookingId, razorpayOrderId } = req.body;
 
-    // Validate ONLY these 3 fields - NO signature required!
-    if (!bookingId || !razorpayPaymentId || !razorpayOrderId) {
-      return next(new AppError('Missing required fields: bookingId, razorpayPaymentId, razorpayOrderId', 400));
+    // VALIDATION: Only require bookingId and orderID - Payment ID will be fetched from Razorpay!
+    if (!bookingId || !razorpayOrderId) {
+      console.log('❌ Missing fields:', { bookingId, razorpayOrderId });
+      return next(new AppError('Missing required fields: bookingId, razorpayOrderId', 400));
     }
 
-    console.log('🔄 Payment Confirmation Request:');
-    console.log('  ✅ bookingId:', bookingId);
-    console.log('  ✅ razorpayOrderId:', razorpayOrderId);
-    console.log('  ✅ razorpayPaymentId:', razorpayPaymentId);
-    console.log('  📌 Signature: NOT REQUIRED');
+    console.log('\n═════════════════════════════════════════');
+    console.log('🔄 PAYMENT CONFIRMATION START');
+    console.log('═════════════════════════════════════════');
+    console.log('📦 Received:');
+    console.log('   • bookingId:', bookingId);
+    console.log('   • razorpayOrderId:', razorpayOrderId);
+    console.log('   ℹ️  paymentId will be fetched from Razorpay API');
 
-    // STEP 1: Find booking
+    // STEP 1: Find and validate booking
+    console.log('\n📍 STEP 1: Finding booking...');
     const booking = await Booking.findById(bookingId)
-      .populate('userId', 'name email phone verificationStatus')
+      .populate('userId', 'name email phone verificationStatus faceId')
       .populate('eventId', 'name date location');
 
     if (!booking) {
+      console.log('❌ Booking not found:', bookingId);
       return next(new AppError('Booking not found', 404));
     }
+    console.log('✅ Booking found');
 
     if (booking.status === 'confirmed') {
+      console.log('⚠️  Booking already confirmed');
       return res.status(400).json({
         status: 'failed',
-        message: 'Booking is already confirmed'
+        message: 'Booking is already confirmed',
+        data: { bookingId, status: 'confirmed' }
       });
     }
 
     if (booking.razorpayOrderId !== razorpayOrderId) {
+      console.log('❌ Order ID mismatch');
+      console.log('   Expected:', booking.razorpayOrderId);
+      console.log('   Got:', razorpayOrderId);
       return next(new AppError('Order ID mismatch', 400));
     }
+    console.log('✅ Order ID matches');
 
-    console.log('✅ Booking found and Order ID matches');
-
-    // STEP 2: Check Face Verification First
-    const user = await User.findById(booking.userId).select('verificationStatus faceId');
+    // STEP 2: Check Face Verification
+    console.log('\n📍 STEP 2: Verifying face verification status...');
+    const user = booking.userId;
 
     if (user.verificationStatus !== 'verified' || !user.faceId) {
+      console.log('❌ Face verification failed');
+      console.log('   Status:', user.verificationStatus, '| FaceId:', user.faceId ? 'Yes' : 'No');
+      
       booking.paymentStatus = 'failed';
       booking.status = 'cancelled';
       await booking.save();
 
       return res.status(403).json({
         status: 'failed',
-        message: 'Face verification required. Please complete face verification first.',
+        message: 'Face verification required',
         data: {
           bookingId,
-          status: 'cancelled'
+          status: 'cancelled',
+          verificationStatus: user.verificationStatus
+        }
+      });
+    }
+    console.log('✅ Face verification confirmed');
+
+    // STEP 3: Fetch payment from Razorpay using ORDER ID (NOT paymentId)
+    console.log('\n📍 STEP 3: Fetching payment details from Razorpay...');
+    let razorpayPaymentId = null;
+    let paymentDetails = null;
+
+    try {
+      const { fetchPaymentByOrderId } = require('../../services/razorpay.service');
+      paymentDetails = await fetchPaymentByOrderId(razorpayOrderId);
+      razorpayPaymentId = paymentDetails.id;
+      
+      console.log('✅ Payment found via Razorpay API');
+      console.log('   Payment ID:', razorpayPaymentId);
+      console.log('   Status:', paymentDetails.status);
+      console.log('   Amount:', paymentDetails.amount / 100, 'INR');
+    } catch (apiError) {
+      console.error('❌ Failed to fetch payment from Razorpay:', apiError.message);
+      booking.paymentStatus = 'failed';
+      booking.status = 'cancelled';
+      await booking.save();
+
+      return res.status(400).json({
+        status: 'failed',
+        message: 'Payment verification failed - could not fetch payment from Razorpay',
+        data: {
+          bookingId,
+          status: 'cancelled',
+          error: apiError.message
         }
       });
     }
 
-    console.log('✅ Face verification confirmed');
+    // STEP 4: Verify payment status
+    console.log('\n📍 STEP 4: Verifying payment status...');
+    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+      console.log('❌ Payment not captured. Status:', paymentDetails.status);
+      booking.paymentStatus = 'failed';
+      booking.status = 'cancelled';
+      await booking.save();
 
-    // STEP 3: Payment is already verified by Razorpay
-    // When user completes payment in Razorpay, it's already secure
-    // Backend just needs to record it
-    console.log('✅ Payment received from Razorpay');
+      return res.status(400).json({
+        status: 'failed',
+        message: `Payment verification failed - status: ${paymentDetails.status}`,
+        data: { bookingId, status: 'cancelled' }
+      });
+    }
+    console.log('✅ Payment captured');
 
-    // STEP 4: Update booking with payment details
+    // STEP 5: Verify amount
+    console.log('\n📍 STEP 5: Verifying payment amount...');
+    const expectedAmount = booking.totalPrice * 100; // Convert to paise
+    if (paymentDetails.amount !== expectedAmount) {
+      console.log('❌ Amount mismatch');
+      console.log('   Expected:', expectedAmount, 'paise');
+      console.log('   Got:', paymentDetails.amount, 'paise');
+      booking.paymentStatus = 'failed';
+      booking.status = 'cancelled';
+      await booking.save();
+
+      return res.status(400).json({
+        status: 'failed',
+        message: 'Payment amount mismatch',
+        data: { bookingId, status: 'cancelled' }
+      });
+    }
+    console.log('✅ Amount verified');
+
+    // STEP 6: Confirm booking
+    console.log('\n📍 STEP 6: Confirming booking...');
     booking.razorpayPaymentId = razorpayPaymentId;
     booking.paymentVerified = true;
     booking.paymentStatus = 'completed';
     booking.status = 'confirmed';
     booking.confirmedAt = new Date();
 
-    console.log('📝 Updating booking...');
     await booking.save();
+    console.log('✅ Booking updated in database');
 
-    // STEP 5: Save payment record
+    // STEP 7: Save payment record
+    console.log('\n📍 STEP 7: Saving payment record...');
     const payment = new Payment({
       bookingId,
-      userId: booking.userId,
-      eventId: booking.eventId,
+      userId: user._id,
+      eventId: booking.eventId._id,
       orderId: razorpayOrderId,
       razorpayPaymentId: razorpayPaymentId,
       amount: booking.totalPrice,
@@ -274,43 +351,43 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
     });
 
     await payment.save();
+    console.log('✅ Payment record saved');
 
-    // STEP 6: Return success response
+    // STEP 8: Return success
+    console.log('\n✅ PAYMENT CONFIRMATION COMPLETE');
+    console.log('═════════════════════════════════════════\n');
+    
     res.status(200).json({
       status: 'success',
-      message: 'Booking confirmed successfully! Payment received.',
+      message: 'Booking confirmed successfully! Payment verified via Razorpay API.',
       data: {
         booking: {
           bookingId: booking._id,
           status: booking.status,
-          userId: booking.userId,
-          eventId: booking.eventId,
           quantity: booking.quantity,
           totalPrice: booking.totalPrice,
-          confirmedAt: booking.confirmedAt,
-          ticketNumbers: booking.ticketNumbers || []
+          confirmedAt: booking.confirmedAt
         },
         payment: {
           paymentId: razorpayPaymentId,
           orderId: razorpayOrderId,
           amount: booking.totalPrice,
           status: 'completed',
-          method: 'razorpay'
+          verifiedVia: 'razorpay_api'
         },
         event: {
-          eventId: booking.eventId,
           eventName: booking.eventId.name,
           eventDate: booking.eventId.date,
           location: booking.eventId.location
-        },
-        verification: {
-          faceVerified: true
         }
       }
     });
   } catch (error) {
-    console.error('Error verifying payment and confirming booking:', error);
-    return next(new AppError(error.message, 500));
+    console.error('\n❌ ===== ERROR =====');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('==================\n');
+    return next(new AppError(error.message || 'Payment verification failed', 500));
   }
 };
 

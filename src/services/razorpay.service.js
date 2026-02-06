@@ -211,6 +211,48 @@ exports.fetchPaymentDetails = async (paymentId) => {
 };
 
 /**
+ * Fetch payment by ORDER ID - Returns the first captured payment for an order
+ * @param {string} orderId - Razorpay order ID
+ * @returns {Promise<Object>} Payment details
+ */
+exports.fetchPaymentByOrderId = async (orderId) => {
+  try {
+    const rz = initializeRazorpay();
+
+    // Fetch all payments for the order
+    const payments = await rz.orders.fetchPayments(orderId);
+
+    console.log(`✅ Fetched ${payments.items.length} payment(s) for order ${orderId}`);
+
+    // Find the first captured or authorized payment
+    const validPayment = payments.items.find(p => 
+      p.status === 'captured' || p.status === 'authorized'
+    );
+
+    if (!validPayment) {
+      throw new Error(`No valid payment found for order ${orderId}`);
+    }
+
+    return {
+      id: validPayment.id,
+      orderId: validPayment.order_id,
+      amount: validPayment.amount,
+      currency: validPayment.currency,
+      status: validPayment.status,
+      method: validPayment.method,
+      email: validPayment.email,
+      contact: validPayment.contact,
+      description: validPayment.description,
+      notes: validPayment.notes,
+      createdAt: validPayment.created_at
+    };
+  } catch (error) {
+    console.error('❌ Error fetching payment by order ID:', error);
+    throw new Error(`Failed to fetch payment for order: ${error.message}`);
+  }
+};
+
+/**
  * Refund payment
  * @param {string} paymentId - Razorpay payment ID
  * @param {number} amount - Amount to refund (in paise, optional - full refund if not provided)
@@ -358,5 +400,6 @@ module.exports = {
   createRazorpayOrderWithFee: exports.createRazorpayOrderWithFee,
   verifyRazorpayPayment: exports.verifyRazorpayPayment,
   fetchPaymentDetails: exports.fetchPaymentDetails,
+  fetchPaymentByOrderId: exports.fetchPaymentByOrderId,
   refundPayment: exports.refundPayment
 };
