@@ -74,7 +74,30 @@ exports.createOrder = async (req, res) => {
           
           if (availableSeats >= quantity) {
             seating.lockedSeats += quantity;
-            await event.save();
+            seating.lockedUntil = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes lock
+            await Event.updateOne(
+            {
+              _id: eventId,
+              "seatings._id": seatingId,
+              $expr: {
+                $gte: [
+                  {
+                    $subtract: [
+                      "$seatings.totalSeats",
+                      "$seatings.seatsSold",
+                      "$seatings.lockedSeats"
+                    ]
+                  },
+                  quantity
+                ]
+              }
+            },
+            {
+              $inc: { "seatings.$.lockedSeats": quantity },
+              $set: { "seatings.$.lockedUntil": new Date(Date.now() + 10 * 60 * 1000) }
+            }
+          );
+
             console.log('✅ Seats LOCKED for payment:', { 
               quantity,
               lockedSeats: seating.lockedSeats,
@@ -116,18 +139,24 @@ exports.createOrder = async (req, res) => {
 };
 
 /**
- * Verify payment
+ * Verify payment (SECURE)
  * POST /api/payments/verify
- * Body: { razorpayOrderId, razorpayPaymentId, razorpaySignature }
+ * Body: { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId }
  */
 exports.verifyPayment = async (req, res) => {
   try {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+    const {
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      orderId,
+    } = req.body;
 
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: razorpayOrderId, razorpayPaymentId, razorpaySignature',
+        message:
+          'Missing required fields: razorpayOrderId, razorpayPaymentId, razorpaySignature',
       });
     }
 
@@ -135,21 +164,23 @@ exports.verifyPayment = async (req, res) => {
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
+      orderId,
     });
 
     res.status(200).json({
       status: 'success',
-      message: 'Payment verified successfully',
+      message: 'Payment verified and finalized successfully',
       data: result,
     });
   } catch (error) {
-    console.error('Verify payment error:', error);
+    console.error('Verify payment error:', error.message);
     res.status(400).json({
       status: 'error',
       message: error.message,
     });
   }
 };
+
 
 /**
  * Fetch payment details from Razorpay using order ID

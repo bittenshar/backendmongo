@@ -150,30 +150,35 @@ exports.verifyRazorpayPayment = (razorpayOrderId, razorpayPaymentId, razorpaySig
       throw new Error('Razorpay key secret not configured');
     }
 
-    // Create the signature source (MUST include order ID)
+    // ❌ REMOVE THIS - DON'T ALLOW TEST SIGNATURES IN PRODUCTION
+    // if (razorpaySignature && razorpaySignature.startsWith('test_signature_')) {
+    //   isSignatureValid = true; // ← This is insecure!
+    // }
+
+    // ✅ PROPER VERIFICATION: Generate expected signature and compare
     const shasum = crypto.createHmac('sha256', keySecret);
     const data = `${razorpayOrderId}|${razorpayPaymentId}`;
 
     shasum.update(data);
     const expectedSignature = shasum.digest('hex');
 
-    console.log('🔐 Payment Verification (SECURE):');
-    console.log('  Razorpay Order ID:', razorpayOrderId);
-    console.log('  Razorpay Payment ID:', razorpayPaymentId);
+    console.log('🔐 Razorpay Payment Verification (SECURE):');
+    console.log('  Order ID:', razorpayOrderId);
+    console.log('  Payment ID:', razorpayPaymentId);
     console.log('  Expected Signature:', expectedSignature);
-    console.log('  Provided Signature:', razorpaySignature);
+    console.log('  Received Signature:', razorpaySignature);
 
     const isValid = expectedSignature === razorpaySignature;
 
     if (isValid) {
-      console.log('✅ Payment signature verified successfully');
+      console.log('✅ Signature VERIFIED - Payment is VALID and SECURE');
     } else {
-      console.error('❌ Payment signature verification failed');
+      console.error('❌ Signature MISMATCH - Payment may be FAKE or TAMPERED');
     }
 
     return isValid;
   } catch (error) {
-    console.error('❌ Error verifying payment signature:', error);
+    console.error('❌ Error verifying Razorpay signature:', error);
     return false;
   }
 };

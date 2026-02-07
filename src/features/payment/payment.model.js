@@ -33,9 +33,29 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       default: 'INR',
     },
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Event',
+      index: true,
+    },
+    seatingId: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    quantity: {
+      type: Number,
+      min: 1,
+    },
+
     status: {
       type: String,
-      enum: ['pending', 'paid', 'success', 'failed', 'cancelled'],
+      enum: [
+        'pending',
+        'authorized',
+        'paid',
+        'success',
+        'failed',
+        'cancelled'
+      ],
       default: 'pending',
       index: true,
     },

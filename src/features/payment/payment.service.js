@@ -20,7 +20,6 @@ if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
     });
     console.log('✅ Razorpay initialized with:');
     console.log('  Key ID:', process.env.RAZORPAY_KEY_ID?.substring(0, 20) + '...');
-    console.log('  Key Secret:', process.env.RAZORPAY_KEY_SECRET?.substring(0, 10) + '...');
   } catch (error) {
     console.error('❌ Failed to initialize Razorpay:', error.message);
     razorpay = null;
@@ -149,52 +148,61 @@ exports.createOrder = async ({
  */
 exports.fetchPaymentFromRazorpay = async (razorpayOrderId) => {
   try {
-    // First, try to find payment in our database
-    let payment = await Payment.findOne({ razorpayOrderId });
-
-    if (!payment) {
-      throw new Error(`Payment record not found for order: ${razorpayOrderId}`);
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      throw new Error('Razorpay SDK not initialized');
     }
 
-    console.log('✅ Fetched payment from database:', {
-      orderId: razorpayOrderId,
-      status: payment.status
+    // ✅ FETCH REAL DATA FROM RAZORPAY (not from stale database)
+    console.log('📡 Fetching real payment data from Razorpay for order:', razorpayOrderId);
+    
+    let razorpayResponse = null;
+    try {
+      razorpayResponse = await razorpay.orders.fetchPayments(razorpayOrderId);
+      console.log('✅ Fetched payments from Razorpay:', razorpayResponse);
+    } catch (error) {
+      console.error('❌ Failed to fetch from Razorpay API:', error.message);
+      throw new Error(`Cannot fetch payment from Razorpay: ${error.message}`);
+    }
+
+    // Razorpay returns: { entity: 'collection', count: 1, items: [...] }
+    if (!razorpayResponse.items || razorpayResponse.items.length === 0) {
+      throw new Error(`No payments found for order: ${razorpayOrderId} - User may not have completed payment yet`);
+    }
+
+    const realPaymentData = razorpayResponse.items[0]; // Get first (most recent) payment
+    
+    console.log('✅ Found real payment from Razorpay:', {
+      id: realPaymentData.id,
+      status: realPaymentData.status,
+      amount: realPaymentData.amount / 100,
     });
 
-    // Generate test payment ID and signature if not already set
-    let razorpayPaymentId = payment.razorpayPaymentId;
-    let razorpaySignature = payment.razorpaySignature;
-
-    if (!razorpayPaymentId) {
-      razorpayPaymentId = `pay_test_${Date.now()}`;
-      // Update the payment record with test payment ID
-      payment.razorpayPaymentId = razorpayPaymentId;
-      await payment.save();
-      console.log('Generated test payment ID:', razorpayPaymentId);
-    }
-
-    if (!razorpaySignature) {
-      razorpaySignature = `test_signature_${Date.now()}`;
-      // Update the payment record with test signature
-      payment.razorpaySignature = razorpaySignature;
-      await payment.save();
-      console.log('Generated test signature:', razorpaySignature);
+    // Find or update payment in database
+    let dbPayment = await Payment.findOne({ razorpayOrderId });
+    
+    if (dbPayment) {
+      // Update with real data from Razorpay
+      dbPayment.razorpayPaymentId = realPaymentData.id;
+      dbPayment.status = realPaymentData.status === 'captured' ? 'success' : realPaymentData.status;
+      dbPayment.metadata = realPaymentData;
+      await dbPayment.save();
+      console.log('✅ Updated database with real Razorpay payment data');
     }
 
     return {
       razorpayOrderId: razorpayOrderId,
-      razorpayPaymentId: razorpayPaymentId,
-      paymentId: razorpayPaymentId,
-      razorpaySignature: razorpaySignature,
-      signature: razorpaySignature,
-      status: payment.status,
-      amount: payment.amount,
-      currency: payment.currency,
-      description: payment.description,
+      razorpayPaymentId: realPaymentData.id,
+      paymentId: realPaymentData.id,
+      status: realPaymentData.status === 'captured' ? 'paid' : realPaymentData.status,
+      amount: realPaymentData.amount / 100,
+      currency: realPaymentData.currency,
+      createdAt: new Date(realPaymentData.created_at * 1000),
+      razorpayStatus: realPaymentData.status,
     };
   } catch (error) {
-    console.error('❌ Error fetching payment details:', error.message);
-    throw new Error(`Failed to fetch payment details: ${error.message}`);
+    console.error('❌ Error fetching payment from Razorpay:', error.message);
+    throw new Error(`Failed to fetch payment from Razorpay: ${error.message}`);
   }
 };
 
@@ -209,12 +217,17 @@ exports.verifyPaymentSignature = async ({
   orderId, // Optional: user's internal order ID for tracking
 }) => {
   try {
-    // Check if Razorpay is initialized (warning only, signature verification works without it)
-    if (!razorpay) {
-      console.warn('⚠️ Razorpay not configured - payment details fetch will be skipped');
+    // Validate required fields
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      throw new Error('Missing required fields: razorpayOrderId, razorpayPaymentId, razorpaySignature');
     }
 
-    // Try to find payment by orderId or razorpayOrderId
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      throw new Error('Razorpay SDK not initialized - cannot verify payment');
+    }
+
+    // Find payment record in database
     let payment = null;
     
     if (razorpayOrderId) {
@@ -224,68 +237,47 @@ exports.verifyPaymentSignature = async ({
     }
 
     if (!payment) {
-      throw new Error(`Payment record not found for orderId: ${orderId}`);
+      throw new Error(`Payment record not found for orderId: ${orderId || razorpayOrderId}`);
+    }
+    // ✅ Prevent duplicate verification
+    if (payment.status === 'success') {
+      return {
+        success: true,
+        payment: payment.toObject(),
+        verified: true,
+        message: 'Payment already verified',
+      };
     }
 
-    // Check if this is a test signature (for development/testing)
-    const isTestSignature = razorpaySignature && razorpaySignature.startsWith('test_signature_');
-    const isTestPaymentId = razorpayPaymentId && razorpayPaymentId.startsWith('pay_test_');
-
-    let isSignatureValid = false;
-
-    if (isTestSignature && isTestPaymentId) {
-      // Allow test signatures for testing purposes
-      console.log('✅ Test signature detected - allowing for testing:', {
-        paymentId: razorpayPaymentId,
-        signature: razorpaySignature
-      });
-      isSignatureValid = true;
-    } else {
-      // Verify signature using razorpayOrderId (SECURE)
-      isSignatureValid = razorpayService.verifyRazorpayPayment(
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpaySignature
-      );
-    }
+    // ✅ VERIFY SIGNATURE USING HMAC_SHA256
+    const isSignatureValid = razorpayService.verifyRazorpayPayment(
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    );
 
     if (!isSignatureValid) {
-      console.error('❌ Signature verification FAILED:', {
-        razorpayOrderId,
-        razorpayPaymentId,
-        signature: razorpaySignature
-      });
-      throw new Error('Invalid payment signature - Payment could be tampered or fake');
+      console.error('❌ Signature verification FAILED - Payment may be FAKE or TAMPERED');
+      throw new Error('Invalid payment signature - Payment could be fake');
     }
 
-    console.log('✅ Signature verified successfully');
+    console.log('✅ Signature verified successfully - Payment is VALID and SECURE');
 
-    // Try to fetch payment details from Razorpay
+    // Fetch payment details from Razorpay to double-check
     let paymentDetails = null;
-    let fetchError = null;
     
-    if (razorpay) {
-      try {
-        paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
-        console.log('✅ Fetched payment details from Razorpay:', paymentDetails.id);
-      } catch (err) {
-        // If payment doesn't exist in Razorpay (test scenario), that's okay
-        // We already verified the signature, so we can proceed
-        fetchError = err.message;
-        console.warn('⚠️ Could not fetch payment from Razorpay:', fetchError);
-        console.log('Proceeding with payment verification based on signature validation');
-        
-        // Use default status if we couldn't fetch from Razorpay
-        paymentDetails = {
-          id: razorpayPaymentId,
-          status: 'captured', // Assume captured if signature is valid
-          amount: payment.amount,
-          currency: payment.currency
-        };
-      }
-    } else {
-      // Razorpay not configured - use default status
-      console.log('Using default payment status (Razorpay not configured)');
+    try {
+      paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
+      console.log('✅ Fetched payment details from Razorpay:', paymentDetails.id);
+      console.log('   Status:', paymentDetails.status);
+      console.log('   Amount:', paymentDetails.amount / 100, 'INR');
+    } catch (fetchError) {
+      // If payment doesn't exist in Razorpay (test scenario), that's okay
+      // We already verified the signature, so we can proceed
+      console.warn('⚠️ Could not fetch payment from Razorpay:', fetchError.message);
+      console.log('Proceeding with payment verification based on signature validation');
+      
+      // Use default status if we couldn't fetch from Razorpay
       paymentDetails = {
         id: razorpayPaymentId,
         status: 'captured', // Assume captured if signature is valid
@@ -300,7 +292,12 @@ exports.verifyPaymentSignature = async ({
       {
         razorpayPaymentId: razorpayPaymentId,
         razorpaySignature: razorpaySignature,
-        status: (paymentDetails?.status === 'captured' || paymentDetails?.status === 'authorized') ? 'success' : (paymentDetails?.status || 'success'),
+        status:
+          paymentDetails.status === 'captured'
+            ? 'success'
+            : paymentDetails.status === 'authorized'
+            ? 'authorized'
+            : 'failed',
         metadata: paymentDetails,
         updatedAt: new Date(),
       },

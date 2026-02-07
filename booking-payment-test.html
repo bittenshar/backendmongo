@@ -1,857 +1,450 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking & Payment Test</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Razorpay Payment Test</title>
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            padding: 30px;
-        }
-
-        .section {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .section h2 {
-            color: #333;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        label {
-            color: #555;
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        input, select, textarea {
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            transition: border-color 0.3s;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 5px;
-            font-size: 0.95em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-            flex: 1;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #764ba2;
-            color: white;
-            flex: 1;
-        }
-
-        .btn-secondary:hover {
-            background: #633a8a;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
-        }
-
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c0392b;
-        }
-
-        .btn-success {
-            background: #27ae60;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #229954;
-        }
-
-        .response-box {
-            background: #f8f9fa;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 15px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .response-box h3 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .response-content {
-            background: white;
-            padding: 10px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85em;
-            color: #555;
-            word-wrap: break-word;
-        }
-
-        .status {
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            display: none;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
-        }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-            display: block;
-        }
-
-        .env-vars {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-        }
-
-        .env-vars h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
-        .env-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .env-item:last-child {
-            border-bottom: none;
-        }
-
-        .env-key {
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .env-value {
-            color: #555;
-            word-break: break-all;
-            font-family: monospace;
-            font-size: 0.85em;
-        }
-
-        @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 1.8em;
-            }
-        }
-
-        .loader {
-            display: none;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            margin: 10px 0;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #fff;
+      border-radius: 10px;
+      padding: 30px;
+    }
+    h1 { margin-bottom: 30px; text-align: center; color: #333; }
+    h2 { margin-bottom: 20px; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+    .section {
+      margin-bottom: 30px;
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    label { font-weight: bold; margin-top: 15px; display: block; color: #333; }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    button {
+      padding: 12px 20px;
+      background: #667eea;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      font-weight: bold;
+      flex: 1;
+      transition: all 0.3s;
+    }
+    button:hover { background: #5568d3; transform: translateY(-2px); }
+    button.secondary { background: #764ba2; }
+    button.secondary:hover { background: #633a8a; }
+    .status {
+      margin-top: 15px;
+      padding: 12px;
+      display: none;
+      border-radius: 5px;
+    }
+    .success { background: #d4edda; color: #155724; display:block; border: 1px solid #c3e6cb; }
+    .error { background: #f8d7da; color: #721c24; display:block; border: 1px solid #f5c6cb; }
+    .info { background: #d1ecf1; color: #0c5460; display:block; border: 1px solid #bee5eb; }
+    pre {
+      background: #fff;
+      padding: 15px;
+      margin-top: 15px;
+      overflow: auto;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      max-height: 300px;
+      font-size: 12px;
+    }
+    .env-info {
+      background: #e7f3ff;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 5px;
+    }
+    .env-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #c9e4ff;
+    }
+    .env-item:last-child { border-bottom: none; }
+    .env-key { color: #667eea; font-weight: bold; }
+    .env-value { color: #555; font-family: monospace; font-size: 12px; }
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎫 Booking & Payment Test Suite</h1>
-            <p>Test authentication, booking, and payment integration</p>
-        </div>
 
-        <div class="content">
-            <!-- Authentication Section -->
-            <div class="section">
-                <h2>🔐 Authentication</h2>
-                
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="test@example.com" value="test@example.com">
-                </div>
+<div class="container">
+  <h1>💳 Razorpay Payment Test Suite</h1>
 
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="test123" value="test123">
-                </div>
+  <!-- AUTH SECTION -->
+  <div class="section">
+    <h2>🔐 Step 1: Authentication</h2>
 
-                <div class="form-group">
-                    <label for="apiUrl">API URL</label>
-                    <input type="text" id="apiUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
-                </div>
+    <label>Email</label>
+    <input id="email" value="test@example.com"/>
 
-                <button class="btn-primary" onclick="loginUser()">Login</button>
-                <button class="btn-danger" onclick="clearEnv()">Clear Environment</button>
+    <label>Password</label>
+    <input id="password" type="password" value="test123"/>
 
-                <div id="loginStatus" class="status"></div>
-                <div id="loginLoader" class="loader"></div>
+    <label>API URL</label>
+    <input id="apiUrl" value="http://localhost:3000"/>
 
-                <div id="loginResponse" class="response-box" style="display: none;">
-                    <h3>Login Response</h3>
-                    <div class="response-content" id="loginContent"></div>
-                </div>
-            </div>
+    <label>Razorpay Key ID</label>
+    <input id="razorpayKey" placeholder="rzp_test_xxxxx"/>
 
-            <!-- Booking Section -->
-            <div class="section">
-                <h2>📅 Booking Details</h2>
-
-                <div class="form-group">
-                    <label for="serviceType">Service Type</label>
-                    <select id="serviceType">
-                        <option value="haircut">Haircut</option>
-                        <option value="massage">Massage</option>
-                        <option value="spa">Spa</option>
-                        <option value="nails">Nails</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="bookingDate">Date</label>
-                    <input type="date" id="bookingDate">
-                </div>
-
-                <div class="form-group">
-                    <label for="bookingTime">Time</label>
-                    <input type="time" id="bookingTime">
-                </div>
-
-                <div class="form-group">
-                    <label for="duration">Duration (minutes)</label>
-                    <select id="duration">
-                        <option value="30">30 minutes</option>
-                        <option value="60" selected>60 minutes</option>
-                        <option value="90">90 minutes</option>
-                        <option value="120">120 minutes</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="notes">Special Notes</label>
-                    <textarea id="notes" placeholder="Add any special requests..." rows="3"></textarea>
-                </div>
-
-                <button class="btn-primary" onclick="createBooking()">Create Booking</button>
-
-                <div id="bookingStatus" class="status"></div>
-                <div id="bookingLoader" class="loader"></div>
-
-                <div id="bookingResponse" class="response-box" style="display: none;">
-                    <h3>Booking Response</h3>
-                    <div class="response-content" id="bookingContent"></div>
-                </div>
-            </div>
-
-            <!-- Payment Section -->
-            <div class="section">
-                <h2>💳 Payment Details</h2>
-
-                <div class="form-group">
-                    <label for="amount">Amount (₹)</label>
-                    <input type="number" id="amount" placeholder="500" value="500" min="1">
-                </div>
-
-                <div class="form-group">
-                    <label for="paymentMethod">Payment Method</label>
-                    <select id="paymentMethod">
-                        <option value="card">Debit/Credit Card</option>
-                        <option value="upi">UPI</option>
-                        <option value="netbanking">Net Banking</option>
-                        <option value="wallet">Wallet</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="paymentDescription">Description</label>
-                    <input type="text" id="paymentDescription" placeholder="Test Payment" value="Booking Payment">
-                </div>
-
-                <div class="button-group">
-                    <button class="btn-primary" onclick="createPaymentOrder()">Create Order</button>
-                    <button class="btn-secondary" onclick="verifyPayment()">Verify Payment</button>
-                </div>
-
-                <!-- Manual Verification Section -->
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
-                    <h3 style="color: #667eea; margin-bottom: 10px;">Manual Verification</h3>
-                    
-                    <div class="form-group">
-                        <label for="paymentId">Payment ID (from Razorpay)</label>
-                        <input type="text" id="paymentId" placeholder="pay_xxxxx">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="paymentSignature">Signature (from Razorpay)</label>
-                        <input type="text" id="paymentSignature" placeholder="signature_hash">
-                    </div>
-
-                    <button class="btn-secondary" onclick="verifyPaymentManual()">Verify with Manual Details</button>
-                </div>
-
-                <div id="paymentStatus" class="status"></div>
-                <div id="paymentLoader" class="loader"></div>
-
-                <div id="paymentResponse" class="response-box" style="display: none;">
-                    <h3>Payment Response</h3>
-                    <div class="response-content" id="paymentContent"></div>
-                </div>
-            </div>
-
-            <!-- Environment Variables -->
-            <div class="section">
-                <h2>🔧 Environment Variables</h2>
-                <div class="env-vars" id="envVars">
-                    <h3>Stored Values</h3>
-                    <div style="color: #999; font-size: 0.9em;">No authentication yet. Login to see variables.</div>
-                </div>
-
-                <button class="btn-success" onclick="testCompleteFlow()">Test Complete Flow</button>
-                <button class="btn-danger" onclick="resetAll()">Reset All</button>
-
-                <div id="flowStatus" class="status"></div>
-            </div>
-        </div>
+    <div class="button-group">
+      <button onclick="login()">Login</button>
     </div>
 
-    <script>
-        const API_BASE = () => document.getElementById('apiUrl').value;
-        const env = {
-            userToken: null,
-            userId: null,
-            userEmail: null,
-            razorpayOrderId: null,
-            orderId: null
-        };
+    <div id="loginStatus" class="status"></div>
+    <pre id="loginRes"></pre>
+  </div>
 
-        // Set today's date as default
-        document.getElementById('bookingDate').valueAsDate = new Date();
+  <!-- PAYMENT SECTION -->
+  <div class="section">
+    <h2>💰 Step 2: Create Payment Order</h2>
 
-        function showStatus(elementId, message, type = 'info') {
-            const el = document.getElementById(elementId);
-            el.className = `status ${type}`;
-            el.textContent = message;
+    <label>Amount (₹)</label>
+    <input id="amount" value="500" type="number" min="1"/>
+
+    <label>Description</label>
+    <input id="description" value="Test Payment"/>
+
+    <div class="button-group">
+      <button onclick="createOrder()">Create Order</button>
+    </div>
+
+    <div id="paymentStatus" class="status"></div>
+    <pre id="paymentRes"></pre>
+  </div>
+
+  <!-- RAZORPAY PAYMENT SECTION -->
+  <div class="section">
+    <h2>🎯 Step 3: Pay with Razorpay</h2>
+
+    <div class="env-info" id="paymentInfo" style="display:none;">
+      <strong>Order Details:</strong>
+      <div class="env-item">
+        <span class="env-key">Order ID:</span>
+        <span class="env-value" id="displayOrderId">-</span>
+      </div>
+      <div class="env-item">
+        <span class="env-key">Amount:</span>
+        <span class="env-value" id="displayAmount">-</span>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="secondary" onclick="openRazorpay()">Open Razorpay Checkout</button>
+    </div>
+
+    <div id="razorpayStatus" class="status"></div>
+    <pre id="razorpayRes"></pre>
+  </div>
+
+  <!-- VERIFY SECTION -->
+  <div class="section">
+    <h2>✅ Step 4: Verify Payment</h2>
+
+    <label>Order ID</label>
+    <input id="verifyOrder" readonly/>
+
+    <label>Payment ID</label>
+    <input id="verifyPayment" readonly/>
+
+    <label>Signature</label>
+    <input id="verifySignature" readonly/>
+
+    <div class="button-group">
+      <button onclick="verifyPayment()">Verify Payment</button>
+    </div>
+
+    <div id="verifyStatus" class="status"></div>
+    <pre id="verifyRes"></pre>
+  </div>
+
+  <!-- ENVIRONMENT INFO -->
+  <div class="section">
+    <h2>📊 Session Information</h2>
+    <div class="env-info" id="envInfo">
+      <div class="env-item">
+        <span class="env-key">Status:</span>
+        <span class="env-value">Not authenticated</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+  const env = {
+    token: null,
+    email: null,
+    userId: null,
+    razorpayOrderId: null,
+    amount: null
+  };
+
+  const api = () => document.getElementById('apiUrl').value;
+
+  function show(id, msg, type) {
+    const el = document.getElementById(id);
+    el.className = 'status ' + type;
+    el.innerText = msg;
+    el.style.display = 'block';
+  }
+
+  function updateEnvInfo() {
+    const envInfo = document.getElementById('envInfo');
+    if (!env.token) {
+      envInfo.innerHTML = '<div class="env-item"><span class="env-key">Status:</span><span class="env-value">Not authenticated</span></div>';
+      return;
+    }
+
+    let html = '<div class="env-item"><span class="env-key">Status:</span><span class="env-value">✅ Authenticated</span></div>';
+    html += '<div class="env-item"><span class="env-key">Email:</span><span class="env-value">' + env.email + '</span></div>';
+    html += '<div class="env-item"><span class="env-key">User ID:</span><span class="env-value">' + (env.userId || '-') + '</span></div>';
+    if (env.razorpayOrderId) {
+      html += '<div class="env-item"><span class="env-key">Current Order:</span><span class="env-value">' + env.razorpayOrderId + '</span></div>';
+    }
+    envInfo.innerHTML = html;
+  }
+
+  async function login() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    if (!email || !password) {
+      show('loginStatus', '❌ Please enter email and password', 'error');
+      return;
+    }
+
+    show('loginStatus', '⏳ Logging in...', 'info');
+
+    try {
+      const res = await fetch(api() + "/api/auth/login", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        env.token = data.token;
+        env.email = data.data?.user?.email;
+        env.userId = data.data?.user?._id;
+        updateEnvInfo();
+        show('loginStatus', '✅ Login successful!', 'success');
+      } else {
+        show('loginStatus', '❌ Login failed: ' + (data.message || 'Unknown error'), 'error');
+      }
+
+      document.getElementById('loginRes').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      show('loginStatus', '❌ Error: ' + error.message, 'error');
+    }
+  }
+
+  async function createOrder() {
+    if (!env.token) {
+      show('paymentStatus', '❌ Please login first', 'error');
+      return;
+    }
+
+    const amount = parseInt(document.getElementById('amount').value);
+    const description = document.getElementById('description').value;
+
+    if (!amount || amount < 1) {
+      show('paymentStatus', '❌ Please enter a valid amount', 'error');
+      return;
+    }
+
+    show('paymentStatus', '⏳ Creating order...', 'info');
+
+    try {
+      const res = await fetch(api() + "/api/payments/create-order", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + env.token
+        },
+        body: JSON.stringify({
+          amount: amount,
+          description: description,
+          receipt: 'rcpt_' + Date.now()
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Extract order ID from nested response structure
+        env.razorpayOrderId = data.data?.razorpayOrderId || data.data?.orderId || data.razorpayOrderId || data.orderId || data.order_id || data.id;
+        env.amount = amount;
+        
+        if (!env.razorpayOrderId) {
+          show('paymentStatus', '❌ Error: Order ID not found in response', 'error');
+          document.getElementById('paymentRes').textContent = JSON.stringify(data, null, 2);
+          return;
         }
+        
+        document.getElementById('verifyOrder').value = env.razorpayOrderId;
+        document.getElementById('displayOrderId').innerText = env.razorpayOrderId;
+        document.getElementById('displayAmount').innerText = '₹' + amount;
+        document.getElementById('paymentInfo').style.display = 'block';
+        updateEnvInfo();
+        show('paymentStatus', '✅ Order created successfully!', 'success');
+      } else {
+        show('paymentStatus', '❌ Order creation failed: ' + (data.message || 'Unknown error'), 'error');
+      }
 
-        function showLoader(elementId, show = true) {
-            document.getElementById(elementId).style.display = show ? 'block' : 'none';
+      document.getElementById('paymentRes').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      show('paymentStatus', '❌ Error: ' + error.message, 'error');
+    }
+  }
+
+  function openRazorpay() {
+    if (!env.razorpayOrderId) {
+      show('razorpayStatus', '❌ Please create an order first', 'error');
+      return;
+    }
+
+    if (!document.getElementById('razorpayKey').value) {
+      show('razorpayStatus', '❌ Please enter your Razorpay Key ID', 'error');
+      return;
+    }
+
+    show('razorpayStatus', '⏳ Opening Razorpay checkout...', 'info');
+
+    const rzp = new Razorpay({
+      key: document.getElementById('razorpayKey').value,
+      order_id: env.razorpayOrderId,
+      name: "Payment Test",
+      description: "Test Payment with Razorpay",
+      amount: env.amount * 100,
+      prefill: {
+        email: env.email,
+        contact: "9876543210",
+        name: "Test User"
+      },
+      theme: {
+        color: "#667eea"
+      },
+      handler: function(res) {
+        document.getElementById('verifyOrder').value = res.razorpay_order_id;
+        document.getElementById('verifyPayment').value = res.razorpay_payment_id;
+        document.getElementById('verifySignature').value = res.razorpay_signature;
+        show('razorpayStatus', '✅ Payment completed! Verify payment details below.', 'success');
+        document.getElementById('razorpayRes').textContent = JSON.stringify(res, null, 2);
+      },
+      modal: {
+        ondismiss: function() {
+          show('razorpayStatus', '⚠️ Payment cancelled by user', 'error');
         }
+      }
+    });
 
-        function showResponse(elementId, responseId, data) {
-            const box = document.getElementById(elementId);
-            const content = document.getElementById(responseId);
-            box.style.display = 'block';
-            content.textContent = JSON.stringify(data, null, 2);
+    rzp.open();
+  }
+
+  async function verifyPayment() {
+    if (!env.token) {
+      show('verifyStatus', '❌ Please login first', 'error');
+      return;
+    }
+
+    const orderId = document.getElementById('verifyOrder').value;
+    const paymentId = document.getElementById('verifyPayment').value;
+    const signature = document.getElementById('verifySignature').value;
+
+    if (!orderId || !paymentId || !signature) {
+      show('verifyStatus', '❌ Please complete payment first', 'error');
+      return;
+    }
+
+    show('verifyStatus', '⏳ Verifying payment...', 'info');
+
+    try {
+      const res = await fetch(api() + "/api/payments/verify", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + env.token
+        },
+        body: JSON.stringify({
+          razorpayOrderId: orderId,
+          razorpayPaymentId: paymentId,
+          razorpaySignature: signature
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        show('verifyStatus', '✅ Payment verified successfully!', 'success');
+      } else {
+        show('verifyStatus', '❌ Verification failed: ' + (data.message || 'Unknown error'), 'error');
+      }
+
+      document.getElementById('verifyRes').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      show('verifyStatus', '❌ Error: ' + error.message, 'error');
+    }
+  }
+
+  // Initialize and load Razorpay key from backend
+  updateEnvInfo();
+  
+  // Auto-load Razorpay Key from backend
+  async function loadRazorpayKey() {
+    try {
+      const res = await fetch(api() + "/api/config/razorpay-key");
+      if (res.ok) {
+        const data = await res.json();
+        const key = data.key || data.razorpayKey || data.RAZORPAY_KEY_ID;
+        if (key) {
+          document.getElementById('razorpayKey').value = key;
+          console.log('✅ Razorpay Key loaded from backend');
         }
+      }
+    } catch (error) {
+      console.log('ℹ️ Razorpay key endpoint not found - please enter manually');
+    }
+  }
+  
+  // Load key on page load
+  window.addEventListener('load', loadRazorpayKey);
+</script>
 
-        function updateEnvDisplay() {
-            const envVars = document.getElementById('envVars');
-            const hasData = Object.values(env).some(v => v !== null);
-            
-            if (!hasData) {
-                envVars.innerHTML = '<h3>Stored Values</h3><div style="color: #999; font-size: 0.9em;">No authentication yet. Login to see variables.</div>';
-                return;
-            }
-
-            let html = '<h3>Stored Values</h3>';
-            Object.entries(env).forEach(([key, value]) => {
-                if (value) {
-                    const displayValue = typeof value === 'string' && value.length > 50 
-                        ? value.substring(0, 47) + '...' 
-                        : value;
-                    html += `<div class="env-item"><span class="env-key">${key}</span><span class="env-value">${displayValue}</span></div>`;
-                }
-            });
-            envVars.innerHTML = html;
-        }
-
-        async function loginUser() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            if (!email || !password) {
-                showStatus('loginStatus', '❌ Please enter email and password', 'error');
-                return;
-            }
-
-            showLoader('loginLoader', true);
-            showStatus('loginStatus', 'Logging in...', 'info');
-
-            try {
-                const response = await fetch(`${API_BASE()}/api/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-                showLoader('loginLoader', false);
-
-                if (response.ok) {
-                    env.userToken = data.token;
-                    env.userId = data.data?.user?._id;
-                    env.userEmail = data.data?.user?.email;
-                    
-                    updateEnvDisplay();
-                    showStatus('loginStatus', '✅ Login successful!', 'success');
-                    showResponse('loginResponse', 'loginContent', data);
-                } else {
-                    showStatus('loginStatus', `❌ Login failed: ${data.message || 'Unknown error'}`, 'error');
-                    showResponse('loginResponse', 'loginContent', data);
-                }
-            } catch (error) {
-                showLoader('loginLoader', false);
-                showStatus('loginStatus', `❌ Error: ${error.message}`, 'error');
-            }
-        }
-
-        async function createBooking() {
-            if (!env.userToken) {
-                showStatus('bookingStatus', '❌ Please login first', 'error');
-                return;
-            }
-
-            const bookingData = {
-                userId: env.userId,
-                serviceType: document.getElementById('serviceType').value,
-                bookingDate: document.getElementById('bookingDate').value,
-                bookingTime: document.getElementById('bookingTime').value,
-                duration: parseInt(document.getElementById('duration').value),
-                notes: document.getElementById('notes').value
-            };
-
-            showLoader('bookingLoader', true);
-            showStatus('bookingStatus', 'Creating booking...', 'info');
-
-            try {
-                const response = await fetch(`${API_BASE()}/api/bookings/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify(bookingData)
-                });
-
-                const data = await response.json();
-                showLoader('bookingLoader', false);
-
-                if (response.ok) {
-                    env.orderId = data._id;
-                    updateEnvDisplay();
-                    showStatus('bookingStatus', '✅ Booking created successfully!', 'success');
-                    showResponse('bookingResponse', 'bookingContent', data);
-                } else {
-                    showStatus('bookingStatus', `❌ Booking failed: ${data.message || 'Unknown error'}`, 'error');
-                    showResponse('bookingResponse', 'bookingContent', data);
-                }
-            } catch (error) {
-                showLoader('bookingLoader', false);
-                showStatus('bookingStatus', `❌ Error: ${error.message}`, 'error');
-            }
-        }
-
-        async function createPaymentOrder() {
-            if (!env.userToken) {
-                showStatus('paymentStatus', '❌ Please login first', 'error');
-                return;
-            }
-
-            const amount = parseInt(document.getElementById('amount').value);
-            const paymentData = {
-                userId: env.userId,
-                amount: amount,
-                description: document.getElementById('paymentDescription').value,
-                receipt: `test_${Date.now()}`,
-                notes: {
-                    testId: 'html_test',
-                    purpose: 'Booking Payment'
-                },
-                customer: {
-                    email: env.userEmail,
-                    phone: '9876543210',
-                    name: 'Test User'
-                }
-            };
-
-            showLoader('paymentLoader', true);
-            showStatus('paymentStatus', 'Creating payment order...', 'info');
-
-            try {
-                const response = await fetch(`${API_BASE()}/api/payments/create-order`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify(paymentData)
-                });
-
-                const data = await response.json();
-                showLoader('paymentLoader', false);
-
-                if (response.ok) {
-                    env.razorpayOrderId = data.razorpayOrderId;
-                    updateEnvDisplay();
-                    showStatus('paymentStatus', '✅ Payment order created! Amount: ₹' + amount, 'success');
-                    showResponse('paymentResponse', 'paymentContent', data);
-                } else {
-                    showStatus('paymentStatus', `❌ Failed: ${data.message || 'Unknown error'}`, 'error');
-                    showResponse('paymentResponse', 'paymentContent', data);
-                }
-            } catch (error) {
-                showLoader('paymentLoader', false);
-                showStatus('paymentStatus', `❌ Error: ${error.message}`, 'error');
-            }
-        }
-
-        async function verifyPayment() {
-            if (!env.userToken || !env.razorpayOrderId) {
-                showStatus('paymentStatus', '❌ Please create a payment order first', 'error');
-                return;
-            }
-
-            showLoader('paymentLoader', true);
-            showStatus('paymentStatus', 'Getting payment details from Razorpay...', 'info');
-
-            try {
-                // Step 1: Fetch payment details from Razorpay API using orderId
-                const fetchResponse = await fetch(`${API_BASE()}/api/payments/fetch-razorpay-payment`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify({
-                        razorpayOrderId: env.razorpayOrderId
-                    })
-                });
-
-                if (!fetchResponse.ok) {
-                    showLoader('paymentLoader', false);
-                    const errorData = await fetchResponse.json();
-                    showStatus('paymentStatus', `❌ Failed to fetch payment: ${errorData.message}`, 'error');
-                    showResponse('paymentResponse', 'paymentContent', errorData);
-                    return;
-                }
-
-                const paymentData = await fetchResponse.json();
-                const razorpayPaymentId = paymentData.razorpayPaymentId || paymentData.paymentId;
-                const razorpaySignature = paymentData.razorpaySignature || paymentData.signature;
-
-                if (!razorpayPaymentId || !razorpaySignature) {
-                    showLoader('paymentLoader', false);
-                    showStatus('paymentStatus', '❌ Could not retrieve payment details from Razorpay', 'error');
-                    showResponse('paymentResponse', 'paymentContent', paymentData);
-                    return;
-                }
-
-                // Populate manual fields for reference
-                document.getElementById('paymentId').value = razorpayPaymentId;
-                document.getElementById('paymentSignature').value = razorpaySignature;
-
-                // Step 2: Verify the payment signature
-                showStatus('paymentStatus', 'Verifying payment signature...', 'info');
-
-                const verifyData = {
-                    razorpayOrderId: env.razorpayOrderId,
-                    razorpayPaymentId: razorpayPaymentId,
-                    razorpaySignature: razorpaySignature
-                };
-
-                const verifyResponse = await fetch(`${API_BASE()}/api/payments/verify`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify(verifyData)
-                });
-
-                const verifyResult = await verifyResponse.json();
-                showLoader('paymentLoader', false);
-
-                if (verifyResponse.ok) {
-                    showStatus('paymentStatus', '✅ Payment verified successfully!', 'success');
-                    showResponse('paymentResponse', 'paymentContent', verifyResult);
-                } else {
-                    showStatus('paymentStatus', `⚠️ Verification response: ${verifyResult.message || 'Check details'}`, 'info');
-                    showResponse('paymentResponse', 'paymentContent', verifyResult);
-                }
-            } catch (error) {
-                showLoader('paymentLoader', false);
-                showStatus('paymentStatus', `❌ Error: ${error.message}`, 'error');
-                console.error('Verify payment error:', error);
-            }
-        }
-
-        async function verifyPaymentManual() {
-            if (!env.userToken || !env.razorpayOrderId) {
-                showStatus('paymentStatus', '❌ Please create a payment order first', 'error');
-                return;
-            }
-
-            const razorpayPaymentId = document.getElementById('paymentId').value;
-            const razorpaySignature = document.getElementById('paymentSignature').value;
-
-            if (!razorpayPaymentId || !razorpaySignature) {
-                showStatus('paymentStatus', '❌ Please enter Payment ID and Signature', 'error');
-                return;
-            }
-
-            showLoader('paymentLoader', true);
-            showStatus('paymentStatus', 'Verifying payment with manual details...', 'info');
-
-            try {
-                const verifyData = {
-                    razorpayOrderId: env.razorpayOrderId,
-                    razorpayPaymentId: razorpayPaymentId,
-                    razorpaySignature: razorpaySignature
-                };
-
-                console.log('Sending verification request:', verifyData);
-
-                const verifyResponse = await fetch(`${API_BASE()}/api/payments/verify`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify(verifyData)
-                });
-
-                const verifyResult = await verifyResponse.json();
-                console.log('Verification response:', verifyResult);
-                
-                showLoader('paymentLoader', false);
-
-                if (verifyResponse.ok) {
-                    showStatus('paymentStatus', '✅ Payment verified successfully!', 'success');
-                    showResponse('paymentResponse', 'paymentContent', verifyResult);
-                } else {
-                    showStatus('paymentStatus', `❌ Verification failed: ${verifyResult.message || 'Unknown error'}`, 'error');
-                    showResponse('paymentResponse', 'paymentContent', verifyResult);
-                }
-            } catch (error) {
-                showLoader('paymentLoader', false);
-                showStatus('paymentStatus', `❌ Error: ${error.message}`, 'error');
-                console.error('Manual verification error:', error);
-            }
-        }
-
-        async function testCompleteFlow() {
-            showLoader('flowStatus', true);
-            showStatus('flowStatus', '🚀 Starting complete flow test...', 'info');
-
-            try {
-                // 1. Login
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-
-                let response = await fetch(`${API_BASE()}/api/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                let data = await response.json();
-                if (!response.ok) throw new Error('Login failed');
-
-                env.userToken = data.token;
-                env.userId = data.data?.user?._id;
-                env.userEmail = data.data?.user?.email;
-
-                console.log('✅ Step 1: Login successful');
-
-                // 2. Create Booking
-                const bookingData = {
-                    userId: env.userId,
-                    serviceType: document.getElementById('serviceType').value,
-                    bookingDate: document.getElementById('bookingDate').value,
-                    bookingTime: document.getElementById('bookingTime').value,
-                    duration: parseInt(document.getElementById('duration').value),
-                    notes: document.getElementById('notes').value
-                };
-
-                response = await fetch(`${API_BASE()}/api/bookings/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify(bookingData)
-                });
-
-                data = await response.json();
-                console.log('✅ Step 2: Booking created');
-
-                // 3. Create Payment
-                const amount = parseInt(document.getElementById('amount').value);
-                const paymentData = {
-                    userId: env.userId,
-                    amount: amount,
-                    description: document.getElementById('paymentDescription').value,
-                    receipt: `test_${Date.now()}`,
-                    notes: { testId: 'complete_flow' },
-                    customer: {
-                        email: env.userEmail,
-                        phone: '9876543210',
-                        name: 'Test User'
-                    }
-                };
-
-                response = await fetch(`${API_BASE()}/api/payments/create-order`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.userToken}`
-                    },
-                    body: JSON.stringify(paymentData)
-                });
-
-                data = await response.json();
-                console.log('✅ Step 3: Payment order created');
-
-                showLoader('flowStatus', false);
-                updateEnvDisplay();
-                showStatus('flowStatus', '✅ Complete flow test successful! All steps completed.', 'success');
-            } catch (error) {
-                showLoader('flowStatus', false);
-                showStatus('flowStatus', `❌ Flow test failed: ${error.message}`, 'error');
-            }
-        }
-
-        function clearEnv() {
-            Object.keys(env).forEach(key => {
-                env[key] = null;
-            });
-            updateEnvDisplay();
-            showStatus('loginStatus', '🔄 Environment cleared', 'info');
-        }
-
-        function resetAll() {
-            clearEnv();
-            document.getElementById('email').value = 'test@example.com';
-            document.getElementById('password').value = 'test123';
-            document.getElementById('amount').value = '500';
-            document.getElementById('notes').value = '';
-            document.getElementById('bookingDate').valueAsDate = new Date();
-            document.getElementById('bookingTime').value = '';
-            
-            // Hide all responses
-            document.getElementById('loginResponse').style.display = 'none';
-            document.getElementById('bookingResponse').style.display = 'none';
-            document.getElementById('paymentResponse').style.display = 'none';
-            
-            showStatus('flowStatus', '🔄 All fields reset', 'info');
-        }
-
-        // Initialize
-        updateEnvDisplay();
-    </script>
 </body>
 </html>

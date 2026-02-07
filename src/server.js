@@ -154,6 +154,14 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/', (req, res) => res.send('Hello, World!'));
 app.get('/favicon.png', (req, res) => res.status(204).end());
 
+// Config endpoints for frontend
+app.get('/api/config/razorpay-key', (req, res) => {
+  res.json({ 
+    key: process.env.RAZORPAY_KEY_ID,
+    razorpayKey: process.env.RAZORPAY_KEY_ID
+  });
+});
+
 // AWS status check endpoint
 app.get('/api/aws-status', (req, res) => {
   // Import the S3 client from amplify route to check status
