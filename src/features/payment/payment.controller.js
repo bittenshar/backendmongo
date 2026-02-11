@@ -78,19 +78,7 @@ exports.createOrder = async (req, res) => {
             await Event.updateOne(
             {
               _id: eventId,
-              "seatings._id": seatingId,
-              $expr: {
-                $gte: [
-                  {
-                    $subtract: [
-                      "$seatings.totalSeats",
-                      "$seatings.seatsSold",
-                      "$seatings.lockedSeats"
-                    ]
-                  },
-                  quantity
-                ]
-              }
+              "seatings._id": seatingId
             },
             {
               $inc: { "seatings.$.lockedSeats": quantity },
