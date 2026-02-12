@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Inquiry Form - List Your Show</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      max-width: 700px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    .form-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .form-header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .form-header p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .form-row.full {
+      grid-template-columns: 1fr;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    label .required {
+      color: #e74c3c;
+    }
+
+    input[type='text'],
+    input[type='email'],
+    input[type='tel'],
+    input[type='number'],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 5px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+
+    input[type='text']:focus,
+    input[type='email']:focus,
+    input[type='tel']:focus,
+    input[type='number']:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-size: 14px;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+
+    .error-message {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .form-group.error input,
+    .form-group.error select,
+    .form-group.error textarea {
+      border-color: #e74c3c;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #333;
+      margin-top: 25px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .radio-group,
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .radio-option,
+    .checkbox-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .radio-option input[type='radio'],
+    .checkbox-option input[type='checkbox'] {
+      width: auto;
+      cursor: pointer;
+    }
+
+    .radio-option label,
+    .checkbox-option label {
+      margin: 0;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-submit {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-reset {
+      background: #ecf0f1;
+      color: #333;
+      border: 2px solid #bdc3c7;
+    }
+
+    .btn-reset:hover {
+      background: #d5dbdb;
+    }
+
+    .success-message {
+      background: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      display: none;
+      border: 1px solid #c3e6cb;
+    }
+
+    .success-message.show {
+      display: block;
+    }
+
+    .loading-spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-submit.loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-submit.loading .spinner {
+      display: block;
+    }
+
+    .info-box {
+      background: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #0c5aa0;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 25px;
+      }
+
+      .form-header h1 {
+        font-size: 22px;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="form-header">
+      <h1>🎭 Become Our Partner</h1>
+      <p>Join us as an organizer and list your amazing shows</p>
+    </div>
+
+    <div class="info-box">
+      ℹ️ Fill out this form to express your interest in becoming a partner with us. Our team will review your inquiry
+      and contact you soon.
+    </div>
+
+    <div class="success-message" id="successMessage">
+      ✓ Thank you for your inquiry! We will review it and contact you soon.
+    </div>
+
+    <form id="partnerInquiryForm">
+      <!-- Personal Information Section -->
+      <div class="section-title">Personal Information</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="fullName">Full Name <span class="required">*</span></label>
+          <input type="text" id="fullName" name="fullName" placeholder="John Doe" required />
+          <div class="error-message" id="fullName-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone Number <span class="required">*</span></label>
+          <input type="tel" id="phone" name="phone" placeholder="9876543210" pattern="[0-9]{10}" required />
+          <div class="form-hint">10-digit number without spaces or dashes</div>
+          <div class="error-message" id="phone-error"></div>
+        </div>
+      </div>
+
+      <div class="form-group form-row full">
+        <label for="email">Email Address <span class="required">*</span></label>
+        <input type="email" id="email" name="email" placeholder="john@example.com" required />
+        <div class="error-message" id="email-error"></div>
+      </div>
+
+      <!-- Organization Information Section -->
+      <div class="section-title">Organization Information</div>
+
+      <div class="form-group form-row full">
+        <label for="organizationName">Organization Name <span class="required">*</span></label>
+        <input type="text" id="organizationName" name="organizationName" placeholder="Your Company/Organization" required />
+        <div class="error-message" id="organizationName-error"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="city">City <span class="required">*</span></label>
+          <input type="text" id="city" name="city" placeholder="Mumbai" required />
+          <div class="error-message" id="city-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="state">State <span class="required">*</span></label>
+          <input type="text" id="state" name="state" placeholder="Maharashtra" required />
+          <div class="error-message" id="state-error"></div>
+        </div>
+      </div>
+
+      <!-- Partnership Preferences Section -->
+      <div class="section-title">Partnership Preferences</div>
+
+      <div class="form-group form-row full">
+        <label>Partnership Type <span class="required">*</span></label>
+        <select id="partnershipType" name="partnershipType" required>
+          <option value="">-- Select Partnership Type --</option>
+          <option value="organizer">Event Organizer</option>
+          <option value="promoter">Event Promoter</option>
+          <option value="venue_partner">Venue Partner</option>
+          <option value="other">Other</option>
+        </select>
+        <div class="error-message" id="partnershipType-error"></div>
+      </div>
+
+      <div class="form-group form-row full">
+        <label>Type of Events <span class="required">*</span></label>
+        <select id="eventType" name="eventType" required>
+          <option value="">-- Select Event Type --</option>
+          <option value="concerts">Concerts & Music Shows</option>
+          <option value="theater">Theater Performances</option>
+          <option value="comedy">Comedy Shows</option>
+          <option value="sports">Sports Events</option>
+          <option value="workshops">Workshops & Seminars</option>
+          <option value="conferences">Conferences</option>
+          <option value="other">Other</option>
+        </select>
+        <div class="error-message" id="eventType-error"></div>
+      </div>
+
+      <div class="form-group form-row full">
+        <label>Your Experience Level <span class="required">*</span></label>
+        <select id="experienceLevel" name="experienceLevel" required>
+          <option value="">-- Select Experience Level --</option>
+          <option value="beginner">Beginner (0-2 years)</option>
+          <option value="intermediate">Intermediate (2-5 years)</option>
+          <option value="experienced">Experienced (5-10 years)</option>
+          <option value="expert">Expert (10+ years)</option>
+        </select>
+        <div class="error-message" id="experienceLevel-error"></div>
+      </div>
+
+      <!-- Message Section -->
+      <div class="section-title">Additional Information</div>
+
+      <div class="form-group form-row full">
+        <label for="message">Tell us about your organization <span class="required">*</span></label>
+        <textarea
+          id="message"
+          name="message"
+          placeholder="Please describe your organization, the types of events you organize, and why you'd like to partner with us. (Minimum 20 characters)"
+          required
+        ></textarea>
+        <div class="form-hint" id="charCount">0 / 2000 characters</div>
+        <div class="error-message" id="message-error"></div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="button-group">
+        <button type="reset" class="btn-reset" onclick="document.getElementById('partnerInquiryForm').reset()">Clear Form</button>
+        <button type="submit" class="btn-submit">
+          <span class="loading-spinner"></span>
+          Submit Inquiry
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Get form and elements
+    const form = document.getElementById('partnerInquiryForm');
+    const messageField = document.getElementById('message');
+    const charCount = document.getElementById('charCount');
+    const successMessage = document.getElementById('successMessage');
+
+    // Character counter for message field
+    messageField.addEventListener('input', () => {
+      const length = messageField.value.length;
+      charCount.textContent = `${length} / 2000 characters`;
+    });
+
+    // Form validation and submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Clear previous error messages
+      document.querySelectorAll('.error-message').forEach((el) => (el.textContent = ''));
+      document.querySelectorAll('.form-group').forEach((el) => el.classList.remove('error'));
+      successMessage.classList.remove('show');
+
+      // Get form data
+      const formData = {
+        fullName: document.getElementById('fullName').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        organizationName: document.getElementById('organizationName').value.trim(),
+        city: document.getElementById('city').value.trim(),
+        state: document.getElementById('state').value.trim(),
+        partnershipType: document.getElementById('partnershipType').value,
+        eventType: document.getElementById('eventType').value,
+        experienceLevel: document.getElementById('experienceLevel').value,
+        message: document.getElementById('message').value.trim()
+      };
+
+      // Validation
+      const errors = validateForm(formData);
+
+      if (Object.keys(errors).length > 0) {
+        displayErrors(errors);
+        return;
+      }
+
+      // Show loading state
+      const submitBtn = form.querySelector('.btn-submit');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.classList.add('loading');
+      submitBtn.innerHTML = '<span class="loading-spinner"></span> Submitting...';
+
+      try {
+        // Replace this with your actual API endpoint
+        const response = await fetch('/api/listyourshow/inquiry', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Add authorization token if available
+            // 'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(formData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to submit inquiry');
+        }
+
+        const data = await response.json();
+
+        // Success
+        successMessage.classList.add('show');
+        form.reset();
+        charCount.textContent = '0 / 2000 characters';
+
+        // Scroll to success message
+        successMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Optional: Redirect after 3 seconds
+        // setTimeout(() => {
+        //   window.location.href = '/dashboard';
+        // }, 3000);
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+      } finally {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.innerHTML = originalText;
+      }
+    });
+
+    // Validation function
+    function validateForm(data) {
+      const errors = {};
+
+      if (!data.fullName || data.fullName.length < 2) {
+        errors.fullName = 'Full name must be at least 2 characters';
+      }
+
+      if (!data.email || !isValidEmail(data.email)) {
+        errors.email = 'Please enter a valid email address';
+      }
+
+      if (!data.phone || !/^[0-9]{10}$/.test(data.phone)) {
+        errors.phone = 'Please enter a valid 10-digit phone number';
+      }
+
+      if (!data.organizationName || data.organizationName.length < 2) {
+        errors.organizationName = 'Organization name must be at least 2 characters';
+      }
+
+      if (!data.city || data.city.length < 2) {
+        errors.city = 'Please enter a valid city name';
+      }
+
+      if (!data.state || data.state.length < 2) {
+        errors.state = 'Please enter a valid state name';
+      }
+
+      if (!data.partnershipType) {
+        errors.partnershipType = 'Please select a partnership type';
+      }
+
+      if (!data.eventType) {
+        errors.eventType = 'Please select an event type';
+      }
+
+      if (!data.experienceLevel) {
+        errors.experienceLevel = 'Please select your experience level';
+      }
+
+      if (!data.message || data.message.length < 20) {
+        errors.message = 'Message must be at least 20 characters long';
+      }
+
+      if (data.message && data.message.length > 2000) {
+        errors.message = 'Message cannot exceed 2000 characters';
+      }
+
+      return errors;
+    }
+
+    // Email validation
+    function isValidEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    }
+
+    // Display errors
+    function displayErrors(errors) {
+      Object.keys(errors).forEach((field) => {
+        const errorElement = document.getElementById(`${field}-error`);
+        const formGroup = document.querySelector(`[name="${field}"]`).closest('.form-group');
+
+        if (errorElement && formGroup) {
+          errorElement.textContent = errors[field];
+          errorElement.classList.add('show');
+          formGroup.classList.add('error');
+        }
+      });
+
+      // Scroll to first error
+      const firstError = document.querySelector('.form-group.error');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  </script>
+</body>
+</html>

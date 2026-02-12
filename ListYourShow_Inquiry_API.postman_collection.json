@@ -1,0 +1,261 @@
+{
+  "info": {
+    "_postman_id": "listyourshow-inquiry-api",
+    "name": "List Your Show - Partner Inquiry API",
+    "description": "Complete API collection for Partner Inquiry feature\n\nEndpoints include:\n- Create inquiry\n- Get user's inquiries\n- Get inquiry details\n- Delete inquiry\n- Admin: Get all inquiries\n- Admin: Get statistics\n- Admin: Update inquiry status",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User Endpoints",
+      "item": [
+        {
+          "name": "Create Inquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"organizationName\": \"Amazing Events Inc\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"partnershipType\": \"organizer\",\n  \"eventType\": \"concerts\",\n  \"experienceLevel\": \"experienced\",\n  \"message\": \"We have been organizing concerts for the past 5 years with excellent track record and experience in managing large scale events.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/inquiry",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "inquiry"]
+            },
+            "description": "Submit a new partner inquiry"
+          },
+          "response": [
+            {
+              "name": "Success (201)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/listyourshow/inquiry",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "listyourshow", "inquiry"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Inquiry submitted successfully. We will review it and contact you soon.\",\n  \"data\": {\n    \"inquiry\": {\n      \"_id\": \"65abc123xyz\",\n      \"userId\": \"64xyz\",\n      \"fullName\": \"John Doe\",\n      \"email\": \"john@example.com\",\n      \"phone\": \"9876543210\",\n      \"organizationName\": \"Amazing Events Inc\",\n      \"city\": \"Mumbai\",\n      \"state\": \"Maharashtra\",\n      \"partnershipType\": \"organizer\",\n      \"eventType\": \"concerts\",\n      \"experienceLevel\": \"experienced\",\n      \"message\": \"We have been organizing concerts...\",\n      \"status\": \"submitted\",\n      \"submitedAt\": \"2024-02-12T10:30:00.000Z\",\n      \"updatedAt\": \"2024-02-12T10:30:00.000Z\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get My Inquiries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/my-inquiries?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "my-inquiries"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get all inquiries submitted by current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Inquiry Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/inquiry/{{inquiryId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "inquiry", "{{inquiryId}}"]
+            },
+            "description": "Get details of a specific inquiry"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Inquiry",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/inquiry/{{inquiryId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "inquiry", "{{inquiryId}}"]
+            },
+            "description": "Delete an inquiry (only own inquiries or admin)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin Endpoints",
+      "item": [
+        {
+          "name": "Get All Inquiries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/inquiries?status=submitted&partnershipType=organizer&city=&page=1&limit=10&sort=newest",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "inquiries"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "submitted",
+                  "disabled": true
+                },
+                {
+                  "key": "partnershipType",
+                  "value": "organizer",
+                  "disabled": true
+                },
+                {
+                  "key": "city",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "newest"
+                }
+              ]
+            },
+            "description": "Get all inquiries with filtering (Admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Inquiry Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "stats"]
+            },
+            "description": "Get statistics about inquiries (Admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Inquiry Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"adminNotes\": \"Organization verified. Contact details validated. Approved for partnership program.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/listyourshow/inquiry/{{inquiryId}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "listyourshow", "inquiry", "{{inquiryId}}", "status"]
+            },
+            "description": "Update inquiry status (Admin only)\n\nValid statuses:\n- submitted\n- under-review\n- approved\n- rejected\n- contacted"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_USER_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "YOUR_ADMIN_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "inquiryId",
+      "value": "65abc123xyz",
+      "type": "string"
+    }
+  ]
+}

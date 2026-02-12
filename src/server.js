@@ -117,6 +117,9 @@ const bookingPaymentRoutes = require('./features/booking/booking-with-payment.ro
 const paymentRoutes = require('./features/payment/payment.routes');
 const aadhaarImageRoutes = require('./features/aadhaar/aadhaar.routes');
 
+// Import listyourshow routes
+const listyourshowRoutes = require('./features/listyourshow/listyourshow.routes');
+
 // Use feature routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin-public', adminPublicRoutes);
@@ -131,6 +134,7 @@ app.use('/api/ads', adsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification", testNotificationRoutes);
+app.use('/api/listyourshow', listyourshowRoutes);
 
 // Health check route - MUST be before broad /api routes
 app.get('/api/health', (req, res) => {
