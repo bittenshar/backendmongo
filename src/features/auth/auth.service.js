@@ -14,8 +14,7 @@ const signToken = (user) => {
   // sign with _id (userId)
   return jwt.sign(
     { userId: user._id.toString() },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
+    process.env.JWT_SECRET
   );
 };
 

@@ -47,7 +47,7 @@ const generateAdminToken = async () => {
         const token = jwt.sign(
             { userId: admin._id.toString() },
             process.env.JWT_SECRET,
-            { expiresIn: '90d' }
+            {}
         );
 
         console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
