@@ -24,7 +24,7 @@ exports.getAllInquiries = async (req, res, next) => {
     const total = await ListYourShowInquiry.countDocuments(filter);
 
     // Get inquiries with pagination
-    let query = ListYourShowInquiry.find(filter).populate('userId', 'name email phone').populate('reviewedBy', 'name email');
+    let query = ListYourShowInquiry.find(filter).populate('reviewedBy', 'name email');
 
     // Apply sorting
     if (sort === 'oldest') {
@@ -66,13 +66,17 @@ exports.getAllInquiries = async (req, res, next) => {
  */
 exports.getMyInquiries = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const email = req.query.email || req.user?.email;
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
 
-    const total = await ListYourShowInquiry.countDocuments({ userId });
+    if (!email) {
+      return next(new AppError('Email is required to fetch inquiries', 400));
+    }
 
-    const inquiries = await ListYourShowInquiry.find({ userId })
+    const total = await ListYourShowInquiry.countDocuments({ email });
+
+    const inquiries = await ListYourShowInquiry.find({ email })
       .sort({ submittedAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -108,16 +112,10 @@ exports.getInquiryDetails = async (req, res, next) => {
     const { inquiryId } = req.params;
 
     const inquiry = await ListYourShowInquiry.findById(inquiryId)
-      .populate('userId', 'name email phone')
       .populate('reviewedBy', 'name email');
 
     if (!inquiry) {
       return next(new AppError('Inquiry not found', 404));
-    }
-
-    // Check if user has access (own inquiry or admin)
-    if (inquiry.userId && inquiry.userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return next(new AppError('You do not have permission to view this inquiry', 403));
     }
 
     res.status(200).json({
@@ -182,7 +180,6 @@ exports.createInquiry = async (req, res, next) => {
 
     // Create new inquiry
     const inquiry = await ListYourShowInquiry.create({
-      userId: req.user?._id || null, // Optional - for authenticated users only
       fullName,
       email,
       phone,
@@ -260,7 +257,27 @@ exports.updateInquiryStatus = async (req, res, next) => {
  * @param {Object} res - Express response
  * @param {Function} next - Express next middleware
  */
+exports.deleteInquiry = async (req, res, next) => {
+  try {
+    const { inquiryId } = req.params;
 
+    const inquiry = await ListYourShowInquiry.findById(inquiryId);
+
+    if (!inquiry) {
+      return next(new AppError('Inquiry not found', 404));
+    }
+
+    await ListYourShowInquiry.findByIdAndDelete(inquiryId);
+
+    res.status(204).json({
+      status: 'success',
+      message: 'Inquiry deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting inquiry:', error);
+    return next(new AppError(error.message, 500));
+  }
+};
 
 /**
  * Get inquiry statistics (Admin only)

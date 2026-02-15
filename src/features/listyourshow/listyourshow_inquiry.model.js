@@ -6,12 +6,7 @@ const mongoose = require('mongoose');
  */
 const listYourShowInquirySchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-      index: true
-    },
+    
     fullName: {
       type: String,
       required: true,
@@ -109,15 +104,10 @@ const listYourShowInquirySchema = new mongoose.Schema(
 // Index for efficient querying
 listYourShowInquirySchema.index({ status: 1, submittedAt: -1 });
 listYourShowInquirySchema.index({ email: 1 });
-listYourShowInquirySchema.index({ userId: 1, submittedAt: -1 });
 
 // Statics
 listYourShowInquirySchema.statics.findByStatus = function (status) {
   return this.find({ status }).sort({ submittedAt: -1 });
-};
-
-listYourShowInquirySchema.statics.findUserInquiries = function (userId) {
-  return this.find({ userId }).sort({ submittedAt: -1 });
 };
 
 const ListYourShowInquiry = mongoose.model('ListYourShowInquiry', listYourShowInquirySchema);

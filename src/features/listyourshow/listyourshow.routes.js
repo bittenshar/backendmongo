@@ -38,6 +38,9 @@ router.get('/my-inquiries', listyourshowController.getMyInquiries);
 // GET /api/listyourshow/inquiry/:inquiryId
 router.get('/inquiry/:inquiryId', listyourshowController.getInquiryDetails);
 
+// Delete own inquiry
+// DELETE /api/listyourshow/inquiry/:inquiryId
+router.delete('/inquiry/:inquiryId', listyourshowController.deleteInquiry);
 
 /**
  * ADMIN ROUTES
