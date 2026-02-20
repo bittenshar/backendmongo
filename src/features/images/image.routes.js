@@ -173,7 +173,23 @@ router.get('/public/*', catchAsync(async (req, res, next) => {
 
         // Handle specific S3 errors
         if (s3Error.code === 'NoSuchKey') {
-          return next(new AppError(`Image not found in S3: ${imageInput}`, 404));
+          // Return placeholder image instead of error
+          console.warn('⚠️ Image not found in S3, returning placeholder');
+          
+          // Option A: Redirect to placeholder service
+          const placeholderUrl = `https://via.placeholder.com/400x300?text=No+Image`;
+          try {
+            const placeholderResponse = await axios.get(placeholderUrl, {
+              responseType: 'stream',
+              timeout: 10000
+            });
+            res.set('Content-Type', 'image/svg+xml');
+            res.set('Cache-Control', 'public, max-age=3600');
+            return placeholderResponse.data.pipe(res);
+          } catch (err) {
+            console.error('Placeholder fetch failed:', err.message);
+            return next(new AppError(`Image not found: ${imageInput}`, 404));
+          }
         }
         if (s3Error.code === 'AccessDenied' || s3Error.code === 'Forbidden') {
           return next(new AppError('Access denied to S3 image (check AWS credentials/permissions)', 403));
