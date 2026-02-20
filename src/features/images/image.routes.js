@@ -1,307 +1,227 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const AWS = require('aws-sdk');
 const urlEncryption = require('../../shared/services/urlEncryption.service');
 const catchAsync = require('../../shared/utils/catchAsync');
 const AppError = require('../../shared/utils/appError');
 
-// Initialize S3 client
-const s3Client = new AWS.S3({
-  apiVersion: '2006-03-01',
-  region: process.env.AWS_REGION || 'ap-south-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
-});
+/**
+ * ==========================================
+ * IMAGE ENCRYPTION & DECRYPTION WORKFLOW
+ * ==========================================
+ * 
+ * PURPOSE:
+ * Encrypt S3 URLs to secure tokens that can be stored in MongoDB
+ * Serve images using encrypted tokens instead of raw URLs
+ * 
+ * WORKFLOW:
+ * 1. Event uploaded with S3 image URL
+ * 2. POST /api/images/encrypt-url → Get encrypted token
+ * 3. Store encrypted token in MongoDB event document
+ * 4. GET /api/images/encrypted/:token → Stream image from decrypted URL
+ * 5. POST /api/images/decrypt-token → Get original URL (admin only)
+ */
 
 /**
- * GET /api/images/proxy/:token
- * Fetch image using encrypted S3 URL token
- * OR fetch image using S3 key directly (public access)
- * Returns image with proper content-type headers
+ * POST /api/images/encrypt-url
+ * Encrypt an S3 URL to a secure token
  * 
- * Usage:
- * - With token: /api/images/proxy/ENCRYPTED_TOKEN
- * - With S3 key: /api/images/proxy?key=s3-bucket-key
+ * Request:
+ *   {
+ *     "url": "https://event-images-collection.s3.ap-south-1.amazonaws.com/events/temp/image.jpeg",
+ *     "expiryHours": 24  // optional, defaults to 24 hours
+ *   }
+ * 
+ * Response:
+ *   {
+ *     "status": "success",
+ *     "data": {
+ *       "token": "enc_abc123xyz...",
+ *       "expiryHours": 24,
+ *       "note": "Store this token in MongoDB, NOT the raw URL"
+ *     }
+ *   }
  */
-router.get('/proxy/:token?', catchAsync(async (req, res, next) => {
-  const { token } = req.params;
-  const { key } = req.query; // S3 key for direct public access
-  let s3Url;
+router.post('/encrypt-url', catchAsync(async (req, res, next) => {
+  const { url, expiryHours = 24 } = req.body;
 
-  // Method 1: Token-based (encrypted) access
-  if (token) {
-    const tokenData = urlEncryption.verifyImageToken(token);
-    if (!tokenData.valid) {
-      return next(new AppError(tokenData.message, 401));
-    }
-    s3Url = tokenData.url;
+  // Validate required fields
+  if (!url) {
+    return next(new AppError('URL is required', 400));
   }
-  // Method 2: Direct S3 key access (public - no token required)
-  else if (key) {
-    // Construct S3 URL directly from the key
-    const bucket = process.env.AWS_S3_BUCKET || 'adminthrill';
-    const region = process.env.AWS_REGION || 'us-east-1';
-    s3Url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
-  }
-  // Method 3: No token and no key - error
-  else {
-    return next(new AppError('Token or key parameter required', 400));
+
+  // Validate URL format
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return next(new AppError('URL must start with http:// or https://', 400));
   }
 
   try {
-    // Fetch image from S3
+    // Generate encrypted token from URL
+    const token = urlEncryption.generateImageToken(url, expiryHours);
+
+    if (!token) {
+      return next(new AppError('Failed to encrypt URL', 500));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        token,
+        expiryHours,
+        note: 'Store this token in MongoDB using the "imageToken" field'
+      }
+    });
+  } catch (error) {
+    console.error('❌ URL Encryption Error:', error.message);
+    return next(new AppError('Failed to encrypt URL', 500));
+  }
+}));
+
+/**
+ * GET /api/images/encrypted/:token
+ * Retrieve image using encrypted token
+ * Decrypts token to get S3 URL and streams image directly
+ * 
+ * Usage:
+ *   GET /api/images/encrypted/enc_abc123xyz...
+ * 
+ * Response:
+ *   Image binary stream with proper Content-Type headers
+ */
+router.get('/encrypted/:token', catchAsync(async (req, res, next) => {
+  const { token } = req.params;
+
+  if (!token) {
+    return next(new AppError('Token is required', 400));
+  }
+
+  try {
+    // Decrypt token to get original S3 URL
+    const tokenData = urlEncryption.verifyImageToken(token);
+
+    if (!tokenData.valid) {
+      console.warn('⚠️ Invalid or expired token:', token.substring(0, 20) + '...');
+      return next(new AppError(tokenData.message || 'Token invalid or expired', 401));
+    }
+
+    // Token is valid, get S3 URL
+    const s3Url = tokenData.url;
+    console.log('🔓 Token decrypted successfully, fetching image...');
+
+    // Fetch image from S3 using the decrypted URL
     const response = await axios.get(s3Url, {
       responseType: 'stream',
       timeout: 30000
     });
 
-    // Set proper headers to serve image
+    // Set proper response headers
     res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-    res.set('Content-Length', response.headers['content-length']);
+    if (response.headers['content-length']) {
+      res.set('Content-Length', response.headers['content-length']);
+    }
 
-    // Remove AWS headers from being exposed
+    // Remove AWS metadata headers from response
     res.removeHeader('x-amz-id-2');
     res.removeHeader('x-amz-request-id');
 
+    console.log('✅ Streaming encrypted image to client');
+
     // Stream image to client
     response.data.pipe(res);
-  } catch (error) {
-    console.error('❌ Image Proxy Error:', error.message);
-    return next(new AppError('Failed to fetch image', 500));
-  }
-}));
 
-
-/**
- * GET /api/images/public/*
- * Serve images directly from S3 or external URLs (public access, no token required)
- * Usage: 
- * - S3 key: /api/images/public/path/to/image.jpg
- * - External URL: /api/images/public/https://example.com/image.jpg
- */
-router.get('/public/*', catchAsync(async (req, res, next) => {
-  let imageInput = req.params[0]; // Get the full path after /public/
-  let isExternalUrl = false;
-
-  if (!imageInput) {
-    return next(new AppError('Image key or URL is required', 400));
-  }
-
-  try {
-    // Check if it's an external URL (starts with http:// or https://)
-    if (imageInput.startsWith('http://') || imageInput.startsWith('https://')) {
-      // It's already a full URL, use it directly with axios
-      isExternalUrl = true;
-      console.log('🔗 Fetching external URL:', imageInput);
-
-      try {
-        const response = await axios.get(imageInput, {
-          responseType: 'stream',
-          timeout: 30000,
-          headers: {
-            'User-Agent': 'AdminThrill-ImageProxy/1.0'
-          }
-        });
-
-        res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
-        res.set('Cache-Control', 'public, max-age=31536000');
-        if (response.headers['content-length']) {
-          res.set('Content-Length', response.headers['content-length']);
-        }
-        res.removeHeader('x-amz-id-2');
-        res.removeHeader('x-amz-request-id');
-
-        console.log('✅ Streaming external image:', imageInput);
-        response.data.pipe(res);
-
-        response.data.on('error', (err) => {
-          console.error('❌ Stream error:', err.message);
-          res.status(500).json({ status: 'error', message: 'Error streaming image' });
-        });
-
-      } catch (axiosError) {
-        console.error('❌ External URL fetch failed:', {
-          url: imageInput,
-          status: axiosError.response?.status,
-          message: axiosError.message
-        });
-        if (axiosError.response?.status === 404) {
-          return next(new AppError('External image not found', 404));
-        }
-        throw axiosError;
+    // Handle stream errors
+    response.data.on('error', (err) => {
+      console.error('❌ Stream error:', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ status: 'error', message: 'Error streaming image' });
       }
-    } else {
-      // It's an S3 key, use AWS SDK
-      const bucket = process.env.AWS_S3_BUCKET || 'event-images-collection';
-      console.log('📦 Fetching from S3:', { bucket, key: imageInput });
-
-      const params = {
-        Bucket: bucket,
-        Key: imageInput
-      };
-
-      try {
-        // Get object from S3
-        const s3Object = await s3Client.getObject(params).promise();
-
-        // Set proper headers
-        res.set('Content-Type', s3Object.ContentType || 'image/jpeg');
-        res.set('Cache-Control', 'public, max-age=31536000');
-        res.set('Content-Length', s3Object.ContentLength);
-
-        // Remove AWS headers
-        res.removeHeader('x-amz-id-2');
-        res.removeHeader('x-amz-request-id');
-
-        console.log('✅ Serving S3 image:', imageInput);
-
-        // Send the image data
-        res.send(s3Object.Body);
-
-      } catch (s3Error) {
-        console.error('❌ S3 Access Error:', {
-          bucket,
-          key: imageInput,
-          code: s3Error.code,
-          message: s3Error.message,
-          statusCode: s3Error.statusCode
-        });
-
-        // Handle specific S3 errors
-        if (s3Error.code === 'NoSuchKey') {
-          // Return placeholder image instead of error
-          console.warn('⚠️ Image not found in S3, returning placeholder');
-          
-          // Option A: Redirect to placeholder service
-          const placeholderUrl = `https://via.placeholder.com/400x300?text=No+Image`;
-          try {
-            const placeholderResponse = await axios.get(placeholderUrl, {
-              responseType: 'stream',
-              timeout: 10000
-            });
-            res.set('Content-Type', 'image/svg+xml');
-            res.set('Cache-Control', 'public, max-age=3600');
-            return placeholderResponse.data.pipe(res);
-          } catch (err) {
-            console.error('Placeholder fetch failed:', err.message);
-            return next(new AppError(`Image not found: ${imageInput}`, 404));
-          }
-        }
-        if (s3Error.code === 'AccessDenied' || s3Error.code === 'Forbidden') {
-          return next(new AppError('Access denied to S3 image (check AWS credentials/permissions)', 403));
-        }
-        if (s3Error.code === 'NoSuchBucket') {
-          return next(new AppError(`S3 bucket not found: ${bucket}`, 404));
-        }
-
-        throw s3Error;
-      }
-    }
+    });
 
   } catch (error) {
-    console.error('❌ Public Image Access Error:', {
-      message: error.message,
-      code: error.code,
-      status: error.response?.status,
-      input: imageInput,
-      stack: error.stack
+    console.error('❌ Image Serve Error:', {
+      token: token.substring(0, 20) + '...',
+      error: error.message,
+      code: error.code
     });
 
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-      return next(new AppError('Unable to reach image source', 503));
+      return next(new AppError('Unable to reach S3 image source', 503));
     }
     if (error.code === 'ETIMEDOUT') {
       return next(new AppError('Request timeout while fetching image', 504));
     }
 
-    return next(new AppError(`Failed to fetch image: ${error.message}`, 500));
+    return next(new AppError('Failed to fetch image', 500));
   }
 }));
 
-
-
 /**
- * POST /api/images/encrypt
- * Encrypt an S3 URL (admin endpoint)
- * Returns encrypted token instead of raw S3 URL
+ * POST /api/images/decrypt-token
+ * Decrypt an image token to retrieve original S3 URL
+ * ADMIN ONLY - Use this to verify tokens or retrieve URLs for management
+ * 
+ * Request:
+ *   {
+ *     "token": "enc_abc123xyz..."
+ *   }
+ * 
+ * Response:
+ *   {
+ *     "status": "success",
+ *     "data": {
+ *       "url": "https://event-images-collection.s3.ap-south-1.amazonaws.com/events/temp/image.jpeg",
+ *       "valid": true
+ *     }
+ *   }
  */
-router.post('/encrypt', catchAsync(async (req, res, next) => {
-  const { url, expiryHours = 24 } = req.body;
-
-  if (!url) {
-    return next(new AppError('URL is required', 400));
-  }
-
-  const token = urlEncryption.generateImageToken(url, expiryHours);
-
-  if (!token) {
-    return next(new AppError('Failed to encrypt URL', 500));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      token,
-      expiryHours,
-      proxyUrl: `/api/images/proxy/${token}`
-    }
-  });
-}));
-
-/**
- * POST /api/images/decrypt
- * Decrypt an image token (admin/authorized only)
- * Returns the original S3 URL
- */
-router.post('/decrypt', catchAsync(async (req, res, next) => {
+router.post('/decrypt-token', catchAsync(async (req, res, next) => {
   const { token } = req.body;
 
   if (!token) {
     return next(new AppError('Token is required', 400));
   }
 
-  const tokenData = urlEncryption.verifyImageToken(token);
+  try {
+    // Verify and decrypt token
+    const tokenData = urlEncryption.verifyImageToken(token);
 
-  if (!tokenData.valid) {
-    return next(new AppError(tokenData.message, 401));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      url: tokenData.url,
-      valid: true
+    if (!tokenData.valid) {
+      console.warn('⚠️ Token verification failed:', tokenData.message);
+      return next(new AppError(tokenData.message || 'Token invalid or expired', 401));
     }
-  });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        url: tokenData.url,
+        valid: true,
+        message: 'Token successfully decrypted'
+      }
+    });
+  } catch (error) {
+    console.error('❌ Token Decryption Error:', error.message);
+    return next(new AppError('Failed to decrypt token', 500));
+  }
 }));
 
 /**
  * GET /api/images/health
- * Health check endpoint with S3 diagnostics
+ * Health check endpoint with encryption service status
  */
 router.get('/health', (req, res) => {
-  const config = {
+  res.status(200).json({
     status: 'success',
-    message: 'Image service is running',
-    s3Config: {
-      bucket: process.env.AWS_S3_BUCKET || 'event-images-collection',
-      region: process.env.AWS_REGION || 'ap-south-1',
-      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
-      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY
+    message: 'Image encryption service is running',
+    workflow: {
+      step1: 'POST /api/images/encrypt-url (encrypt S3 URL)',
+      step2: 'Store returned token in MongoDB event document',
+      step3: 'GET /api/images/encrypted/:token (retrieve image using token)',
+      step4: 'POST /api/images/decrypt-token (admin - verify tokens)'
     },
-    endpoints: [
-      'GET /api/images/proxy/:token (token-based, encrypted)',
-      'GET /api/images/proxy?key=path/to/image (S3 key direct)',
-      'GET /api/images/public/* (public S3 or external URLs)',
-      'POST /api/images/encrypt (admin)',
-      'POST /api/images/decrypt (admin)'
-    ]
-  };
-  res.status(200).json(config);
+    s3Bucket: process.env.AWS_S3_BUCKET || 'event-images-collection',
+    awsRegion: process.env.AWS_REGION || 'ap-south-1'
+  });
 });
 
 module.exports = router;

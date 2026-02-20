@@ -9,23 +9,25 @@ const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificatio
 const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 /**
- * Transform event data to hide S3 URLs
- * Replaces direct S3 URLs with public image proxy URLs (no token required)
+ * Transform event data to use encrypted image tokens
+ * If imageToken exists, generate secure URL using token
+ * Otherwise, fall back to public proxy (for backward compatibility)
  */
 const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
-  if (eventObj.s3ImageKey) {
-    // Check if it's already a full URL (http/https)
+  // Use encrypted token if available (primary method)
+  if (eventObj.imageToken) {
+    eventObj.coverImageUrl = `/api/images/encrypted/${eventObj.imageToken}`;
+  } 
+  // Fallback: generate public proxy URLs (backward compatibility)
+  else if (eventObj.s3ImageKey) {
     if (eventObj.s3ImageKey.startsWith('http://') || eventObj.s3ImageKey.startsWith('https://')) {
-      // It's already a full external URL, use public proxy
       eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
     } else {
-      // It's an S3 key, use public endpoint
       eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
     }
   } else if (eventObj.coverImage) {
-    // Fallback: use public endpoint with coverImage data
     if (eventObj.coverImage.startsWith('http://') || eventObj.coverImage.startsWith('https://')) {
       eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
     } else {
@@ -110,9 +112,17 @@ exports.createEvent = catchAsync(async (req, res, next) => {
       console.warn('⚠️ No file in request');
     }
 
+    // Encrypt S3 URL to token for secure storage
+    let imageToken = null;
+    if (coverImageUrl && s3Key) {
+      imageToken = urlEncryption.generateImageToken(coverImageUrl, 24);
+      console.log('🔐 S3 URL encrypted to token for storage');
+    }
+
     const eventData = {
       ...req.body,
-      ...(coverImageUrl && { coverImage: coverImageUrl, s3ImageKey: s3Key })
+      ...(coverImageUrl && { coverImage: coverImageUrl, s3ImageKey: s3Key }),
+      ...(imageToken && { imageToken })
     };
 
     const newEvent = await Event.create(eventData);
@@ -159,7 +169,11 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     if (updateResult.success) {
       updateData.coverImage = updateResult.url;
       updateData.s3ImageKey = updateResult.key;
-      console.log('✅ Image updated on S3:', updateResult.url);
+      
+      // Encrypt new S3 URL to token for secure storage
+      const newImageToken = urlEncryption.generateImageToken(updateResult.url, 24);
+      updateData.imageToken = newImageToken;
+      console.log('✅ Image updated on S3 and encrypted to token:', updateResult.url);
     } else {
       console.warn('⚠️ Image update failed:', updateResult.message);
     }

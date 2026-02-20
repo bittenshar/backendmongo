@@ -44,6 +44,11 @@ const eventSchema = new mongoose.Schema(
       type: String, 
       required: [true, 'S3 image key is required'] 
     },
+    imageToken: {
+      type: String,
+      default: null,
+      description: 'Encrypted token for secure image access via /api/images/encrypted/:token'
+    },
     
     status: {
       type: String,
