@@ -47,9 +47,6 @@ router.post(
   eventController.createEvent
 );
 
-// Test endpoint - create events folder in S3
-router.get('/test/create-folder', eventController.testCreateEventsFolder);
-
 // ID-based routes
 router.get('/:id', eventController.getEvent);
 
