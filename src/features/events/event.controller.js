@@ -18,9 +18,31 @@ const transformEventResponse = (eventDoc) => {
   if (eventObj.s3ImageKey) {
     // Use public endpoint (no token required)
     eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
+    
+    // Add image location details for reference
+    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
+    const region = process.env.AWS_REGION || 'ap-south-1';
+    eventObj.imageLocation = {
+      bucket,
+      region,
+      s3Key: eventObj.s3ImageKey,
+      directS3Url: `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.s3ImageKey}`,
+      apiUrl: eventObj.coverImageUrl
+    };
   } else if (eventObj.coverImage) {
     // Fallback: use public endpoint with coverImage data
     eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
+    
+    // Add image location details for reference
+    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
+    const region = process.env.AWS_REGION || 'ap-south-1';
+    eventObj.imageLocation = {
+      bucket,
+      region,
+      s3Key: eventObj.coverImage,
+      directS3Url: `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.coverImage}`,
+      apiUrl: eventObj.coverImageUrl
+    };
   }
   
   // Remove raw S3 URLs from response
