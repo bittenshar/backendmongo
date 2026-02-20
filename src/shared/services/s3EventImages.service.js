@@ -12,9 +12,11 @@ const EVENT_IMAGES_BUCKET = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images
 
 /**
  * Upload event cover image to S3
+ * Uses clean naming pattern: events/{eventId}/cover.{ext}
+ * This aligns with the image proxy pattern (imageId: event-{eventId}-cover)
  * @param {Buffer} fileBuffer - Image file buffer
  * @param {String} fileName - Original file name
- * @param {String} eventId - MongoDB event ID (optional, for organizing)
+ * @param {String} eventId - MongoDB event ID (required for organizing)
  * @returns {Promise<Object>} - {success, message, url, key}
  */
 const uploadEventImage = async (fileBuffer, fileName, eventId = null) => {
@@ -26,13 +28,22 @@ const uploadEventImage = async (fileBuffer, fileName, eventId = null) => {
       };
     }
 
-    // Generate unique key for S3
+    if (!eventId) {
+      return {
+        success: false,
+        message: 'Event ID is required for organized storage'
+      };
+    }
+
+    // Generate clean S3 key matching proxy pattern
+    // Pattern: events/{eventId}/cover.{ext}
+    // This maps to imageId: event-{eventId}-cover via proxy
     const fileExtension = fileName.split('.').pop();
-    const uniqueKey = `events/${eventId || 'temp'}/cover-${uuidv4()}.${fileExtension}`;
+    const s3Key = `events/${eventId}/cover.${fileExtension}`;
 
     const params = {
       Bucket: EVENT_IMAGES_BUCKET,
-      Key: uniqueKey,
+      Key: s3Key,
       Body: fileBuffer,
       ContentType: `image/${fileExtension}`
       // Removed ACL: 'public-read' - let bucket policy handle permissions
@@ -46,7 +57,8 @@ const uploadEventImage = async (fileBuffer, fileName, eventId = null) => {
       url: result.Location,
       key: result.Key,
       bucket: result.Bucket,
-      etag: result.ETag
+      etag: result.ETag,
+      imageId: `event-${eventId}-cover`  // Return clean imageId for use in API
     };
   } catch (error) {
     console.error('❌ S3 Upload Error:', error.message);
@@ -60,11 +72,13 @@ const uploadEventImage = async (fileBuffer, fileName, eventId = null) => {
 
 /**
  * Generate presigned URL for event image upload
+ * Uses clean naming pattern: events/{eventId}/cover.{ext}
+ * This aligns with the image proxy pattern (imageId: event-{eventId}-cover)
  * Allows frontend to upload directly to S3
  * @param {String} eventId - MongoDB event ID
  * @param {String} fileName - File name for upload
  * @param {String} contentType - MIME type (e.g., 'image/jpeg')
- * @returns {Promise<Object>} - {success, message, presignedUrl, key}
+ * @returns {Promise<Object>} - {success, message, presignedUrl, key, imageId}
  */
 const getPresignedUploadUrl = async (eventId, fileName, contentType = 'image/jpeg') => {
   try {
@@ -75,8 +89,11 @@ const getPresignedUploadUrl = async (eventId, fileName, contentType = 'image/jpe
       };
     }
 
+    // Generate clean S3 key matching proxy pattern
+    // Pattern: events/{eventId}/cover.{ext}
+    // This maps to imageId: event-{eventId}-cover via proxy
     const fileExtension = fileName.split('.').pop();
-    const key = `events/${eventId}/cover-${uuidv4()}.${fileExtension}`;
+    const key = `events/${eventId}/cover.${fileExtension}`;
 
     const params = {
       Bucket: EVENT_IMAGES_BUCKET,
@@ -93,6 +110,7 @@ const getPresignedUploadUrl = async (eventId, fileName, contentType = 'image/jpe
       message: 'Presigned URL generated successfully',
       presignedUrl,
       key,
+      imageId: `event-${eventId}-cover`,  // Return clean imageId for use in API
       expiresIn: 3600
     };
   } catch (error) {

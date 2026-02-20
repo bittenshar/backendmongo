@@ -33,3 +33,4 @@ router.get('/complete-profile', authController.protect, authController.getComple
 router.post('/complete-profile', authController.protect, authController.completeProfile);
 
 module.exports = router;
+
