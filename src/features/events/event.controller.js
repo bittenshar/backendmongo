@@ -16,11 +16,21 @@ const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
   if (eventObj.s3ImageKey) {
-    // Use public endpoint (no token required)
-    eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
+    // Check if it's already a full URL (http/https)
+    if (eventObj.s3ImageKey.startsWith('http://') || eventObj.s3ImageKey.startsWith('https://')) {
+      // It's already a full external URL, use public proxy
+      eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
+    } else {
+      // It's an S3 key, use public endpoint
+      eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
+    }
   } else if (eventObj.coverImage) {
     // Fallback: use public endpoint with coverImage data
-    eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
+    if (eventObj.coverImage.startsWith('http://') || eventObj.coverImage.startsWith('https://')) {
+      eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
+    } else {
+      eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
+    }
   }
   
   // Remove raw S3 URLs from response

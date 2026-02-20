@@ -1,9 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const AWS = require('aws-sdk');
 const urlEncryption = require('../../shared/services/urlEncryption.service');
 const catchAsync = require('../../shared/utils/catchAsync');
 const AppError = require('../../shared/utils/appError');
+
+// Initialize S3 client
+const s3Client = new AWS.S3({
+  apiVersion: '2006-03-01',
+  region: process.env.AWS_REGION || 'ap-south-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
 
 /**
  * GET /api/images/proxy/:token
@@ -67,44 +78,134 @@ router.get('/proxy/:token?', catchAsync(async (req, res, next) => {
 
 /**
  * GET /api/images/public/*
- * Serve images directly from S3 by key (public access, no token required)
- * Usage: /api/images/public/path/to/image.jpg
+ * Serve images directly from S3 or external URLs (public access, no token required)
+ * Usage: 
+ * - S3 key: /api/images/public/path/to/image.jpg
+ * - External URL: /api/images/public/https://example.com/image.jpg
  */
 router.get('/public/*', catchAsync(async (req, res, next) => {
-  const s3Key = req.params[0]; // Get the full path after /public/
+  let imageInput = req.params[0]; // Get the full path after /public/
+  let isExternalUrl = false;
 
-  if (!s3Key) {
-    return next(new AppError('Image key is required', 400));
+  if (!imageInput) {
+    return next(new AppError('Image key or URL is required', 400));
   }
 
   try {
-    // Construct S3 URL directly
-    const bucket = process.env.AWS_S3_BUCKET || 'adminthrill';
-    const region = process.env.AWS_REGION || 'us-east-1';
-    const s3Url = `https://${bucket}.s3.${region}.amazonaws.com/${s3Key}`;
+    // Check if it's an external URL (starts with http:// or https://)
+    if (imageInput.startsWith('http://') || imageInput.startsWith('https://')) {
+      // It's already a full URL, use it directly with axios
+      isExternalUrl = true;
+      console.log('🔗 Fetching external URL:', imageInput);
 
-    // Fetch image from S3
-    const response = await axios.get(s3Url, {
-      responseType: 'stream',
-      timeout: 30000
+      try {
+        const response = await axios.get(imageInput, {
+          responseType: 'stream',
+          timeout: 30000,
+          headers: {
+            'User-Agent': 'AdminThrill-ImageProxy/1.0'
+          }
+        });
+
+        res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=31536000');
+        if (response.headers['content-length']) {
+          res.set('Content-Length', response.headers['content-length']);
+        }
+        res.removeHeader('x-amz-id-2');
+        res.removeHeader('x-amz-request-id');
+
+        console.log('✅ Streaming external image:', imageInput);
+        response.data.pipe(res);
+
+        response.data.on('error', (err) => {
+          console.error('❌ Stream error:', err.message);
+          res.status(500).json({ status: 'error', message: 'Error streaming image' });
+        });
+
+      } catch (axiosError) {
+        console.error('❌ External URL fetch failed:', {
+          url: imageInput,
+          status: axiosError.response?.status,
+          message: axiosError.message
+        });
+        if (axiosError.response?.status === 404) {
+          return next(new AppError('External image not found', 404));
+        }
+        throw axiosError;
+      }
+    } else {
+      // It's an S3 key, use AWS SDK
+      const bucket = process.env.AWS_S3_BUCKET || 'event-images-collection';
+      console.log('📦 Fetching from S3:', { bucket, key: imageInput });
+
+      const params = {
+        Bucket: bucket,
+        Key: imageInput
+      };
+
+      try {
+        // Get object from S3
+        const s3Object = await s3Client.getObject(params).promise();
+
+        // Set proper headers
+        res.set('Content-Type', s3Object.ContentType || 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.set('Content-Length', s3Object.ContentLength);
+
+        // Remove AWS headers
+        res.removeHeader('x-amz-id-2');
+        res.removeHeader('x-amz-request-id');
+
+        console.log('✅ Serving S3 image:', imageInput);
+
+        // Send the image data
+        res.send(s3Object.Body);
+
+      } catch (s3Error) {
+        console.error('❌ S3 Access Error:', {
+          bucket,
+          key: imageInput,
+          code: s3Error.code,
+          message: s3Error.message,
+          statusCode: s3Error.statusCode
+        });
+
+        // Handle specific S3 errors
+        if (s3Error.code === 'NoSuchKey') {
+          return next(new AppError(`Image not found in S3: ${imageInput}`, 404));
+        }
+        if (s3Error.code === 'AccessDenied' || s3Error.code === 'Forbidden') {
+          return next(new AppError('Access denied to S3 image (check AWS credentials/permissions)', 403));
+        }
+        if (s3Error.code === 'NoSuchBucket') {
+          return next(new AppError(`S3 bucket not found: ${bucket}`, 404));
+        }
+
+        throw s3Error;
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ Public Image Access Error:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      input: imageInput,
+      stack: error.stack
     });
 
-    // Set proper headers to serve image
-    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-    res.set('Content-Length', response.headers['content-length']);
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      return next(new AppError('Unable to reach image source', 503));
+    }
+    if (error.code === 'ETIMEDOUT') {
+      return next(new AppError('Request timeout while fetching image', 504));
+    }
 
-    // Remove AWS headers from being exposed
-    res.removeHeader('x-amz-id-2');
-    res.removeHeader('x-amz-request-id');
-
-    // Stream image to client
-    response.data.pipe(res);
-  } catch (error) {
-    console.error('❌ Public Image Access Error:', error.message);
-    return next(new AppError('Failed to fetch image', 500));
+    return next(new AppError(`Failed to fetch image: ${error.message}`, 500));
   }
 }));
+
 
 
 /**
@@ -164,13 +265,27 @@ router.post('/decrypt', catchAsync(async (req, res, next) => {
 
 /**
  * GET /api/images/health
- * Health check endpoint
+ * Health check endpoint with S3 diagnostics
  */
 router.get('/health', (req, res) => {
-  res.status(200).json({
+  const config = {
     status: 'success',
-    message: 'Image service is running'
-  });
+    message: 'Image service is running',
+    s3Config: {
+      bucket: process.env.AWS_S3_BUCKET || 'event-images-collection',
+      region: process.env.AWS_REGION || 'ap-south-1',
+      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY
+    },
+    endpoints: [
+      'GET /api/images/proxy/:token (token-based, encrypted)',
+      'GET /api/images/proxy?key=path/to/image (S3 key direct)',
+      'GET /api/images/public/* (public S3 or external URLs)',
+      'POST /api/images/encrypt (admin)',
+      'POST /api/images/decrypt (admin)'
+    ]
+  };
+  res.status(200).json(config);
 });
 
 module.exports = router;
