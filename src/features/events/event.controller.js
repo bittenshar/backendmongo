@@ -165,10 +165,11 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   }
 
   let updateData = { ...req.body };
+  let imageUpdateMessage = '';
 
   // Handle cover image update if new image provided
   if (req.file) {
-    console.log('📸 Updating cover image on S3 with clean naming pattern...');
+    console.log('📸 Updating cover image on S3 with eventId:', req.params.id);
     const updateResult = await s3EventImagesService.updateEventImage(
       req.file.buffer,
       req.file.originalname,
@@ -179,16 +180,30 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     if (updateResult.success) {
       updateData.coverImage = updateResult.url;
       updateData.s3ImageKey = updateResult.key;
-      console.log('✅ Image updated with clean naming pattern:', { key: updateResult.key, imageId: updateResult.imageId });
+      imageUpdateMessage = `Image updated successfully`;
+      console.log('✅ Image updated with clean naming pattern:', { 
+        key: updateResult.key, 
+        imageId: updateResult.imageId 
+      });
     } else {
       console.warn('⚠️ Image update failed:', updateResult.message);
+      imageUpdateMessage = `Image update failed: ${updateResult.message}`;
     }
   }
 
-  const updatedEvent = await Event.findByIdAndUpdate(req.params.id, updateData, {
-    new: true,
-    runValidators: true
-  });
+  // Update event with new data
+  const updatedEvent = await Event.findByIdAndUpdate(
+    req.params.id, 
+    updateData, 
+    {
+      new: true,
+      runValidators: true
+    }
+  ).populate('organizer');
+
+  if (!updatedEvent) {
+    return next(new AppError('Failed to update event', 500));
+  }
 
   // 🔔 Send event updated notification to all registered users
   const registrations = await Booking.find({ eventId: req.params.id, status: 'confirmed' })
@@ -216,6 +231,7 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
+    message: imageUpdateMessage || 'Event updated successfully',
     data: {
       event: transformedEvent
     }
