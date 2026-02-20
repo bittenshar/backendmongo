@@ -10,23 +10,23 @@ const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notifi
 
 /**
  * Transform event data to hide S3 URLs
- * Replaces direct S3 URLs with clean image proxy URLs
- * New format: /api/images/event-{id}-cover (no AWS/S3 references exposed)
+ * Replaces direct S3 URLs with public image proxy URLs (no token required)
  */
 const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
-  // Generate clean image URL using new imageId format
-  // Pattern: /api/images/event-{eventId}-cover
-  if (eventObj._id) {
-    eventObj.coverImageUrl = `/api/images/event-${eventObj._id}-cover`;
+  if (eventObj.s3ImageKey) {
+    // Use public endpoint (no token required)
+    eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
+  } else if (eventObj.coverImage) {
+    // Fallback: use public endpoint with coverImage data
+    eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
   }
   
-  // Remove raw S3 URLs and tokens from response (hide infrastructure)
+  // Remove raw S3 URLs from response
   delete eventObj.coverImage;
   delete eventObj.s3ImageKey;
   delete eventObj.s3BucketName;
-  delete eventObj.imageToken;
   
   return eventObj;
 };
@@ -78,39 +78,35 @@ exports.createEvent = catchAsync(async (req, res, next) => {
   console.log('📸 File info:', { hasFile: !!req.file, filename: req.file?.originalname, size: req.file?.size });
   
   try {
-    // Step 1: Create event first (without image) to get MongoDB ID
-    const eventData = { ...req.body };
-    const newEvent = await Event.create(eventData);
-    console.log('✅ Event created with ID:', newEvent._id);
-
-    // Step 2: Upload image if provided (now we have the eventId)
+    let coverImageUrl = null;
     let s3Key = null;
-    let imageId = null;
 
+    // Handle cover image upload if provided
     if (req.file) {
-      console.log('📸 Uploading cover image to S3 with eventId:', newEvent._id);
+      console.log('📸 Uploading cover image to S3...');
       const uploadResult = await s3EventImagesService.uploadEventImage(
         req.file.buffer,
-        req.file.originalname,
-        newEvent._id.toString()
+        req.file.originalname
       );
 
       if (uploadResult.success) {
+        coverImageUrl = uploadResult.url;
         s3Key = uploadResult.key;
-        imageId = uploadResult.imageId;
-        console.log('✅ Image uploaded using clean naming pattern:', { s3Key, imageId });
-
-        // Step 3: Update event with image information
-        newEvent.s3ImageKey = s3Key;
-        newEvent.coverImage = uploadResult.url;
-        await newEvent.save();
-        console.log('✅ Event updated with image metadata');
+        console.log('✅ Image uploaded to S3:', coverImageUrl);
       } else {
         console.warn('⚠️ Image upload failed:', uploadResult.message);
       }
     } else {
-      console.warn('⚠️ No image file provided in request');
+      console.warn('⚠️ No file in request');
     }
+
+    const eventData = {
+      ...req.body,
+      ...(coverImageUrl && { coverImage: coverImageUrl, s3ImageKey: s3Key })
+    };
+
+    const newEvent = await Event.create(eventData);
+    console.log('✅ Event created successfully:', newEvent._id);
 
     // Transform event to hide S3 URL
     const transformedEvent = transformEventResponse(newEvent);
@@ -143,47 +139,25 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
 
   // Handle cover image update if new image provided
   if (req.file) {
-    console.log('📸 Updating cover image on S3 with clean naming pattern...');
-    console.log('📄 File details:', { 
-      originalName: req.file.originalname, 
-      size: req.file.size,
-      eventId: req.params.id
-    });
-
+    console.log('📸 Updating cover image on S3...');
     const updateResult = await s3EventImagesService.updateEventImage(
       req.file.buffer,
       req.file.originalname,
-      event.s3ImageKey,
-      req.params.id  // Pass eventId for clean naming pattern
+      event.s3ImageKey
     );
 
     if (updateResult.success) {
       updateData.coverImage = updateResult.url;
       updateData.s3ImageKey = updateResult.key;
-      console.log('✅ Image updated successfully with clean naming pattern:', { 
-        key: updateResult.key, 
-        imageId: updateResult.imageId,
-        url: updateResult.url
-      });
+      console.log('✅ Image updated on S3:', updateResult.url);
     } else {
-      console.error('❌ Image update failed with error:', {
-        message: updateResult.message,
-        error: updateResult.error
-      });
-      // Still update event but without image data
-      console.warn('⚠️ Event will be updated without image data');
+      console.warn('⚠️ Image update failed:', updateResult.message);
     }
   }
 
   const updatedEvent = await Event.findByIdAndUpdate(req.params.id, updateData, {
     new: true,
     runValidators: true
-  });
-
-  console.log('✅ Event document updated in DB:', {
-    _id: updatedEvent._id,
-    s3ImageKey: updatedEvent.s3ImageKey,
-    hasImage: !!updatedEvent.s3ImageKey
   });
 
   // 🔔 Send event updated notification to all registered users
