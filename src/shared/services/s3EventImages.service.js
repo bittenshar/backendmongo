@@ -1,11 +1,14 @@
 const AWS = require('aws-sdk');
 const { v4: uuidv4 } = require('uuid');
 
-// Initialize S3 client
+// Initialize S3 client with proper credential structure
 const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION || 'ap-south-1'
+  apiVersion: '2006-03-01',
+  region: process.env.AWS_REGION || 'ap-south-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
 });
 
 const EVENT_IMAGES_BUCKET = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
@@ -51,6 +54,14 @@ const uploadEventImage = async (fileBuffer, fileName, eventId = null) => {
 
     const result = await s3.upload(params).promise();
 
+    console.log('✅ S3 Upload Success:', {
+      bucket: EVENT_IMAGES_BUCKET,
+      key: s3Key,
+      etag: result.ETag,
+      location: result.Location,
+      size: result.key ? 'File uploaded' : 'Unknown'
+    });
+
     return {
       success: true,
       message: 'Event image uploaded successfully',
@@ -61,11 +72,22 @@ const uploadEventImage = async (fileBuffer, fileName, eventId = null) => {
       imageId: `event-${eventId}-cover`  // Return clean imageId for use in API
     };
   } catch (error) {
-    console.error('❌ S3 Upload Error:', error.message);
+    console.error('❌ S3 Upload Error Details:', {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      region: process.env.AWS_REGION,
+      bucket: EVENT_IMAGES_BUCKET,
+      credentials: {
+        hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+        hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY
+      },
+      fullError: error
+    });
     return {
       success: false,
       message: `Upload failed: ${error.message}`,
-      error
+      error: error.message
     };
   }
 };
@@ -206,21 +228,29 @@ const updateEventImage = async (newFileBuffer, newFileName, oldS3Key, eventId) =
     const uploadResult = await uploadEventImage(newFileBuffer, newFileName, eventId);
 
     if (!uploadResult.success) {
+      console.warn('⚠️ Image upload failed during update:', uploadResult.message);
       return uploadResult;
     }
 
+    console.log('✅ New image uploaded successfully to:', uploadResult.key);
+
     // Delete old image if provided
     if (oldS3Key) {
+      console.log('🗑️ Deleting old image:', oldS3Key);
       await deleteEventImage(oldS3Key);
     }
 
     return uploadResult;
   } catch (error) {
-    console.error('❌ Update Image Error:', error);
+    console.error('❌ Update Image Error:', {
+      message: error.message,
+      code: error.code,
+      fullError: error
+    });
     return {
       success: false,
       message: `Update failed: ${error.message}`,
-      error
+      error: error.message
     };
   }
 };

@@ -144,6 +144,12 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   // Handle cover image update if new image provided
   if (req.file) {
     console.log('📸 Updating cover image on S3 with clean naming pattern...');
+    console.log('📄 File details:', { 
+      originalName: req.file.originalname, 
+      size: req.file.size,
+      eventId: req.params.id
+    });
+
     const updateResult = await s3EventImagesService.updateEventImage(
       req.file.buffer,
       req.file.originalname,
@@ -154,15 +160,30 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     if (updateResult.success) {
       updateData.coverImage = updateResult.url;
       updateData.s3ImageKey = updateResult.key;
-      console.log('✅ Image updated with clean naming pattern:', { key: updateResult.key, imageId: updateResult.imageId });
+      console.log('✅ Image updated successfully with clean naming pattern:', { 
+        key: updateResult.key, 
+        imageId: updateResult.imageId,
+        url: updateResult.url
+      });
     } else {
-      console.warn('⚠️ Image update failed:', updateResult.message);
+      console.error('❌ Image update failed with error:', {
+        message: updateResult.message,
+        error: updateResult.error
+      });
+      // Still update event but without image data
+      console.warn('⚠️ Event will be updated without image data');
     }
   }
 
   const updatedEvent = await Event.findByIdAndUpdate(req.params.id, updateData, {
     new: true,
     runValidators: true
+  });
+
+  console.log('✅ Event document updated in DB:', {
+    _id: updatedEvent._id,
+    s3ImageKey: updatedEvent.s3ImageKey,
+    hasImage: !!updatedEvent.s3ImageKey
   });
 
   // 🔔 Send event updated notification to all registered users
