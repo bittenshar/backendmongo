@@ -143,7 +143,8 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     const updateResult = await s3EventImagesService.updateEventImage(
       req.file.buffer,
       req.file.originalname,
-      event.s3ImageKey
+      event.s3ImageKey,
+      req.params.id  // Pass event ID for organized storage
     );
 
     if (updateResult.success) {
