@@ -10,37 +10,38 @@ const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notifi
 
 /**
  * Transform event data to hide S3 URLs
- * Replaces direct S3 URLs with secure proxied API endpoints
- * No direct S3 URLs exposed for security
+ * Replaces direct S3 URLs with public image proxy URLs (no token required)
  */
 const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
   if (eventObj.s3ImageKey) {
-    // Use secure API proxy endpoint (no direct S3 URL)
-    const apiProxyUrl = `/api/images/public/${eventObj.s3ImageKey}`;
-    eventObj.coverImageUrl = apiProxyUrl;
+    // Use public endpoint (no token required)
+    eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
     
-    // Add image location details (only secure API proxy, no direct S3 URL)
+    // Add image location details for reference
+    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
+    const region = process.env.AWS_REGION || 'ap-south-1';
     eventObj.imageLocation = {
-      bucket: process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection',
-      region: process.env.AWS_REGION || 'ap-south-1',
+      bucket,
+      region,
       s3Key: eventObj.s3ImageKey,
-      proxyUrl: apiProxyUrl,
-      note: 'Use proxyUrl for all image requests for security'
+      directS3Url: `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.s3ImageKey}`,
+      apiUrl: eventObj.coverImageUrl
     };
   } else if (eventObj.coverImage) {
-    // Fallback: use secure API proxy endpoint
-    const apiProxyUrl = `/api/images/public/${eventObj.coverImage}`;
-    eventObj.coverImageUrl = apiProxyUrl;
+    // Fallback: use public endpoint with coverImage data
+    eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
     
-    // Add image location details (only secure API proxy, no direct S3 URL)
+    // Add image location details for reference
+    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
+    const region = process.env.AWS_REGION || 'ap-south-1';
     eventObj.imageLocation = {
-      bucket: process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection',
-      region: process.env.AWS_REGION || 'ap-south-1',
+      bucket,
+      region,
       s3Key: eventObj.coverImage,
-      proxyUrl: apiProxyUrl,
-      note: 'Use proxyUrl for all image requests for security'
+      directS3Url: `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.coverImage}`,
+      apiUrl: eventObj.coverImageUrl
     };
   }
   
