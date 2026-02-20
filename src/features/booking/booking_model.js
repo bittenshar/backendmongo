@@ -45,13 +45,11 @@ const bookingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ['temporary', 'confirmed', 'cancelled', 'used', 'refunded'],
-      default: 'temporary',
-      index: true
+      default: 'temporary'
     },
     // Payment details
     razorpayOrderId: {
-      type: String,
-      index: true
+      type: String
     },
     razorpayPaymentId: {
       type: String
@@ -76,7 +74,7 @@ const bookingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['card', 'upi', 'netbanking', 'wallet', 'razorpay'],
+      enum: ['card', 'upi', 'netbanking', 'wallet', 'razorpay', 'admin_direct_booking'],
       default: null
     },
     // Booking timestamps
@@ -87,9 +85,11 @@ const bookingSchema = new mongoose.Schema(
     confirmedAt: {
       type: Date
     },
+    usedAt: {
+      type: Date
+    },
     expiresAt: {
-      type: Date,
-      index: { expireAfterSeconds: 0 } // Auto-delete after expiry
+      type: Date
     },
     // Cancellation info
     cancelledAt: {
@@ -114,8 +114,14 @@ const bookingSchema = new mongoose.Schema(
       type: String
     }],
     qrCodes: [{
-      type: String // S3 keys for QR code images
+      type: String // S3 keys for QR code images or data URLs
     }],
+    notificationsSent: {
+      whatsapp: { type: Boolean, default: false },
+      email: { type: Boolean, default: false },
+      sms: { type: Boolean, default: false },
+      sentAt: { type: Date }
+    },
     ticketDownloadCount: {
       type: Number,
       default: 0
@@ -128,7 +134,8 @@ const bookingSchema = new mongoose.Schema(
 bookingSchema.index({ userId: 1, eventId: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ bookedAt: -1 });
-bookingSchema.index({ expiresAt: 1 });
+bookingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+bookingSchema.index({ razorpayOrderId: 1 });
 
 // Virtual: Check if booking is expired
 bookingSchema.virtual('isExpired').get(function() {

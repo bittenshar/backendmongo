@@ -729,3 +729,261 @@ exports.bookWithPayment = async (req, res, next) => {
     next(error);
   }
 };
+/**
+ * ==========================================
+ * ADMIN ONLY: BOOK TICKET WITHOUT PAYMENT
+ * ==========================================
+ */
+
+/**
+ * Admin: Book event ticket for specific user without payment
+ * POST /api/booking/admin/book-without-payment
+ * 
+ * Admin can directly book tickets for any user without payment processing
+ * Automatically confirms the booking and generates tickets
+ * 
+ * Request body:
+ * {
+ *   userId: string (ID of user to book for),
+ *   eventId: string,
+ *   seatingId: string,
+ *   seatType: string,
+ *   quantity: number,
+ *   specialRequirements?: string,
+ *   adminNotes?: string
+ * }
+ * 
+ * Response includes:
+ * - booking: confirmed booking details with ticket info
+ * - event: event details
+ * - user: user details
+ */
+exports.adminBookEventTicket = async (req, res, next) => {
+  try {
+    // Verify admin role
+    if (req.user.role !== 'admin') {
+      return next(new AppError('Only admins can use this endpoint', 403));
+    }
+
+    const adminId = req.user._id;
+    const {
+      userId,
+      eventId,
+      seatingId,
+      seatType,
+      quantity,
+      specialRequirements,
+      adminNotes
+    } = req.body;
+
+    // ===== VALIDATION =====
+    if (!userId || !eventId || !seatingId || !seatType || !quantity) {
+      return next(new AppError(
+        'Missing required fields: userId, eventId, seatingId, seatType, quantity',
+        400
+      ));
+    }
+
+    if (quantity < 1) {
+      return next(new AppError('Quantity must be at least 1', 400));
+    }
+
+    console.log('🔐 Admin booking request:', {
+      adminId,
+      userId,
+      eventId,
+      seatType,
+      quantity
+    });
+
+    // ===== STEP 1: Verify user exists =====
+    let user;
+    try {
+      console.log('👤 Step 1: Verifying user...');
+      user = await User.findById(userId);
+      
+      if (!user) {
+        return next(new AppError('User not found', 404));
+      }
+      
+      console.log('✅ User verified:', user.email || user.phone);
+    } catch (userError) {
+      console.error('❌ User verification failed:', userError.message);
+      return next(new AppError(`User verification failed: ${userError.message}`, 400));
+    }
+
+    // ===== STEP 2: Verify event and seating exists =====
+    let event, seating, pricePerSeat;
+    try {
+      console.log('🎪 Step 2: Verifying event and seating...');
+      event = await Event.findById(eventId);
+      
+      if (!event) {
+        return next(new AppError('Event not found', 404));
+      }
+
+      const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+      
+      if (seatingIndex === -1) {
+        return next(new AppError('Seating type not found for this event', 404));
+      }
+
+      seating = event.seatings[seatingIndex];
+      
+      if (!seating.isActive) {
+        return next(new AppError('This seating type is not available', 400));
+      }
+
+      pricePerSeat = seating.price;
+      console.log('✅ Event and seating verified:', {
+        eventName: event.name,
+        seatType: seating.seatType,
+        price: pricePerSeat
+      });
+
+    } catch (eventError) {
+      if (eventError.statusCode && eventError.statusCode !== 500) {
+        return next(eventError);
+      }
+      console.error('❌ Event verification failed:', eventError.message);
+      return next(new AppError(`Event verification failed: ${eventError.message}`, 400));
+    }
+
+    // ===== STEP 3: Check seat availability =====
+    try {
+      console.log('💺 Step 3: Checking seat availability...');
+      const availableSeats = seating.totalSeats - seating.seatsSold - seating.lockedSeats;
+      
+      if (availableSeats < quantity) {
+        return next(new AppError(
+          `Only ${availableSeats} seats available, but ${quantity} requested`,
+          400
+        ));
+      }
+      
+      console.log('✅ Seats available:', {
+        requested: quantity,
+        available: availableSeats,
+        total: seating.totalSeats,
+        sold: seating.seatsSold
+      });
+    } catch (availabilityError) {
+      console.error('❌ Availability check failed:', availabilityError.message);
+      return next(new AppError(`Availability check failed: ${availabilityError.message}`, 400));
+    }
+
+    // ===== STEP 4: Create and confirm booking =====
+    let booking;
+    try {
+      console.log('🎟️ Step 4: Creating confirmed booking (no payment required)...');
+      
+      const totalPrice = pricePerSeat * quantity;
+
+      // Create booking
+      booking = new Booking({
+        userId,
+        eventId,
+        seatingId,
+        seatType,
+        quantity,
+        pricePerSeat,
+        totalPrice,
+        status: 'confirmed', // Direct confirmation (no payment)
+        paymentStatus: 'completed', // Mark as completed (no payment needed)
+        paymentMethod: 'admin_direct_booking',
+        paymentId: `ADMIN_${Date.now()}`,
+        specialRequirements,
+        notes: adminNotes || `Admin booking by ${adminId}`,
+        bookedAt: new Date(),
+        confirmedAt: new Date()
+      });
+
+      await booking.save();
+      console.log('✅ Booking created and confirmed:', booking._id);
+
+    } catch (bookingError) {
+      console.error('❌ Booking creation failed:', bookingError.message);
+      return next(new AppError(`Booking creation failed: ${bookingError.message}`, 400));
+    }
+
+    // ===== STEP 5: Update seat inventory =====
+    try {
+      console.log('🔒 Step 5: Updating seat inventory...');
+      
+      const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+      const seating = event.seatings[seatingIndex];
+      
+      // Mark seats as sold (skip locked state since already confirmed)
+      seating.seatsSold += quantity;
+      
+      await event.save();
+      console.log('✅ Seat inventory updated:', {
+        seatsSold: seating.seatsSold,
+        totalSeats: seating.totalSeats
+      });
+
+    } catch (inventoryError) {
+      console.error('❌ Inventory update failed:', inventoryError.message);
+      // Don't fail the booking if inventory update fails
+    }
+
+    // ===== STEP 6: Generate tickets =====
+    try {
+      console.log('🎫 Step 6: Generating tickets...');
+      
+      await booking.generateTickets();
+      console.log('✅ Tickets generated:', booking.ticketNumbers);
+
+    } catch (ticketError) {
+      console.warn('⚠️ Ticket generation failed:', ticketError.message);
+      // Don't fail the booking if ticket generation fails
+    }
+
+    // ===== SUCCESS RESPONSE =====
+    res.status(201).json({
+      status: 'success',
+      message: 'Ticket booked successfully for user without payment',
+      data: {
+        booking: {
+          _id: booking._id,
+          bookingId: booking._id,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          userId: booking.userId,
+          eventId: booking.eventId,
+          seatType: booking.seatType,
+          quantity: booking.quantity,
+          pricePerSeat: booking.pricePerSeat,
+          totalPrice: booking.totalPrice,
+          ticketNumbers: booking.ticketNumbers,
+          bookedAt: booking.bookedAt,
+          confirmedAt: booking.confirmedAt,
+          specialRequirements: booking.specialRequirements,
+          notes: booking.notes
+        },
+        event: {
+          _id: event._id,
+          name: event.name,
+          date: event.date,
+          location: event.location,
+          status: event.status
+        },
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone
+        },
+        adminAction: {
+          adminId,
+          actionTime: new Date(),
+          paymentBypassed: true
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Unexpected error in admin booking endpoint:', error);
+    next(error);
+  }
+};

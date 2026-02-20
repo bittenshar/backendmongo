@@ -1,0 +1,503 @@
+{
+  "info": {
+    "_postman_id": "admin-book-without-payment-api",
+    "name": "Admin Book Without Payment API",
+    "description": "Admin-only endpoint to book event tickets for users without payment processing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Admin Booking",
+      "item": [
+        {
+          "name": "Book Ticket Without Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 2,\n  \"specialRequirements\": \"Wheelchair accessible\",\n  \"adminNotes\": \"VIP booking from admin dashboard\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Admin endpoint to book event tickets for a specific user without payment processing.\n\nRequired fields:\n- userId: ID of user to book for\n- eventId: ID of event\n- seatingId: ID of seating type from event.seatings\n- seatType: Name of seat type\n- quantity: Number of tickets\n\nOptional fields:\n- specialRequirements: Special booking needs\n- adminNotes: Admin notes"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"507f1f77bcf86cd799439010\",\n  \"eventId\": \"507f1f77bcf86cd799439011\",\n  \"seatingId\": \"507f1f77bcf86cd799439012\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 2,\n  \"specialRequirements\": \"Wheelchair accessible\",\n  \"adminNotes\": \"VIP booking\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/booking/admin/book-without-payment",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "booking",
+                    "admin",
+                    "book-without-payment"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Ticket booked successfully for user without payment\",\n  \"data\": {\n    \"booking\": {\n      \"_id\": \"507f1f77bcf86cd799439013\",\n      \"bookingId\": \"507f1f77bcf86cd799439013\",\n      \"status\": \"confirmed\",\n      \"paymentStatus\": \"completed\",\n      \"userId\": \"507f1f77bcf86cd799439010\",\n      \"eventId\": \"507f1f77bcf86cd799439011\",\n      \"seatType\": \"Premium\",\n      \"quantity\": 2,\n      \"pricePerSeat\": 500,\n      \"totalPrice\": 1000,\n      \"ticketNumbers\": [\n        \"TKT-507f1f77bcf86cd799439011-507f1f77bcf86cd799439010-1-1708123456789\",\n        \"TKT-507f1f77bcf86cd799439011-507f1f77bcf86cd799439010-2-1708123456789\"\n      ],\n      \"bookedAt\": \"2026-02-20T10:30:00.000Z\",\n      \"confirmedAt\": \"2026-02-20T10:30:00.000Z\",\n      \"specialRequirements\": \"Wheelchair accessible\",\n      \"notes\": \"Admin booking by admin_id\"\n    },\n    \"event\": {\n      \"_id\": \"507f1f77bcf86cd799439011\",\n      \"name\": \"Concert 2026\",\n      \"date\": \"2026-03-15T18:00:00.000Z\",\n      \"location\": \"New Delhi\",\n      \"status\": \"upcoming\"\n    },\n    \"user\": {\n      \"_id\": \"507f1f77bcf86cd799439010\",\n      \"name\": \"John Doe\",\n      \"email\": \"john@example.com\",\n      \"phone\": \"+919876543210\"\n    },\n    \"adminAction\": {\n      \"adminId\": \"admin_user_id\",\n      \"actionTime\": \"2026-02-20T10:30:00.000Z\",\n      \"paymentBypassed\": true\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Book Ticket - Minimal Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Standard\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Simple booking with only required fields"
+          }
+        },
+        {
+          "name": "Book Bulk Tickets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{corporate_client_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 50,\n  \"adminNotes\": \"Corporate bulk booking for company event\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Bulk booking example for corporate clients"
+          }
+        },
+        {
+          "name": "Book with Accessibility",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 2,\n  \"specialRequirements\": \"Wheelchair accessible, companion seat required, ground floor access\",\n  \"adminNotes\": \"Accessibility accommodation for disabled customer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Booking with accessibility requirements"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test Setup",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{admin_phone}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login as admin to get JWT token for other requests"
+          }
+        },
+        {
+          "name": "Get Events List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "description": "Get list of all events to find event_id and seating_id"
+          }
+        },
+        {
+          "name": "Get Event Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events/{{event_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "{{event_id}}"
+              ]
+            },
+            "description": "Get event details including seating IDs"
+          }
+        },
+        {
+          "name": "Get Users List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Get list of users to find user_id for booking"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Error: Not Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Error: Regular user trying to use admin endpoint"
+          }
+        },
+        {
+          "name": "Error: Missing Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"eventId\": \"{{event_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Error: Missing required fields (seatingId, seatType, quantity)"
+          }
+        },
+        {
+          "name": "Error: User Not Found",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"invalid_user_id\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Error: User ID does not exist"
+          }
+        },
+        {
+          "name": "Error: Insufficient Seats",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatingId\": \"{{seating_id}}\",\n  \"seatType\": \"Premium\",\n  \"quantity\": 10000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/admin/book-without-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "booking",
+                "admin",
+                "book-without-payment"
+              ]
+            },
+            "description": "Error: Not enough seats available"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_phone",
+      "value": "+919876543210",
+      "type": "string"
+    },
+    {
+      "key": "admin_password",
+      "value": "admin_password",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "507f1f77bcf86cd799439010",
+      "type": "string"
+    },
+    {
+      "key": "event_id",
+      "value": "507f1f77bcf86cd799439011",
+      "type": "string"
+    },
+    {
+      "key": "seating_id",
+      "value": "507f1f77bcf86cd799439012",
+      "type": "string"
+    },
+    {
+      "key": "corporate_client_id",
+      "value": "507f1f77bcf86cd799439014",
+      "type": "string"
+    }
+  ]
+}

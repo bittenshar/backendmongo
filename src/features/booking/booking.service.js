@@ -585,6 +585,81 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
     await booking.confirm(paymentId, 'razorpay');
     console.log('✅ Booking confirmed');
 
+    // ===== AUTO-GENERATE TICKETS =====
+    console.log('🎫 Auto-generating tickets...');
+    await booking.generateTickets();
+    console.log('✅ Tickets generated:', booking.ticketNumbers);
+    console.log('📌 Booking after ticket generation:', {
+      _id: booking._id,
+      ticketNumbers: booking.ticketNumbers,
+      status: booking.status,
+      paymentStatus: booking.paymentStatus
+    });
+
+    // ===== GENERATE PDF & QR CODES =====
+    try {
+      console.log('📄 Generating PDF ticket...');
+      const ticketPdfService = require('../../shared/services/ticket-pdf.service');
+      const ticketQrcodeService = require('../../shared/services/ticket-qrcode.service');
+      const User = require('../auth/auth.model');
+
+      // Get user details
+      const user = await User.findById(booking.userId);
+
+      // Generate PDF
+      const pdfBuffer = await ticketPdfService.generateTicketPDF(booking, event, user);
+      console.log('✅ PDF ticket generated');
+
+      // Generate QR codes for each ticket
+      console.log('📱 Generating QR codes...');
+      const qrCodes = await ticketQrcodeService.generateMultipleQRCodes(booking.ticketNumbers);
+      booking.qrCodes = qrCodes.map(qr => qr.dataUrl);
+      
+      console.log('💾 Saving booking with QR codes...');
+      await booking.save();
+      console.log('✅ QR codes generated and saved:', booking.qrCodes.length);
+      console.log('📌 Booking after QR save:', {
+        _id: booking._id,
+        qrCodesCount: booking.qrCodes.length,
+        ticketsCount: booking.ticketNumbers.length
+      });
+
+      // ===== SEND NOTIFICATIONS =====
+      try {
+        console.log('📬 Sending ticket notifications...');
+        const ticketNotificationService = require('../../shared/services/ticket-notification.service');
+        
+        const notificationResults = await ticketNotificationService.sendTicketViaAllChannels(
+          user,
+          booking,
+          booking.ticketNumbers,
+          event
+        );
+
+        booking.notificationsSent = {
+          whatsapp: notificationResults.whatsapp.success || false,
+          email: notificationResults.email.success || false,
+          sms: notificationResults.sms.success || false,
+          sentAt: new Date()
+        };
+        
+        console.log('💾 Saving booking with notifications status...');
+        await booking.save();
+        console.log('✅ Notifications sent and saved:', booking.notificationsSent);
+        console.log('📌 Booking after notifications save:', {
+          _id: booking._id,
+          notificationsSent: booking.notificationsSent
+        });
+      } catch (notificationError) {
+        console.warn('⚠️ Error sending notifications:', notificationError.message);
+        // Don't fail the booking if notifications fail
+      }
+
+    } catch (ticketError) {
+      console.warn('⚠️ Error generating/sending tickets:', ticketError.message);
+      // Don't fail the booking if ticket generation fails
+    }
+
     // ===== UPDATE SEATING INVENTORY =====
     console.log('🎫 Updating seating inventory...');
     const Event = require('../events/event.model').default || require('../events/event.model');
@@ -614,9 +689,23 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
       console.warn('⚠️ Event not found for booking');
     }
 
+    // ===== FETCH FRESH BOOKING DATA FROM DB =====
+    console.log('🔄 Fetching fresh booking data from database...');
+    const freshBooking = await Booking.findById(bookingId)
+      .populate('userId', 'name email phone')
+      .populate('eventId', 'name date location');
+    
+    console.log('✅ Fresh booking data retrieved:', {
+      _id: freshBooking._id,
+      status: freshBooking.status,
+      ticketNumbers: freshBooking.ticketNumbers?.length || 0,
+      qrCodes: freshBooking.qrCodes?.length || 0,
+      notificationsSent: freshBooking.notificationsSent
+    });
+
     return {
       success: true,
-      booking: booking.toObject(),
+      booking: freshBooking.toObject(),
       verified: true,
       payment: {
         orderId,

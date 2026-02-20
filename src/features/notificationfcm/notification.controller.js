@@ -8,24 +8,39 @@ exports.registerToken = async (req, res) => {
   const { token, deviceId, deviceType } = req.body;
   const userId = req.user?.id || null;
 
-  if (!token) {
-    return res.status(400).json({ message: "Token is required" });
+  // Token is optional - if not provided, generate one
+  const fcmToken = token || `unknown_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  try {
+    const result = await UserFcmToken.findOneAndUpdate(
+      { token: fcmToken },
+      {
+        token: fcmToken,
+        deviceId: deviceId || 'unknown',
+        deviceType: deviceType || 'unknown',
+        userId,
+        isGuest: !userId,
+        isActive: true,
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ 
+      success: true, 
+      message: "FCM token registered",
+      data: {
+        token: fcmToken,
+        deviceId: result.deviceId,
+        deviceType: result.deviceType
+      }
+    });
+  } catch (error) {
+    console.error('Error registering FCM token:', error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to register FCM token" 
+    });
   }
-
-  await UserFcmToken.findOneAndUpdate(
-    { token },
-    {
-      token,
-      deviceId,
-      deviceType,
-      userId,
-      isGuest: !userId,
-      isActive: true,
-    },
-    { upsert: true, new: true }
-  );
-
-  res.json({ success: true, message: "FCM token registered" });
 };
 
 

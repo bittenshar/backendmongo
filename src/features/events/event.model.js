@@ -36,14 +36,21 @@ const eventSchema = new mongoose.Schema(
 
     seatings: [seatingSchema], // ⭐ Dynamic seating array
 
-    coverImage: String,
-    s3ImageKey: String,
+    coverImage: { 
+      type: String, 
+      required: [true, 'Cover image is required'] 
+    },
+    s3ImageKey: { 
+      type: String, 
+      required: [true, 'S3 image key is required'] 
+    },
     
     status: {
       type: String,
       enum: ['upcoming', 'active', 'completed', 'cancelled'],
       default: 'upcoming',
-    },
+    }
+    ,
   },
   {
     timestamps: true,

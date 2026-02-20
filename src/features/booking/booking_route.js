@@ -8,6 +8,7 @@ const { bookSeat } = require('./bookSeat.controller');
 const { confirmSeatAfterPayment } = require('./confirmSeat.controller');
 const { cancelSeatBooking } = require('./cancelSeat.controller');
 const bookingController = require('./booking.controller');
+const ticketValidationController = require('./ticket-validation.controller');
 const authMiddleware = require('../auth/auth.middleware');
 
 /**
@@ -23,6 +24,13 @@ router.get('/:eventId/seats', getSeatAvailability);
 router.use(authMiddleware.protect);
 
 // POST routes must come before GET routes to avoid parameter conflicts
+
+// ==========================================
+// ADMIN ONLY ROUTES
+// ==========================================
+
+// Admin: Book ticket for specific user without payment
+router.post('/admin/book-without-payment', bookingController.adminBookEventTicket);
 
 // ==========================================
 // PAYMENT INTEGRATION ROUTES (NEW)
@@ -73,5 +81,21 @@ router.get('/:bookingId', bookingController.getBookingDetails);
 
 // Download ticket
 router.get('/:bookingId/download-ticket', bookingController.downloadTicket);
+
+// ==========================================
+// TICKET VALIDATION ROUTES (NEW)
+// ==========================================
+
+// Validate ticket (public - for check-in staff)
+router.post('/validate-ticket', ticketValidationController.validateTicket);
+
+// Validate QR code
+router.post('/validate-qr', ticketValidationController.validateQRCode);
+
+// Check in ticket (mark as used)
+router.post('/checkin-ticket', ticketValidationController.checkInTicket);
+
+// Get ticket details by ticket number
+router.get('/ticket/:ticketNumber', ticketValidationController.getTicketDetails);
 
 module.exports = router;
