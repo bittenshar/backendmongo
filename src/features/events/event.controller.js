@@ -10,21 +10,21 @@ const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notifi
 
 /**
  * Transform event data to hide S3 URLs
- * Replaces direct S3 URLs with encrypted proxy URL only (optimized)
+ * Replaces direct S3 URLs with public image proxy URLs (no token required)
  */
 const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
-  if (eventObj.coverImage) {
-    // Generate encrypted token
-    const token = urlEncryption.generateImageToken(eventObj.coverImage, 24);
-    // Return only the proxy URL (not duplicate token) for better performance
-    eventObj.coverImageUrl = `/api/images/proxy/${token}`;
-    // Remove raw S3 URL from response
-    delete eventObj.coverImage;
+  if (eventObj.s3ImageKey) {
+    // Use public endpoint (no token required)
+    eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
+  } else if (eventObj.coverImage) {
+    // Fallback: use public endpoint with coverImage data
+    eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
   }
   
-  // Remove S3-specific internal fields from response
+  // Remove raw S3 URLs from response
+  delete eventObj.coverImage;
   delete eventObj.s3ImageKey;
   delete eventObj.s3BucketName;
   
