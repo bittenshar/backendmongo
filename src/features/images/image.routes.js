@@ -32,8 +32,8 @@ router.get('/proxy/:token?', catchAsync(async (req, res, next) => {
   // Method 2: Direct S3 key access (public - no token required)
   else if (key) {
     // Construct S3 URL directly from the key
-    const bucket = process.env.AWS_S3_BUCKET || 'adminthrill';
-    const region = process.env.AWS_REGION || 'us-east-1';
+    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || process.env.AWS_S3_BUCKET || 'event-images-collection';
+    const region = process.env.AWS_REGION || 'ap-south-1';
     s3Url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
   }
   // Method 3: No token and no key - error
@@ -80,9 +80,16 @@ router.get('/public/*', catchAsync(async (req, res, next) => {
 
   try {
     // Construct S3 URL directly
-    const bucket = process.env.AWS_S3_BUCKET || 'adminthrill';
-    const region = process.env.AWS_REGION || 'us-east-1';
+    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || process.env.AWS_S3_BUCKET || 'event-images-collection';
+    const region = process.env.AWS_REGION || 'ap-south-1';
     const s3Url = `https://${bucket}.s3.${region}.amazonaws.com/${s3Key}`;
+
+    console.log('🔍 Fetching image from S3:', {
+      bucket,
+      region,
+      s3Key,
+      fullUrl: s3Url
+    });
 
     // Fetch image from S3
     const response = await axios.get(s3Url, {
@@ -102,7 +109,14 @@ router.get('/public/*', catchAsync(async (req, res, next) => {
     // Stream image to client
     response.data.pipe(res);
   } catch (error) {
-    console.error('❌ Public Image Access Error:', error.message);
+    console.error('❌ Public Image Access Error:', {
+      message: error.message,
+      s3Key,
+      bucket: process.env.AWS_EVENT_IMAGES_BUCKET || process.env.AWS_S3_BUCKET || 'event-images-collection',
+      region: process.env.AWS_REGION || 'ap-south-1',
+      statusCode: error.response?.status,
+      errorCode: error.code
+    });
     return next(new AppError('Failed to fetch image', 500));
   }
 }));
