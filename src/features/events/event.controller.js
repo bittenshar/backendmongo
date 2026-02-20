@@ -2,80 +2,30 @@ const Event = require('./event.model');
 const Booking = require('../booking/booking_model');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
-const s3EventImagesService = require('../../shared/services/s3EventImages.service');
 const urlEncryption = require('../../shared/services/urlEncryption.service');
-const { encryptUrl } = require('../../shared/services/urlEncryption2.service');
+const { encryptUrl, decryptUrl } = require('../../shared/services/urlEncryption2.service');
 const { sendNotificationService } = require('../../services/notification.service');
+const imageService = require('../../shared/services/encryptedImageService');
 const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
 const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 /**
  * Transform event data to hide S3 URLs
- * Replaces direct S3 URLs with encrypted URLs and public API endpoints
+ * Only exposes encrypted image token with event ID (no AWS bucket/region info)
  */
-const transformEventResponse = (eventDoc, includeEncryption = true) => {
+const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
-  if (eventObj.s3ImageKey) {
-    // Use public endpoint (no token required)
-    eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
-    
-    // Add image location details
-    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
-    const region = process.env.AWS_REGION || 'ap-south-1';
-    const directS3Url = `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.s3ImageKey}`;
-    
-    eventObj.imageLocation = {
-      bucket,
-      region,
-      s3Key: eventObj.s3ImageKey,
-      apiUrl: eventObj.coverImageUrl
-    };
-    
-    // Encrypt direct S3 URL for secure backend-to-backend communication
-    if (includeEncryption) {
-      try {
-        eventObj.imageLocation.encryptedS3Url = encryptUrl(directS3Url);
-        console.log('🔐 S3 URL encrypted for secure transmission');
-      } catch (error) {
-        console.warn('⚠️ URL encryption failed, using unencrypted:', error.message);
-        eventObj.imageLocation.directS3Url = directS3Url;
-      }
-    } else {
-      eventObj.imageLocation.directS3Url = directS3Url;
-    }
-  } else if (eventObj.coverImage) {
-    // Fallback: use public endpoint with coverImage data
-    eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
-    
-    // Add image location details
-    const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
-    const region = process.env.AWS_REGION || 'ap-south-1';
-    const directS3Url = `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.coverImage}`;
-    
-    eventObj.imageLocation = {
-      bucket,
-      region,
-      s3Key: eventObj.coverImage,
-      apiUrl: eventObj.coverImageUrl
-    };
-    
-    // Encrypt direct S3 URL for secure backend-to-backend communication
-    if (includeEncryption) {
-      try {
-        eventObj.imageLocation.encryptedS3Url = encryptUrl(directS3Url);
-      } catch (error) {
-        console.warn('⚠️ URL encryption failed:', error.message);
-        eventObj.imageLocation.directS3Url = directS3Url;
-      }
-    } else {
-      eventObj.imageLocation.directS3Url = directS3Url;
-    }
+  if (eventObj.s3ImageKey && eventObj.imageToken) {
+    // Expose only encrypted token - no AWS/bucket/region info visible
+    eventObj.coverImageUrl = `/api/images/encrypted/${eventObj.imageToken}`;
+    eventObj.imageId = `event-${eventObj._id}`;
   }
   
-  // Remove raw S3 URLs from response
+  // Remove raw S3 data from response
   delete eventObj.coverImage;
   delete eventObj.s3ImageKey;
+  delete eventObj.imageToken; // Don't expose token in list responses
   delete eventObj.s3BucketName;
   
   return eventObj;
@@ -124,53 +74,60 @@ exports.getEvent = catchAsync(async (req, res, next) => {
 });
 
 exports.createEvent = catchAsync(async (req, res, next) => {
-  console.log('📝 Creating event with data:', req.body);
-  console.log('📸 File info:', { hasFile: !!req.file, filename: req.file?.originalname, size: req.file?.size });
-  
-  try {
-    let coverImageUrl = null;
-    let s3Key = null;
+  const { seatings, ...otherData } = req.body;
 
-    // Handle cover image upload if provided
-    if (req.file) {
-      console.log('📸 Uploading cover image to S3...');
-      const uploadResult = await s3EventImagesService.uploadEventImage(
-        req.file.buffer,
-        req.file.originalname
+  // Validate that at least one seating exists
+  if (!seatings || !Array.isArray(seatings) || seatings.length === 0) {
+    return next(new AppError('At least one seating configuration is required', 400));
+  }
+
+  const newEvent = await Event.create({
+    ...otherData,
+    seatings,
+    organizer: req.user.id  // Auto-assign organizer to logged-in user
+  });
+
+  // Handle cover image upload if provided
+  if (req.file) {
+    console.log('📸 Processing image in 3:4 ratio...');
+    const uploadResult = await imageService.uploadEventImageWithRatio(
+      req.file.buffer,
+      req.file.originalname,
+      newEvent._id.toString()
+    );
+
+    if (uploadResult.success) {
+      // Create encrypted image token - only contains event ID
+      const imageToken = encryptUrl(`event-${newEvent._id}`);
+      
+      await Event.findByIdAndUpdate(
+        newEvent._id,
+        {
+          s3ImageKey: uploadResult.s3Key,
+          imageToken: imageToken
+        }
       );
 
-      if (uploadResult.success) {
-        coverImageUrl = uploadResult.url;
-        s3Key = uploadResult.key;
-        console.log('✅ Image uploaded to S3:', coverImageUrl);
-      } else {
-        console.warn('⚠️ Image upload failed:', uploadResult.message);
-      }
+      console.log('✅ Image uploaded and encrypted:', {
+        eventId: newEvent._id,
+        ratio: uploadResult.ratio,
+        size: uploadResult.size
+      });
     } else {
-      console.warn('⚠️ No file in request');
+      console.warn('⚠️ Image upload failed:', uploadResult.message);
     }
-
-    const eventData = {
-      ...req.body,
-      ...(coverImageUrl && { coverImage: coverImageUrl, s3ImageKey: s3Key })
-    };
-
-    const newEvent = await Event.create(eventData);
-    console.log('✅ Event created successfully:', newEvent._id);
-
-    // Transform event to hide S3 URL
-    const transformedEvent = transformEventResponse(newEvent);
-
-    res.status(201).json({
-      status: 'success',
-      data: {
-        event: transformedEvent
-      }
-    });
-  } catch (error) {
-    console.error('❌ Error creating event:', error);
-    return next(error);
   }
+
+  // Fetch updated event with image data
+  const eventWithImage = await Event.findById(newEvent._id);
+  const transformedEvent = transformEventResponse(eventWithImage);
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      event: transformedEvent
+    }
+  });
 });
 
 exports.updateEvent = catchAsync(async (req, res, next) => {
@@ -187,22 +144,37 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
 
   let updateData = { ...req.body };
 
-  // Handle cover image update if new image provided
+  // Handle cover image update if provided
   if (req.file) {
-    console.log('📸 Updating cover image on S3...');
-    const updateResult = await s3EventImagesService.updateEventImage(
+    console.log('📸 Processing image in 3:4 ratio...');
+    
+    // Delete old image if exists
+    if (event.s3ImageKey) {
+      await imageService.deleteEventImage(event.s3ImageKey);
+      console.log('🗑️ Old image deleted');
+    }
+
+    // Upload new image
+    const uploadResult = await imageService.uploadEventImageWithRatio(
       req.file.buffer,
       req.file.originalname,
-      event.s3ImageKey,
-      req.params.id  // Pass event ID for organized storage
+      req.params.id
     );
 
-    if (updateResult.success) {
-      updateData.coverImage = updateResult.url;
-      updateData.s3ImageKey = updateResult.key;
-      console.log('✅ Image updated on S3:', updateResult.url);
+    if (uploadResult.success) {
+      // Create encrypted image token
+      const imageToken = encryptUrl(`event-${req.params.id}`);
+      
+      updateData.s3ImageKey = uploadResult.s3Key;
+      updateData.imageToken = imageToken;
+
+      console.log('✅ Image uploaded and encrypted:', {
+        eventId: req.params.id,
+        ratio: uploadResult.ratio,
+        size: uploadResult.size
+      });
     } else {
-      console.warn('⚠️ Image update failed:', updateResult.message);
+      console.warn('⚠️ Image upload failed:', uploadResult.message);
     }
   }
 
@@ -255,10 +227,10 @@ exports.deleteEvent = catchAsync(async (req, res, next) => {
     return next(new AppError('No event found with that ID', 404));
   }
 
-  // Delete associated image from S3 if exists
+  // Delete image from S3 if exists
   if (event.s3ImageKey) {
-    console.log('🗑️ Deleting event image from S3...');
-    await s3EventImagesService.deleteEventImage(event.s3ImageKey);
+    await imageService.deleteEventImage(event.s3ImageKey);
+    console.log('🗑️ Event image deleted from S3');
   }
 
   // 🔔 Send event cancelled notification to all registered users

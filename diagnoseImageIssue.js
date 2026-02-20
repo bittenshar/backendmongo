@@ -7,6 +7,9 @@
  * Run: node diagnoseImageIssue.js
  */
 
+// Load .env file
+require('dotenv').config();
+
 console.log('\n📊 IMAGE ACCESS DIAGNOSTIC REPORT\n');
 console.log('================================\n');
 

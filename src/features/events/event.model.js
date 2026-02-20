@@ -38,11 +38,11 @@ const eventSchema = new mongoose.Schema(
 
     coverImage: { 
       type: String, 
-      required: [true, 'Cover image is required'] 
+      default: null
     },
     s3ImageKey: { 
       type: String, 
-      required: [true, 'S3 image key is required'] 
+      default: null
     },
     imageToken: {
       type: String,
