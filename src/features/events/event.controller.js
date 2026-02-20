@@ -84,7 +84,8 @@ exports.createEvent = catchAsync(async (req, res, next) => {
     console.log('✅ Event created with ID:', newEvent._id);
 
     // Step 2: Upload image if provided (now we have the eventId)
-    let updateData = {};
+    let s3Key = null;
+    let imageId = null;
 
     if (req.file) {
       console.log('📸 Uploading cover image to S3 with eventId:', newEvent._id);
@@ -95,57 +96,31 @@ exports.createEvent = catchAsync(async (req, res, next) => {
       );
 
       if (uploadResult.success) {
-        console.log('✅ Image uploaded to S3:', { 
-          key: uploadResult.key, 
-          imageId: uploadResult.imageId 
-        });
+        s3Key = uploadResult.key;
+        imageId = uploadResult.imageId;
+        console.log('✅ Image uploaded using clean naming pattern:', { s3Key, imageId });
 
-        // Step 3: Update event with image information using findByIdAndUpdate
-        updateData = {
-          s3ImageKey: uploadResult.key,
-          coverImage: uploadResult.url
-        };
-
-        const updatedEvent = await Event.findByIdAndUpdate(
-          newEvent._id,
-          updateData,
-          { new: true, runValidators: true }
-        ).populate('organizer');
-
-        console.log('✅ Event updated with image metadata in DB');
-
-        // Transform event to hide S3 URL
-        const transformedEvent = transformEventResponse(updatedEvent);
-
-        return res.status(201).json({
-          status: 'success',
-          data: {
-            event: transformedEvent
-          }
-        });
+        // Step 3: Update event with image information
+        newEvent.s3ImageKey = s3Key;
+        newEvent.coverImage = uploadResult.url;
+        await newEvent.save();
+        console.log('✅ Event updated with image metadata');
       } else {
         console.warn('⚠️ Image upload failed:', uploadResult.message);
-        // Still return event even if image upload failed
-        const transformedEvent = transformEventResponse(newEvent);
-        return res.status(201).json({
-          status: 'success',
-          message: 'Event created but image upload failed',
-          data: {
-            event: transformedEvent
-          }
-        });
       }
     } else {
       console.warn('⚠️ No image file provided in request');
-      // Return event without image
-      const transformedEvent = transformEventResponse(newEvent);
-      return res.status(201).json({
-        status: 'success',
-        data: {
-          event: transformedEvent
-        }
-      });
     }
+
+    // Transform event to hide S3 URL
+    const transformedEvent = transformEventResponse(newEvent);
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        event: transformedEvent
+      }
+    });
   } catch (error) {
     console.error('❌ Error creating event:', error);
     return next(error);
@@ -165,11 +140,10 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   }
 
   let updateData = { ...req.body };
-  let imageUpdateMessage = '';
 
   // Handle cover image update if new image provided
   if (req.file) {
-    console.log('📸 Updating cover image on S3 with eventId:', req.params.id);
+    console.log('📸 Updating cover image on S3 with clean naming pattern...');
     const updateResult = await s3EventImagesService.updateEventImage(
       req.file.buffer,
       req.file.originalname,
@@ -180,30 +154,16 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     if (updateResult.success) {
       updateData.coverImage = updateResult.url;
       updateData.s3ImageKey = updateResult.key;
-      imageUpdateMessage = `Image updated successfully`;
-      console.log('✅ Image updated with clean naming pattern:', { 
-        key: updateResult.key, 
-        imageId: updateResult.imageId 
-      });
+      console.log('✅ Image updated with clean naming pattern:', { key: updateResult.key, imageId: updateResult.imageId });
     } else {
       console.warn('⚠️ Image update failed:', updateResult.message);
-      imageUpdateMessage = `Image update failed: ${updateResult.message}`;
     }
   }
 
-  // Update event with new data
-  const updatedEvent = await Event.findByIdAndUpdate(
-    req.params.id, 
-    updateData, 
-    {
-      new: true,
-      runValidators: true
-    }
-  ).populate('organizer');
-
-  if (!updatedEvent) {
-    return next(new AppError('Failed to update event', 500));
-  }
+  const updatedEvent = await Event.findByIdAndUpdate(req.params.id, updateData, {
+    new: true,
+    runValidators: true
+  });
 
   // 🔔 Send event updated notification to all registered users
   const registrations = await Booking.find({ eventId: req.params.id, status: 'confirmed' })
@@ -231,7 +191,6 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    message: imageUpdateMessage || 'Event updated successfully',
     data: {
       event: transformedEvent
     }
