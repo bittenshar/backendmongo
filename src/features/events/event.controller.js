@@ -4,45 +4,73 @@ const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
 const s3EventImagesService = require('../../shared/services/s3EventImages.service');
 const urlEncryption = require('../../shared/services/urlEncryption.service');
+const { encryptUrl } = require('../../shared/services/urlEncryption2.service');
 const { sendNotificationService } = require('../../services/notification.service');
 const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificationTypes');
 const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 /**
  * Transform event data to hide S3 URLs
- * Replaces direct S3 URLs with public image proxy URLs (no token required)
+ * Replaces direct S3 URLs with encrypted URLs and public API endpoints
  */
-const transformEventResponse = (eventDoc) => {
+const transformEventResponse = (eventDoc, includeEncryption = true) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
   if (eventObj.s3ImageKey) {
     // Use public endpoint (no token required)
     eventObj.coverImageUrl = `/api/images/public/${eventObj.s3ImageKey}`;
     
-    // Add image location details for reference
+    // Add image location details
     const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
     const region = process.env.AWS_REGION || 'ap-south-1';
+    const directS3Url = `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.s3ImageKey}`;
+    
     eventObj.imageLocation = {
       bucket,
       region,
       s3Key: eventObj.s3ImageKey,
-      directS3Url: `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.s3ImageKey}`,
       apiUrl: eventObj.coverImageUrl
     };
+    
+    // Encrypt direct S3 URL for secure backend-to-backend communication
+    if (includeEncryption) {
+      try {
+        eventObj.imageLocation.encryptedS3Url = encryptUrl(directS3Url);
+        console.log('🔐 S3 URL encrypted for secure transmission');
+      } catch (error) {
+        console.warn('⚠️ URL encryption failed, using unencrypted:', error.message);
+        eventObj.imageLocation.directS3Url = directS3Url;
+      }
+    } else {
+      eventObj.imageLocation.directS3Url = directS3Url;
+    }
   } else if (eventObj.coverImage) {
     // Fallback: use public endpoint with coverImage data
     eventObj.coverImageUrl = `/api/images/public/${eventObj.coverImage}`;
     
-    // Add image location details for reference
+    // Add image location details
     const bucket = process.env.AWS_EVENT_IMAGES_BUCKET || 'event-images-collection';
     const region = process.env.AWS_REGION || 'ap-south-1';
+    const directS3Url = `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.coverImage}`;
+    
     eventObj.imageLocation = {
       bucket,
       region,
       s3Key: eventObj.coverImage,
-      directS3Url: `https://${bucket}.s3.${region}.amazonaws.com/${eventObj.coverImage}`,
       apiUrl: eventObj.coverImageUrl
     };
+    
+    // Encrypt direct S3 URL for secure backend-to-backend communication
+    if (includeEncryption) {
+      try {
+        eventObj.imageLocation.encryptedS3Url = encryptUrl(directS3Url);
+      } catch (error) {
+        console.warn('⚠️ URL encryption failed:', error.message);
+        eventObj.imageLocation.directS3Url = directS3Url;
+      }
+    } else {
+      eventObj.imageLocation.directS3Url = directS3Url;
+    }
   }
   
   // Remove raw S3 URLs from response
