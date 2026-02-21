@@ -381,13 +381,48 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
     await payment.save();
     console.log('✅ Payment record saved');
 
-    // STEP 8: Return success
+    // STEP 8: Generate ticket
+    console.log('\n📍 STEP 8: Generating ticket...');
+    let ticket = null;
+    let qrCodeDataUrl = null;
+    
+    try {
+      // Generate unique ticket number
+      const ticketNumber = `TKT-${booking._id.toString().slice(-8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+      
+      // Generate QR code for ticket
+      const { generateQRCodeDataURL } = require('../../shared/services/ticket-qrcode.service');
+      qrCodeDataUrl = await generateQRCodeDataURL(ticketNumber);
+      
+      // Create ticket object
+      ticket = {
+        ticketNumber,
+        bookingId: booking._id,
+        eventId: booking.eventId._id,
+        userId: user._id,
+        eventName: booking.eventId.name,
+        eventDate: booking.eventId.date,
+        location: booking.eventId.location,
+        seatType: booking.seatType,
+        quantity: booking.quantity,
+        ticketGeneratedAt: new Date(),
+        qrCode: qrCodeDataUrl
+      };
+      
+      console.log('✅ Ticket generated successfully');
+      console.log(`   Ticket Number: ${ticketNumber}`);
+    } catch (ticketError) {
+      console.warn('⚠️  Ticket generation failed (non-critical):', ticketError.message);
+      // Ticket generation failure should not block booking confirmation
+    }
+
+    // STEP 9: Return success
     console.log('\n✅ PAYMENT CONFIRMATION COMPLETE');
     console.log('═════════════════════════════════════════\n');
     
     res.status(200).json({
       status: 'success',
-      message: 'Booking confirmed successfully! Payment verified via Razorpay API.',
+      message: 'Booking confirmed successfully! Ticket generated.',
       data: {
         booking: {
           bookingId: booking._id,
@@ -403,6 +438,17 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
           status: 'completed',
           verifiedVia: 'razorpay_api'
         },
+        ticket: ticket ? {
+          ticketNumber: ticket.ticketNumber,
+          qrCode: ticket.qrCode,
+          eventName: ticket.eventName,
+          eventDate: ticket.eventDate,
+          location: ticket.location,
+          seatType: ticket.seatType,
+          quantity: ticket.quantity,
+          ticketGeneratedAt: ticket.ticketGeneratedAt,
+          note: 'QR Code can be scanned for ticket validation'
+        } : { error: 'Ticket generation failed - booking still confirmed' },
         verification: {
           faceVerified: isFaceVerified,
           verificationStatus: user.verificationStatus,
