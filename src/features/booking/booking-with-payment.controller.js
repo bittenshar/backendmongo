@@ -57,24 +57,15 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
       return next(new AppError('Missing required fields: userId, eventId, seatingId, seatType, quantity, pricePerSeat', 400));
     }
 
-    // STEP 1: Check if user is face verified
+    // STEP 1: Get user details (face verification is optional)
     const user = await User.findById(userId).select('_id verificationStatus faceId name email phone');
 
     if (!user) {
       return next(new AppError('User not found', 404));
     }
 
-    if (user.verificationStatus !== 'verified' || !user.faceId) {
-      return res.status(403).json({
-        status: 'failed',
-        message: 'User is not face verified',
-        data: {
-          isVerified: false,
-          reason: 'Complete face verification before booking',
-          verificationStatus: user.verificationStatus
-        }
-      });
-    }
+    // Check if user is face verified (informational, not blocking)
+    const isFaceVerified = user.verificationStatus === 'verified' && user.faceId;
 
     // STEP 2: Verify event exists and get details
     const event = await Event.findById(eventId).select('_id name date location ticketPrice');
@@ -146,7 +137,7 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
     // STEP 7: Return booking and payment details
     res.status(200).json({
       status: 'success',
-      message: 'Booking initiated successfully. User is face verified. Proceed to payment.',
+      message: 'Booking initiated successfully. Proceed to payment.',
       data: {
         booking: {
           bookingId: tempBooking._id,
@@ -169,8 +160,9 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
           userPhone: user.phone
         },
         verification: {
-          faceVerified: true,
-          verificationStatus: user.verificationStatus
+          faceVerified: isFaceVerified,
+          verificationStatus: user.verificationStatus,
+          note: 'Face verification is optional for booking'
         }
       }
     });

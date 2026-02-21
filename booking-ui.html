@@ -442,16 +442,14 @@
                         <div class="status-label">✅ Face Verified</div>
                         <div>You are verified and ready to book events!</div>
                     `;
-                    document.getElementById('bookingForm').style.opacity = '1';
                 } else {
-                    status.className = 'status-box error';
+                    status.className = 'status-box warning';
                     status.innerHTML = `
-                        <div class="status-label">❌ Not Verified</div>
-                        <div>Please complete face verification to book events.</div>
+                        <div class="status-label">⚠️ Not Face Verified</div>
+                        <div>Face verification is optional. You can still book events.</div>
                     `;
-                    document.getElementById('bookingForm').style.opacity = '0.5';
-                    document.getElementById('bookBtn').disabled = true;
                 }
+                document.getElementById('bookingForm').style.opacity = '1';
             } catch (error) {
                 console.error('Verification check error:', error);
             }
