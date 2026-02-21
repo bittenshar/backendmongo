@@ -18,12 +18,11 @@ const transformEventResponse = (eventDoc) => {
   
   if (eventObj.s3ImageKey && eventObj.imageToken) {
     // Expose only encrypted token - no AWS/bucket/region info visible
-    eventObj.coverImageUrl = `/api/images/encrypted/${eventObj.imageToken}`;
+    eventObj.coverImage = `/api/images/encrypted/${eventObj.imageToken}`;
     eventObj.imageId = `event-${eventObj._id}`;
   }
   
   // Remove raw S3 data from response
-  delete eventObj.coverImage;
   delete eventObj.s3ImageKey;
   delete eventObj.imageToken; // Don't expose token in list responses
   delete eventObj.s3BucketName;

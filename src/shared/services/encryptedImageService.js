@@ -112,15 +112,23 @@ const deleteEventImage = async (s3Key) => {
  */
 const getEventImage = async (s3Key) => {
   try {
+    console.log('📦 Getting image from S3 - Bucket:', EVENT_IMAGES_BUCKET, 'Key:', s3Key);
     const params = {
       Bucket: EVENT_IMAGES_BUCKET,
       Key: s3Key
     };
 
     const data = await s3.getObject(params).promise();
+    console.log('✅ Image retrieved from S3:', data.ContentLength, 'bytes');
     return data.Body;
   } catch (error) {
-    console.error('❌ Get image error:', error.message);
+    console.error('❌ S3 Get image error:', {
+      message: error.message,
+      code: error.code,
+      bucket: EVENT_IMAGES_BUCKET,
+      key: s3Key,
+      region: process.env.AWS_REGION
+    });
     throw error;
   }
 };
