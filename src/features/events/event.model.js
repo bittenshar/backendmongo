@@ -23,6 +23,11 @@ const eventSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     location: { type: String, required: true },
+    language: { type: String, required: true },
+    agelimit: { type: String, required: true },
+
+    
+
 
     date: { type: Date, required: true },
     startTime: { type: Date, required: true },

@@ -1,0 +1,216 @@
+{
+  "info": {
+    "_postman_id": "wati-otp-testing",
+    "name": "WATI WhatsApp OTP API",
+    "description": "Complete API collection for testing WATI WhatsApp OTP integration\n\nStatus: ✅ Verified & Ready\nTemplate: login_otp (Approved)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "OTP Authentication",
+      "item": [
+        {
+          "name": "1. Send OTP to Phone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/send-otp",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "send-otp"
+              ]
+            },
+            "description": "Send OTP to user's phone number via WhatsApp\n\n**Phone Format**: 10 digits (e.g., 9876543210)\n- No country code\n- No '+' prefix\n- 10 digits only\n\n**Response includes**:\n- `phoneStatus`: \"new\" or \"existing\"\n- `otp`: (dev mode only) for testing\n- `sid`: Session ID"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Verify OTP Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/verify-otp",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify OTP code received on WhatsApp\n\n**Parameters**:\n- `phone`: User's phone (10 digits)\n- `code`: OTP code from WhatsApp message\n\n**Response**:\n- New user: Creates temporary user + JWT token\n- Existing user: Logs in + JWT token\n\n**Limits**:\n- 3 failed attempts\n- 5 minute expiration"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Complete User Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"lastname\": \"Doe\",\n  \"state\": \"Maharashtra\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/complete-profile",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "complete-profile"
+              ]
+            },
+            "description": "Complete user profile after OTP verification\n\n**Required**: JWT token from verify-otp response\n\n**Updates**:\n- name\n- email\n- lastname\n- state\n\n**Returns**: Updated user profile with verification status"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/complete-profile?filter=user,aadhaar,face",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "complete-profile"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "user,aadhaar,face"
+                }
+              ]
+            },
+            "description": "Get user's profile with filtered data\n\n**Filters** (optional):\n- `user`: Basic user info\n- `aadhaar`: Aadhaar verification status\n- `face`: Face verification status\n\n**Default**: All filters included\n\n**Requires**: JWT token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Testing & Utilities",
+      "item": [
+        {
+          "name": "Test: Send OTP (Development)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/send-otp",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "auth",
+                "send-otp"
+              ]
+            },
+            "description": "Test OTP sending on local development server"
+          },
+          "response": []
+        },
+        {
+          "name": "Test: Verify OTP (Development)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/verify-otp",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Test OTP verification on local development server"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3000",
+      "description": "API Base URL - Update for production"
+    },
+    {
+      "key": "JWT_TOKEN",
+      "value": "",
+      "description": "JWT token from login/verify-otp response - Auto-set after authentication"
+    }
+  ]
+}

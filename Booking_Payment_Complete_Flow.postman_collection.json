@@ -1,0 +1,100 @@
+{
+  "info": {
+    "_postman_id": "booking-payment-flow",
+    "name": "Booking Payment Flow - Complete Test",
+    "description": "Complete 3-step booking payment flow with test data",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "STEP 1: Initiate Booking",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Auto-save values for Step 3",
+              "if (pm.response.code === 200) {",
+              "    pm.environment.set('BOOKING_ID', pm.response.json().data.bookingId);",
+              "    pm.environment.set('RAZORPAY_ORDER_ID', pm.response.json().data.razorpayOrderId);",
+              "    console.log('✅ Saved BOOKING_ID:', pm.environment.get('BOOKING_ID'));",
+              "    console.log('✅ Saved RAZORPAY_ORDER_ID:', pm.environment.get('RAZORPAY_ORDER_ID'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"507f1f77bcf86cd799439011\",\n  \"eventId\": \"507f1f77bcf86cd799439012\",\n  \"seatingId\": \"507f1f77bcf86cd799439013\",\n  \"seatType\": \"standard\",\n  \"quantity\": 2,\n  \"pricePerSeat\": 500\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/booking-payment/initiate-with-verification",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "booking-payment", "initiate-with-verification"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 2: Get Razorpay Order Details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/booking-payment/razorpay-order/{{RAZORPAY_ORDER_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "booking-payment", "razorpay-order", "{{RAZORPAY_ORDER_ID}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 3: Confirm Booking After Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingId\": \"{{BOOKING_ID}}\",\n  \"razorpayOrderId\": \"{{RAZORPAY_ORDER_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/booking-payment/confirm-booking",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "booking-payment", "confirm-booking"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3000",
+      "description": "API Base URL"
+    },
+    {
+      "key": "BOOKING_ID",
+      "value": "",
+      "description": "Auto-filled from Step 1 response"
+    },
+    {
+      "key": "RAZORPAY_ORDER_ID",
+      "value": "",
+      "description": "Auto-filled from Step 1 response"
+    }
+  ]
+}

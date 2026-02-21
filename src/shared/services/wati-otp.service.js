@@ -104,11 +104,13 @@ exports.sendOTP = async (phone) => {
 // ============================================
 const sendWATIMessage = async (phone, otp) => {
   try {
-    const url = `${process.env.WATI_BASE_URL}/api/v1/sendTemplateMessage`;
+    const baseUrl = process.env.WATI_BASE_URL;
+    const templateName = process.env.WATI_TEMPLATE_NAME || 'thrill_login';
+    const apiKey = process.env.WATI_API_KEY;
 
     const payload = {
-      phoneNumber: phone, // ✅ NO "+"
-      template_name: 'login_otp',
+      phoneNumber: phone,
+      template_name: templateName,
       template_language: 'en',
       parameters: [
         {
@@ -118,31 +120,69 @@ const sendWATIMessage = async (phone, otp) => {
       ]
     };
 
-    console.log('📤 [WATI API] Payload:', payload);
+    console.log('📤 [WATI API] Attempting to send template message');
+    console.log('📱 Phone:', phone);
+    console.log('📋 Template:', templateName);
+    console.log('📝 OTP:', otp);
+    console.log('🔗 Base URL:', baseUrl);
 
-    const response = await axios.post(url, payload, {
-      headers: {
-        Authorization: `Bearer ${process.env.WATI_API_KEY}`, // ✅ NO Bearer
-        'Content-Type': 'application/json'
-      },
-      timeout: 10000
-    });
+    // Try multiple endpoint variations
+    const endpoints = [
+      `${baseUrl}/api/v1/sendTemplateMessage`,
+      `${baseUrl}/api/sendTemplateMessage`,
+      `${baseUrl}/sendTemplateMessage`,
+      `${baseUrl}/api/v1/send-template-message`
+    ];
 
-    console.log('✅ [WATI API] Response:', response.data);
+    let lastError = null;
+    let response = null;
+
+    for (let i = 0; i < endpoints.length; i++) {
+      const url = endpoints[i];
+      try {
+        console.log(`\n  Attempt ${i + 1}/${endpoints.length}: ${url}`);
+        
+        response = await axios.post(url, payload, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        });
+
+        console.log(`✅ [WATI API] Success with endpoint ${i + 1}!`);
+        console.log('📊 Response:', response.data);
+        break;
+      } catch (err) {
+        lastError = err;
+        console.log(`❌ Attempt ${i + 1} failed (${err.response?.status}): ${err.message}`);
+      }
+    }
+
+    if (!response) {
+      throw lastError;
+    }
+
+
+    console.log('✅ [WATI API] Message sent successfully');
+    console.log('✅ [WATI API] Auth method that worked logged above');
 
     return {
       success: true,
       data: response.data
     };
   } catch (error) {
+    console.error('\n❌ [WATI API] ALL ATTEMPTS FAILED');
     console.error('❌ [WATI API] Error:', error.response?.data || error.message);
+    console.error('❌ [WATI API] Status:', error.response?.status);
+    console.error('❌ [WATI API] Full Response:', JSON.stringify(error.response?.data, null, 2));
 
     return {
       success: false,
       message:
         error.response?.data?.message ||
         error.response?.data?.error ||
-        'WATI API Error'
+        'WATI API Error: ' + error.message
     };
   }
 };

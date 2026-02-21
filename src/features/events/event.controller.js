@@ -75,14 +75,42 @@ exports.getEvent = catchAsync(async (req, res, next) => {
 });
 
 exports.createEvent = catchAsync(async (req, res, next) => {
-  const { seatings, ...otherData } = req.body;
+  const { seatings, language, agelimit, name, location, date, startTime, endTime, ...otherData } = req.body;
 
-  // Validate that at least one seating exists
+  // Validate required fields
+  if (!name || !name.trim()) {
+    return next(new AppError('Event name is required', 400));
+  }
+  if (!location || !location.trim()) {
+    return next(new AppError('Event location is required', 400));
+  }
+  if (!language || !language.trim()) {
+    return next(new AppError('Event language is required', 400));
+  }
+  if (!agelimit || !agelimit.trim()) {
+    return next(new AppError('Event age limit is required', 400));
+  }
+  if (!date) {
+    return next(new AppError('Event date is required', 400));
+  }
+  if (!startTime) {
+    return next(new AppError('Event start time is required', 400));
+  }
+  if (!endTime) {
+    return next(new AppError('Event end time is required', 400));
+  }
   if (!seatings || !Array.isArray(seatings) || seatings.length === 0) {
     return next(new AppError('At least one seating configuration is required', 400));
   }
 
   const newEvent = await Event.create({
+    name,
+    location,
+    language,
+    agelimit,
+    date,
+    startTime,
+    endTime,
     ...otherData,
     seatings,
     organizer: req.user.id  // Auto-assign organizer to logged-in user
@@ -141,6 +169,20 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
 
   if (!event) {
     return next(new AppError('No event found with that ID', 404));
+  }
+
+  // Validate required fields if provided in update
+  if (req.body.name !== undefined && (!req.body.name || !req.body.name.trim())) {
+    return next(new AppError('Event name cannot be empty', 400));
+  }
+  if (req.body.location !== undefined && (!req.body.location || !req.body.location.trim())) {
+    return next(new AppError('Event location cannot be empty', 400));
+  }
+  if (req.body.language !== undefined && (!req.body.language || !req.body.language.trim())) {
+    return next(new AppError('Event language cannot be empty', 400));
+  }
+  if (req.body.agelimit !== undefined && (!req.body.agelimit || !req.body.agelimit.trim())) {
+    return next(new AppError('Event age limit cannot be empty', 400));
   }
 
   let updateData = { ...req.body };

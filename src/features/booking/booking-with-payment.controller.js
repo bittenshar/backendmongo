@@ -160,6 +160,7 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
           createdAt: tempBooking.bookedAt
         },
         payment: {
+          razorpayKeyId: process.env.RAZORPAY_KEY_ID,
           razorpayOrderId: razorpayOrder.id,
           amount: razorpayOrder.amount,
           currency: razorpayOrder.currency,
@@ -203,13 +204,51 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
 
     // STEP 1: Find and validate booking
     console.log('\n📍 STEP 1: Finding booking...');
-    const booking = await Booking.findById(bookingId)
-      .populate('userId', 'name email phone verificationStatus faceId')
-      .populate('eventId', 'name date location');
+    console.log('   🔍 Searching with bookingId:', bookingId);
+    console.log('   🔍 Searching with razorpayOrderId:', razorpayOrderId);
+    
+    // Try to find booking by bookingId (either as MongoDB _id or as custom ID)
+    let booking;
+    try {
+      // First, try as MongoDB ObjectId
+      booking = await Booking.findById(bookingId)
+        .populate('userId', 'name email phone verificationStatus faceId')
+        .populate('eventId', 'name date location');
+      
+      if (booking) {
+        console.log('   ✅ Found by MongoDB _id');
+      }
+    } catch (mongoErr) {
+      // If not a valid ObjectId, it might be a custom ID - just continue with null booking
+      console.log('   ℹ️  Not a valid MongoDB ObjectId, trying razorpayOrderId search...');
+      booking = null;
+    }
+
+    // If not found by MongoDB _id, try searching by razorpayOrderId
+    if (!booking) {
+      console.log('   🔍 Querying: Booking.findOne({ razorpayOrderId: "' + razorpayOrderId + '" })');
+      booking = await Booking.findOne({ razorpayOrderId })
+        .populate('userId', 'name email phone verificationStatus faceId')
+        .populate('eventId', 'name date location');
+      
+      if (booking) {
+        console.log('   ✅ Found by razorpayOrderId');
+      } else {
+        console.log('   ❌ Not found by razorpayOrderId');
+        
+        // Debug: List all bookings in database
+        const allBookings = await Booking.find().select('_id razorpayOrderId status').limit(5);
+        console.log('   📊 Sample bookings in database:');
+        allBookings.forEach((b, i) => {
+          console.log(`      ${i+1}. MongoDB _id: ${b._id}, razorpayOrderId: ${b.razorpayOrderId}, status: ${b.status}`);
+        });
+      }
+    }
 
     if (!booking) {
-      console.log('❌ Booking not found:', bookingId);
-      return next(new AppError('Booking not found', 404));
+      console.log('❌ Booking not found with either method');
+      console.log('💡 Make sure you completed Step 1 first: POST /api/booking-payment/initiate-booking-with-verification');
+      return next(new AppError('Booking not found. Please complete booking initiation first.', 404));
     }
     console.log('✅ Booking found');
 
@@ -224,9 +263,18 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
 
     if (booking.razorpayOrderId !== razorpayOrderId) {
       console.log('❌ Order ID mismatch');
-      console.log('   Expected:', booking.razorpayOrderId);
-      console.log('   Got:', razorpayOrderId);
-      return next(new AppError('Order ID mismatch', 400));
+      console.log('   Expected (in booking):', booking.razorpayOrderId);
+      console.log('   Received (in request):', razorpayOrderId);
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Order ID mismatch',
+        data: {
+          bookingId,
+          expected: booking.razorpayOrderId,
+          received: razorpayOrderId,
+          hint: 'Use the exact razorpayOrderId from Step 1 response'
+        }
+      });
     }
     console.log('✅ Order ID matches');
 

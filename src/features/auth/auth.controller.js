@@ -1,7 +1,7 @@
 const authService = require('./auth.service');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
-const mockOtpService = require('../../shared/services/mock-otp.service');
+const mockOtpService = require('../../shared/services/wati-otp.service');
 const User = require('./auth.model');
 const AadhaarImage = require('../aadhaar/aadhaar.model');
 
