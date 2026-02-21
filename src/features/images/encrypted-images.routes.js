@@ -24,12 +24,14 @@ router.get('/health', (req, res) => {
  */
 router.get('/encrypted/:encryptedToken', async (req, res, next) => {
   try {
-    console.log('🔍 Fetching image with token:', req.params.encryptedToken.substring(0, 20) + '...');
+    // URL decode the token (handles base64 characters like / and +)
+    const encryptedToken = decodeURIComponent(req.params.encryptedToken);
+    console.log('🔍 Fetching image with token:', encryptedToken.substring(0, 20) + '...');
     
     // Decrypt token to get event ID
     let eventData;
     try {
-      eventData = decryptUrl(req.params.encryptedToken);
+      eventData = decryptUrl(encryptedToken);
       console.log('✅ Token decrypted:', eventData);
     } catch (err) {
       console.error('❌ Token decryption failed:', err.message);
@@ -106,7 +108,7 @@ router.get('/test-url/:eventId', async (req, res) => {
       data: {
         eventId,
         hasImage: !!event.s3ImageKey,
-        imageUrl: `/api/images/encrypted/${event.imageToken}`,
+        imageUrl: `/api/images/encrypted/${encodeURIComponent(event.imageToken)}`,
         encryptedToken: event.imageToken
       }
     });

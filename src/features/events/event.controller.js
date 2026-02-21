@@ -17,8 +17,10 @@ const transformEventResponse = (eventDoc) => {
   const eventObj = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   
   if (eventObj.s3ImageKey && eventObj.imageToken) {
+    // URL encode token to handle base64 characters like / and +
+    const encodedToken = encodeURIComponent(eventObj.imageToken);
     // Expose only encrypted token - no AWS/bucket/region info visible
-    eventObj.coverImage = `/api/images/encrypted/${eventObj.imageToken}`;
+    eventObj.coverImage = `/api/images/encrypted/${encodedToken}`;
     eventObj.imageId = `event-${eventObj._id}`;
   }
   
