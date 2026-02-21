@@ -270,29 +270,17 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
     }
     console.log('✅ Order ID matches');
 
-    // STEP 2: Check Face Verification
-    console.log('\n📍 STEP 2: Verifying face verification status...');
+    // STEP 2: Check Face Verification (Optional)
+    console.log('\n📍 STEP 2: Checking face verification status (optional)...');
     const user = booking.userId;
-
-    if (user.verificationStatus !== 'verified' || !user.faceId) {
-      console.log('❌ Face verification failed');
+    const isFaceVerified = user.verificationStatus === 'verified' && user.faceId;
+    
+    if (isFaceVerified) {
+      console.log('✅ Face verification confirmed');
+    } else {
+      console.log('⚠️  Face verification not completed (optional, booking can proceed)');
       console.log('   Status:', user.verificationStatus, '| FaceId:', user.faceId ? 'Yes' : 'No');
-      
-      booking.paymentStatus = 'failed';
-      booking.status = 'cancelled';
-      await booking.save();
-
-      return res.status(403).json({
-        status: 'failed',
-        message: 'Face verification required',
-        data: {
-          bookingId,
-          status: 'cancelled',
-          verificationStatus: user.verificationStatus
-        }
-      });
     }
-    console.log('✅ Face verification confirmed');
 
     // STEP 3: Fetch payment from Razorpay using ORDER ID (NOT paymentId)
     console.log('\n📍 STEP 3: Fetching payment details from Razorpay...');
@@ -414,6 +402,11 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
           amount: booking.totalPrice,
           status: 'completed',
           verifiedVia: 'razorpay_api'
+        },
+        verification: {
+          faceVerified: isFaceVerified,
+          verificationStatus: user.verificationStatus,
+          note: 'Face verification is optional for booking'
         },
         event: {
           eventName: booking.eventId.name,
