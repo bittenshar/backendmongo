@@ -4,6 +4,7 @@ const {
   sendNotification,
   sendBatch,
   deleteToken,
+  softLogout,
 } = require("./notification.controller");
 
 const { protect } = require("../auth/auth.middleware");
@@ -14,6 +15,8 @@ router.post("/register-token", protect, registerToken);
 
 router.post("/send", sendNotification);
 router.post("/send-batch", sendBatch);
+router.delete("/delete-token", protect, softLogout);
 router.delete("/delete-token", protect, deleteToken);
+
 
 module.exports = router;

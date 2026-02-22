@@ -25,8 +25,9 @@ const eventSchema = new mongoose.Schema(
     location: { type: String, required: true },
     language: { type: String, required: true },
     agelimit: { type: String, required: true },
+    description: { type: String, required: true },
+    locationlink: { type: String, required: true },
 
-    
 
 
     date: { type: Date, required: true },

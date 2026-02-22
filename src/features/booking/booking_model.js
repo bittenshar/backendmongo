@@ -13,6 +13,14 @@ const bookingSchema = new mongoose.Schema(
       
       index: true
     },
+    
+    tickettype:{ 
+      type: String, 
+      required: true, 
+      enum: ['traditional', 'smart'], 
+      default: 'traditional' 
+    },
+
     eventId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Event',

@@ -90,6 +90,12 @@ exports.createEvent = catchAsync(async (req, res, next) => {
   if (!agelimit || !agelimit.trim()) {
     return next(new AppError('Event age limit is required', 400));
   }
+  if (!req.body.locationlink || !req.body.locationlink.trim()) {
+    return next(new AppError('Event location link is required', 400));
+  }
+  if (!req.body.description || !req.body.description.trim()) {
+    return next(new AppError('Event description is required', 400));
+  }
   if (!date) {
     return next(new AppError('Event date is required', 400));
   }
@@ -183,6 +189,12 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   }
   if (req.body.agelimit !== undefined && (!req.body.agelimit || !req.body.agelimit.trim())) {
     return next(new AppError('Event age limit cannot be empty', 400));
+  }
+   if (!req.body.locationlink || !req.body.locationlink.trim()) {
+    return next(new AppError('Event location link is required', 400));
+  }
+  if (!req.body.description || !req.body.description.trim()) {
+    return next(new AppError('Event description is required', 400));
   }
 
   let updateData = { ...req.body };
