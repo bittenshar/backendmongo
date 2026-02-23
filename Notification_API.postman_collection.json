@@ -1,0 +1,330 @@
+{
+  "info": {
+    "_postman_id": "notification-api-collection",
+    "name": "Notification API",
+    "description": "Complete Notification API Test Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login to get authentication token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Register FCM Token",
+      "item": [
+        {
+          "name": "Register Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm_token_here\",\n  \"deviceInfo\": {\n    \"deviceId\": \"device_123\",\n    \"deviceName\": \"iPhone 12\",\n    \"osType\": \"iOS\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/register-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "register-token"]
+            },
+            "description": "Register FCM token for a user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Send Notifications",
+      "item": [
+        {
+          "name": "Send to Single User/Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"user_id_here\",\n  \"title\": \"Test Notification\",\n  \"body\": \"This is a test notification\",\n  \"data\": {\n    \"type\": \"booking_update\",\n    \"bookingId\": \"booking_123\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "send"]
+            },
+            "description": "Send notification to single user"
+          }
+        },
+        {
+          "name": "Send Batch to All Users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"System Announcement\",\n  \"body\": \"Important system update\",\n  \"data\": {\n    \"type\": \"announcement\",\n    \"priority\": \"high\"\n  },\n  \"targeting\": {\n    \"role\": \"user\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/send-batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "send-batch"]
+            },
+            "description": "Send batch notification to all users or filtered users"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Get Notifications",
+      "item": [
+        {
+          "name": "Get User Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/user?userId=user_id_here&page=1&limit=20&isRead=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "user"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "user_id_here",
+                  "description": "User ID (required)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for pagination"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Number of notifications per page"
+                },
+                {
+                  "key": "isRead",
+                  "value": "false",
+                  "description": "Filter by read status (true/false)"
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Filter by notification type"
+                }
+              ]
+            },
+            "description": "Get user notifications - pass userId as query parameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Mark as Read/Unread",
+      "item": [
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isRead\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/:notificationId?userId=user_id_here",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", ":notificationId"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "user_id_here",
+                  "description": "User ID (required)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": "notification_id_here"
+                }
+              ]
+            },
+            "description": "Mark a specific notification as read - pass userId as query parameter"
+          }
+        },
+        {
+          "name": "Mark Notification as Unread",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isRead\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/:notificationId?userId=user_id_here",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", ":notificationId"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "user_id_here",
+                  "description": "User ID (required)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": "notification_id_here"
+                }
+              ]
+            },
+            "description": "Mark a notification as unread - pass userId as query parameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Delete Notifications",
+      "item": [
+        {
+          "name": "Soft Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/:notificationId?userId=user_id_here",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", ":notificationId"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "user_id_here",
+                  "description": "User ID (required)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": "notification_id_here"
+                }
+              ]
+            },
+            "description": "Soft delete a notification - pass userId as query parameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Token Management",
+      "item": [
+        {
+          "name": "Soft Logout - Mark Token as Guest",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/token-soft",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "token-soft"]
+            },
+            "description": "Soft logout - mark token as guest"
+          }
+        },
+        {
+          "name": "Hard Delete Token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/token-hard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "token-hard"]
+            },
+            "description": "Hard delete token - completely remove FCM token"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

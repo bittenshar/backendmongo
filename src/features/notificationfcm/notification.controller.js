@@ -1,5 +1,6 @@
 const { admin, initialized: firebaseInitialized } = require("./firebase");
 const UserFcmToken = require("./UserFcmToken.model");
+const NotificationLog = require("./notificationLog.model");
 
 /**
  * Register FCM Token
@@ -48,7 +49,7 @@ exports.registerToken = async (req, res) => {
  * Send Notification to One User or Direct Token
  */
 exports.sendNotification = async (req, res) => {
-  const { userId, token, title, body, data, imageUrl } = req.body;
+  const { userId, token, title, body, data, imageUrl, notificationType = 'other', relatedId } = req.body;
 
   // Validate required fields
   if (!title || !body) {
@@ -100,6 +101,7 @@ exports.sendNotification = async (req, res) => {
   const responses = [];
   let successCount = 0;
   let failureCount = 0;
+  const logsToSave = [];
 
   for (const t of tokens) {
     try {
@@ -157,24 +159,59 @@ exports.sendNotification = async (req, res) => {
       }
 
       let response;
+      let fcmStatus = 'sent';
+      let fcmMessageId = null;
+      let fcmError = null;
 
       // If Firebase is initialized, send via Firebase Cloud Messaging
       if (firebaseInitialized && admin.messaging) {
-        response = await admin.messaging().send(message);
+        try {
+          response = await admin.messaging().send(message);
+          fcmMessageId = response;
+        } catch (fcmErr) {
+          fcmStatus = 'failed';
+          fcmError = fcmErr.message;
+          response = { error: fcmErr.message };
+        }
       } else {
         // Mock response if Firebase is not initialized
         response = { 
           messageId: `mock-${Date.now()}`,
           warning: "Firebase not initialized - mock response"
         };
+        fcmMessageId = response.messageId;
       }
+
+      // Log to database
+      logsToSave.push({
+        userId: tokenSource === 'userId' ? userId : null,
+        token: t.token || t,
+        isGuest: tokenSource !== 'userId',
+        title,
+        body,
+        data: data || {},
+        imageUrl: imageUrl || null,
+        deviceType: t.deviceType || 'unknown',
+        deviceId: t.deviceId || null,
+        fcmMessageId,
+        fcmStatus,
+        fcmError,
+        notificationType,
+        relatedId: relatedId || null,
+        isRead: false
+      });
 
       responses.push({ 
         token: t.token || t, 
         response,
-        success: true 
+        success: fcmStatus === 'sent'
       });
-      successCount++;
+
+      if (fcmStatus === 'sent') {
+        successCount++;
+      } else {
+        failureCount++;
+      }
     } catch (error) {
       console.error("FCM error:", error.code);
       failureCount++;
@@ -189,12 +226,39 @@ exports.sendNotification = async (req, res) => {
         }
       }
 
+      // Log failed notification
+      logsToSave.push({
+        userId: tokenSource === 'userId' ? userId : null,
+        token: t.token || t,
+        isGuest: tokenSource !== 'userId',
+        title,
+        body,
+        data: data || {},
+        imageUrl: imageUrl || null,
+        deviceType: t.deviceType || 'unknown',
+        deviceId: t.deviceId || null,
+        fcmStatus: 'failed',
+        fcmError: error.message,
+        notificationType,
+        relatedId: relatedId || null,
+        isRead: false
+      });
+
       responses.push({ 
         token: t.token || t, 
         error: error.message,
         success: false 
       });
     }
+  }
+
+  // Save all notifications to database
+  try {
+    await NotificationLog.insertMany(logsToSave);
+    console.log(`✅ Stored ${logsToSave.length} notification logs in database`);
+  } catch (dbError) {
+    console.error("Error storing notifications in database:", dbError);
+    // Don't fail the response if DB storage fails, but log the error
   }
 
   res.json({ 
@@ -205,7 +269,8 @@ exports.sendNotification = async (req, res) => {
       successful: successCount,
       failed: failureCount,
       tokenSource,
-      userId: tokenSource === 'userId' ? userId : undefined
+      userId: tokenSource === 'userId' ? userId : undefined,
+      stored: logsToSave.length
     },
     responses 
   });
@@ -215,11 +280,14 @@ exports.sendNotification = async (req, res) => {
  * Batch Notification (Event updates)
  */
 exports.sendBatch = async (req, res) => {
-  const { title, body, data, imageUrl } = req.body;
+  const { title, body, data, imageUrl, notificationType = 'other', relatedId } = req.body;
 
-  const tokens = await UserFcmToken.find().select("token deviceType");
+  const tokens = await UserFcmToken.find().select("token deviceType userId deviceId");
 
   const responses = [];
+  const logsToSave = [];
+  let successCount = 0;
+  let failureCount = 0;
 
   for (const t of tokens) {
     try {
@@ -273,25 +341,62 @@ exports.sendBatch = async (req, res) => {
       }
 
       let response;
+      let fcmStatus = 'sent';
+      let fcmMessageId = null;
+      let fcmError = null;
 
       // If Firebase is initialized, send via Firebase Cloud Messaging
       if (firebaseInitialized && admin.messaging) {
-        response = await admin.messaging().send(message);
+        try {
+          response = await admin.messaging().send(message);
+          fcmMessageId = response;
+        } catch (fcmErr) {
+          fcmStatus = 'failed';
+          fcmError = fcmErr.message;
+          response = { error: fcmErr.message };
+        }
       } else {
         // Mock response if Firebase is not initialized
         response = { 
           messageId: `mock-${Date.now()}`,
           warning: "Firebase not initialized - mock response"
         };
+        fcmMessageId = response.messageId;
       }
+
+      // Log to database
+      logsToSave.push({
+        userId: t.userId || null,
+        token: t.token,
+        isGuest: !t.userId,
+        title,
+        body,
+        data: data || {},
+        imageUrl: imageUrl || null,
+        deviceType: t.deviceType || 'unknown',
+        deviceId: t.deviceId || null,
+        fcmMessageId,
+        fcmStatus,
+        fcmError,
+        notificationType,
+        relatedId: relatedId || null,
+        isRead: false
+      });
 
       responses.push({ 
         token: t.token, 
         response,
-        success: true 
+        success: fcmStatus === 'sent'
       });
+
+      if (fcmStatus === 'sent') {
+        successCount++;
+      } else {
+        failureCount++;
+      }
     } catch (error) {
       console.error("FCM error:", error.code);
+      failureCount++;
 
       // 🔥 APP UNINSTALLED → DELETE TOKEN
       if (
@@ -301,6 +406,24 @@ exports.sendBatch = async (req, res) => {
         await UserFcmToken.deleteOne({ token: t.token });
       }
 
+      // Log failed notification
+      logsToSave.push({
+        userId: t.userId || null,
+        token: t.token,
+        isGuest: !t.userId,
+        title,
+        body,
+        data: data || {},
+        imageUrl: imageUrl || null,
+        deviceType: t.deviceType || 'unknown',
+        deviceId: t.deviceId || null,
+        fcmStatus: 'failed',
+        fcmError: error.message,
+        notificationType,
+        relatedId: relatedId || null,
+        isRead: false
+      });
+
       responses.push({ 
         token: t.token, 
         error: error.message,
@@ -309,11 +432,22 @@ exports.sendBatch = async (req, res) => {
     }
   }
 
+  // Save all notifications to database
+  try {
+    await NotificationLog.insertMany(logsToSave);
+    console.log(`✅ Stored ${logsToSave.length} batch notification logs in database`);
+  } catch (dbError) {
+    console.error("Error storing batch notifications in database:", dbError);
+    // Don't fail the response if DB storage fails
+  }
+
   res.json({
     success: true,
     message: "Batch notifications sent",
-    sent: responses.length,
+    sent: successCount,
+    failed: failureCount,
     total: tokens.length,
+    stored: logsToSave.length,
     responses
   });
 };
@@ -359,4 +493,212 @@ exports.hardDeleteToken = async (req, res) => {
   await UserFcmToken.deleteOne({ token });
 
   res.json({ success: true });
+};
+
+// ============================================
+// USER NOTIFICATION APIS (2 required APIs)
+// ============================================
+
+/**
+ * GET User Notifications
+ * Retrieve unread notifications for the authenticated user
+ * @route   GET /api/notifications/user
+ * @access  Private (requires authentication)
+ */
+exports.getUserNotifications = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const { page = 1, limit = 20, type, isRead } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId query parameter is required'
+      });
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build query
+    const query = { 
+      userId, 
+      isDeleted: false,
+      expiresAt: { $gt: new Date() }
+    };
+
+    // Filter by read status if provided
+    if (isRead !== undefined) {
+      query.isRead = isRead === 'true' || isRead === true;
+    }
+
+    // Filter by notification type if provided
+    if (type) {
+      query.notificationType = type;
+    }
+
+    // Get total count
+    const total = await NotificationLog.countDocuments(query);
+
+    // Get notifications
+    const notifications = await NotificationLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Get unread count
+    const unreadCount = await NotificationLog.countDocuments({
+      userId,
+      isRead: false,
+      isDeleted: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    res.json({
+      success: true,
+      message: 'Notifications retrieved',
+      data: {
+        notifications: notifications.map(notif => ({
+          id: notif._id,
+          title: notif.title,
+          body: notif.body,
+          imageUrl: notif.imageUrl,
+          data: notif.data,
+          type: notif.notificationType,
+          isRead: notif.isRead,
+          readAt: notif.readAt,
+          createdAt: notif.createdAt,
+          relatedId: notif.relatedId
+        })),
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalNotifications: total,
+          perPage: limitNum,
+          unreadCount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * PATCH Mark Notification as Read/Unread
+ * Toggle notification read status
+ * @route   PATCH /api/notifications/:id
+ * @access  Private (requires authentication)
+ */
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const { id } = req.params;
+    const { isRead } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId query parameter is required'
+      });
+    }
+
+    if (isRead === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'isRead field is required (true or false)'
+      });
+    }
+
+    // Update notification
+    const notification = await NotificationLog.findOneAndUpdate(
+      { _id: id, userId },
+      {
+        isRead: isRead === true || isRead === 'true',
+        readAt: isRead === true || isRead === 'true' ? new Date() : null
+      },
+      { new: true, lean: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Notification marked as ${notification.isRead ? 'read' : 'unread'}`,
+      data: {
+        id: notification._id,
+        isRead: notification.isRead,
+        readAt: notification.readAt
+      }
+    });
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating notification',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * DELETE Soft delete notification
+ * @route   DELETE /api/notifications/:id
+ * @access  Private (requires authentication)
+ */
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId query parameter is required'
+      });
+    }
+
+    const notification = await NotificationLog.findOneAndUpdate(
+      { _id: id, userId },
+      { isDeleted: true, deletedAt: new Date() },
+      { new: true, lean: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification deleted',
+      data: {
+        id: notification._id,
+        deletedAt: notification.deletedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting notification',
+      error: error.message
+    });
+  }
 };

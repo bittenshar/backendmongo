@@ -5,18 +5,50 @@ const {
   sendBatch,
   deleteToken,
   softLogout,
+  getUserNotifications,
+  markNotificationAsRead,
+  deleteNotification,
+  hardDeleteToken
 } = require("./notification.controller");
 
 const { protect } = require("../auth/auth.middleware");
 
 const router = express.Router();
 
+// ============================================
+// ADMIN ROUTES (Send Notifications)
+// ============================================
+
+// Register FCM token
 router.post("/register-token", protect, registerToken);
 
+// Send notification to single user or token
 router.post("/send", sendNotification);
-router.post("/send-batch", sendBatch);
-router.delete("/delete-token", protect, softLogout);
-router.delete("/delete-token", protect, deleteToken);
 
+// Send batch notification to all users
+router.post("/send-batch", sendBatch);
+
+// ============================================
+// USER ROUTES (Get & Manage Notifications)
+// ============================================
+
+// Get user notifications (unread by default, supports filtering)
+router.get("/user", getUserNotifications);
+
+// Mark specific notification as read/unread
+router.patch("/:id", markNotificationAsRead);
+
+// Delete (soft delete) notification
+router.delete("/:id", deleteNotification);
+
+// ============================================
+// TOKEN MANAGEMENT ROUTES
+// ============================================
+
+// Soft logout - mark token as guest
+router.delete("/token-soft", protect, softLogout);
+
+// Hard delete token
+router.delete("/token-hard", protect, hardDeleteToken);
 
 module.exports = router;
