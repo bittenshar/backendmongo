@@ -48,8 +48,16 @@ exports.registerToken = async (req, res) => {
 /**
  * Send Notification to One User or Direct Token
  */
+/**
+ * Send Notification to One User or Direct Token
+ * @param {string} userId - User ID
+ * @param {string} phone - User Phone Number
+ * @param {string} token - Direct FCM token
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body
+ */
 exports.sendNotification = async (req, res) => {
-  const { userId, token, title, body, data, imageUrl, notificationType = 'other', relatedId } = req.body;
+  const { userId, phone, token, title, body, data, imageUrl, notificationType = 'other', relatedId } = req.body;
 
   // Validate required fields
   if (!title || !body) {
@@ -61,12 +69,35 @@ exports.sendNotification = async (req, res) => {
 
   let tokens = [];
   let tokenSource = null;
+  let resolvedUserId = userId;
 
-  // Primary: If userId is provided, find all tokens for that user
-  if (userId) {
+  // If phone is provided, find user by phone and get their userId
+  if (phone && !userId) {
     try {
-      tokens = await UserFcmToken.find({ userId });
-      tokenSource = "userId";
+      const User = require("../users/user.model");
+      const user = await User.findOne({ phone });
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: `No user found with phone: ${phone}`
+        });
+      }
+      resolvedUserId = user._id;
+      tokenSource = "phone";
+    } catch (err) {
+      console.error("Error finding user by phone:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Error finding user by phone"
+      });
+    }
+  }
+
+  // Primary: If userId or phone (resolved to userId) is available, find all tokens for that user
+  if (resolvedUserId) {
+    try {
+      tokens = await UserFcmToken.find({ userId: resolvedUserId });
+      if (!tokenSource) tokenSource = "userId";
     } catch (err) {
       console.error("Error finding tokens by userId:", err);
       return res.status(500).json({ 
@@ -84,7 +115,7 @@ exports.sendNotification = async (req, res) => {
   else {
     return res.status(400).json({ 
       success: false,
-      message: "Either userId or token is required" 
+      message: "Either userId, phone, or token is required" 
     });
   }
 
@@ -92,9 +123,8 @@ exports.sendNotification = async (req, res) => {
   if (!tokens || tokens.length === 0) {
     return res.status(404).json({ 
       success: false,
-      message: `No FCM tokens found for ${tokenSource === 'userId' ? 'userId: ' + userId : 'token'}`,
-      tokenSource,
-      userId: tokenSource === 'userId' ? userId : undefined
+      message: `No FCM tokens found for ${tokenSource === 'phone' ? 'phone: ' + phone : tokenSource === 'userId' ? 'userId: ' + resolvedUserId : 'token'}`,
+      tokenSource
     });
   }
 
@@ -184,9 +214,9 @@ exports.sendNotification = async (req, res) => {
 
       // Log to database
       logsToSave.push({
-        userId: tokenSource === 'userId' ? userId : null,
+        userId: resolvedUserId ? resolvedUserId : null,
         token: t.token || t,
-        isGuest: tokenSource !== 'userId',
+        isGuest: !resolvedUserId,
         title,
         body,
         data: data || {},

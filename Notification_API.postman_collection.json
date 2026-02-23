@@ -75,22 +75,40 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"recipientId\": \"user_id_here\",\n  \"title\": \"Test Notification\",\n  \"body\": \"This is a test notification\",\n  \"data\": {\n    \"type\": \"booking_update\",\n    \"bookingId\": \"booking_123\"\n  }\n}"
+              "raw": "{\n  \"phone\": \"+919876543210\",\n  \"title\": \"Hello\",\n  \"body\": \"This is a test notification\",\n  \"data\": {\n    \"type\": \"booking_update\",\n    \"bookingId\": \"booking_123\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/notifications/send",
               "host": ["{{baseUrl}}"],
               "path": ["api", "notifications", "send"]
             },
-            "description": "Send notification to single user"
+            "description": "Send notification by phone number (preferred) or userId or token"
+          }
+        },
+        {
+          "name": "Send to Single User by ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user_id_here\",\n  \"title\": \"Test Notification\",\n  \"body\": \"This is a test notification\",\n  \"data\": {\n    \"type\": \"booking_update\",\n    \"bookingId\": \"booking_123\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "send"]
+            },
+            "description": "Send notification by userId"
           }
         },
         {
@@ -101,10 +119,6 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
               }
             ],
             "body": {
