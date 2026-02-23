@@ -74,6 +74,7 @@ router.get('/user/:userId', bookingController.getUserBookings);
 // Get booking by reference number
 router.get('/reference/:referenceNumber', bookingController.getBookingByReference);
 
+
 // Get booking summary
 router.get('/:bookingId/summary', bookingController.getBookingSummary);
 
