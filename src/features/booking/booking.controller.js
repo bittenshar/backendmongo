@@ -987,3 +987,88 @@ exports.adminBookEventTicket = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get all bookings (Admin only)
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+exports.getAllBookings = async (req, res, next) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 20, 
+      status, 
+      eventId, 
+      userId,
+      sortBy = 'bookedAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build filter
+    const filter = {};
+    if (status) filter.status = status;
+    if (eventId) filter.eventId = eventId;
+    if (userId) filter.userId = userId;
+
+    // Calculate pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build sort
+    const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+    // Get total count
+    const totalBookings = await Booking.countDocuments(filter);
+
+    // Get bookings with pagination
+    const bookings = await Booking.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum)
+      .populate('userId', 'name email phone')
+      .populate('eventId', 'name date location ticketPrice');
+
+    // Calculate statistics
+    const stats = await Booking.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          revenue: { $sum: '$totalPrice' }
+        }
+      }
+    ]);
+
+    const totalPages = Math.ceil(totalBookings / limitNum);
+    const totalRevenue = stats.reduce((sum, stat) => sum + (stat.revenue || 0), 0);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalBookings,
+          perPage: limitNum
+        },
+        statistics: {
+          byStatus: stats.reduce((acc, stat) => {
+            acc[stat._id] = {
+              count: stat.count,
+              revenue: stat.revenue
+            };
+            return acc;
+          }, {}),
+          totalRevenue
+        },
+        bookings
+      }
+    });
+  } catch (error) {
+    console.error('Error getting all bookings:', error);
+    return next(new AppError(error.message, 500));
+  }
+};

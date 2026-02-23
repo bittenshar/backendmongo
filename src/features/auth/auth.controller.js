@@ -1,7 +1,7 @@
 const authService = require('./auth.service');
 const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
-const mockOtpService = require('../../shared/services/mock-otp.service');
+const aisensynOtpService = require('../../shared/services/aisensy-otp.service');
 const User = require('./auth.model');
 const AadhaarImage = require('../aadhaar/aadhaar.model');
 
@@ -60,7 +60,7 @@ exports.sendOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide a phone number', 400));
   }
 
-  const result = await mockOtpService.sendOTP(phone);
+  const result = await aisensynOtpService.sendOTP(phone);
 
   if (!result.success) {
     return next(new AppError(result.message, 400));
@@ -71,9 +71,9 @@ exports.sendOTP = catchAsync(async (req, res, next) => {
     message: result.message,
     data: {
       phone,
-      sid: result.sid,
+      timestamp: result.timestamp,
       expiresIn: result.expiresIn,
-      otp: result.otp // For testing - remove in production
+      otp: result.otp // For testing only - remove in production
     }
   });
 });
@@ -91,7 +91,7 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide phone number and OTP code', 400));
   }
 
-  const result = await mockOtpService.verifyOTP(phone, code);
+  const result = await aisensynOtpService.verifyOTP(phone, code);
 
   if (!result.success) {
     return next(new AppError(result.message || 'OTP verification failed', 400));
@@ -130,7 +130,7 @@ exports.resendOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide a phone number', 400));
   }
 
-  const result = await twilioService.resendOTP(phone);
+  const result = await aisensynOtpService.resendOTP(phone);
 
   if (!result.success) {
     return next(new AppError(result.message, 400));
@@ -141,7 +141,8 @@ exports.resendOTP = catchAsync(async (req, res, next) => {
     message: result.message,
     data: {
       phone,
-      sid: result.sid
+      timestamp: result.timestamp,
+      expiresIn: result.expiresIn
     }
   });
 });
@@ -178,8 +179,8 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
 
   const phoneStatus = user ? 'existing' : 'new';
 
-  // Send OTP using mock OTP Service
-  const result = await mockOtpService.sendOTP(phone);
+  // Send OTP using AiSensy OTP Service
+  const result = await aisensynOtpService.sendOTP(phone);
 
   if (!result.success) {
     return next(new AppError(result.message, 400));
@@ -192,7 +193,8 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
     data: {
       phone,
       phoneStatus, // "existing" or "new"
-      sid: result.sid,
+      timestamp: result.timestamp,
+      expiresIn: result.expiresIn,
       otp: result.otp // For testing - remove in production
     }
   });
@@ -221,7 +223,7 @@ exports.sendOTPnew = catchAsync(async (req, res, next) => {
   const phoneStatus = user ? 'existing' : 'new';
 
   // Send OTP
-  const result = await mockOtpService.sendOTP(phone);
+  const result = await aisensynOtpService.sendOTP(phone);
 
   if (!result.success) {
     return next(new AppError(result.message, 400));
@@ -248,8 +250,8 @@ exports.verifyOTPnew = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide phone number and OTP code', 400));
   }
 
-  // Verify OTP with mock OTP Service
-  const verificationResult = await mockOtpService.verifyOTP(phone, otpCode);
+  // Verify OTP with AiSensy OTP Service
+  const verificationResult = await aisensynOtpService.verifyOTP(phone, otpCode);
 
   if (!verificationResult.success) {
     return next(new AppError(verificationResult.message, 400));

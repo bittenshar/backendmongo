@@ -64,11 +64,18 @@ router.post('/confirm', confirmSeatAfterPayment);
 router.post('/cancel', cancelSeatBooking);
 
 // Admin routes (must come before /:bookingId routes)
+router.get('/admin/all', bookingController.getAllBookings);
 router.get('/admin/:eventId/stats', bookingController.getEventBookingStats);
 router.post('/admin/cleanup-expired', bookingController.cleanupExpiredBookings);
 
 // User routes
 router.get('/user/:userId', bookingController.getUserBookings);
+
+// Get booking by reference number
+router.get('/reference/:referenceNumber', bookingController.getBookingByReference);
+
+// Get booking summary
+router.get('/:bookingId/summary', bookingController.getBookingSummary);
 
 // Get booking with payment details
 router.get('/:bookingId/with-payment', bookingController.getBookingWithPayment);
