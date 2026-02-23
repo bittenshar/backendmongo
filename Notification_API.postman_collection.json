@@ -125,7 +125,7 @@
       "name": "4. Get Notifications",
       "item": [
         {
-          "name": "Get User Notifications",
+          "name": "Get User Notifications (Auto Marks as Read)",
           "request": {
             "method": "GET",
             "header": [],
@@ -152,6 +152,7 @@
                 {
                   "key": "isRead",
                   "value": "false",
+                  "disabled": true,
                   "description": "Filter by read status (true/false)"
                 },
                 {
@@ -162,88 +163,13 @@
                 }
               ]
             },
-            "description": "Get user notifications - pass userId as query parameter"
+            "description": "Get user notifications - automatically marks all unread notifications as read"
           }
         }
       ]
     },
     {
-      "name": "5. Mark as Read/Unread",
-      "item": [
-        {
-          "name": "Mark Notification as Read",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"isRead\": true\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/:notificationId?userId=user_id_here",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", ":notificationId"],
-              "query": [
-                {
-                  "key": "userId",
-                  "value": "user_id_here",
-                  "description": "User ID (required)"
-                }
-              ],
-              "variable": [
-                {
-                  "key": "notificationId",
-                  "value": "notification_id_here"
-                }
-              ]
-            },
-            "description": "Mark a specific notification as read - pass userId as query parameter"
-          }
-        },
-        {
-          "name": "Mark Notification as Unread",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"isRead\": false\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/:notificationId?userId=user_id_here",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", ":notificationId"],
-              "query": [
-                {
-                  "key": "userId",
-                  "value": "user_id_here",
-                  "description": "User ID (required)"
-                }
-              ],
-              "variable": [
-                {
-                  "key": "notificationId",
-                  "value": "notification_id_here"
-                }
-              ]
-            },
-            "description": "Mark a notification as unread - pass userId as query parameter"
-          }
-        }
-      ]
-    },
-    {
-      "name": "6. Delete Notifications",
+      "name": "5. Delete Notifications",
       "item": [
         {
           "name": "Soft Delete Notification",

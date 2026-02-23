@@ -6,7 +6,6 @@ const {
   deleteToken,
   softLogout,
   getUserNotifications,
-  markNotificationAsRead,
   deleteNotification,
   hardDeleteToken
 } = require("./notification.controller");
@@ -34,9 +33,6 @@ router.post("/send-batch", sendBatch);
 
 // Get user notifications (unread by default, supports filtering)
 router.get("/user", getUserNotifications);
-
-// Mark specific notification as read/unread
-router.patch("/:id", markNotificationAsRead);
 
 // Delete (soft delete) notification
 router.delete("/:id", deleteNotification);

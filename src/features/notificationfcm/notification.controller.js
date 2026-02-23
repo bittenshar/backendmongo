@@ -500,6 +500,46 @@ exports.hardDeleteToken = async (req, res) => {
 // ============================================
 
 /**
+ * PATCH Mark All Notifications as Read
+ * Mark all unread notifications as read for a user
+ * @route   PATCH /api/notifications/mark-all-read
+ * @access  Public (requires userId query param)
+ */
+exports.markAllNotificationsAsRead = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId query parameter is required'
+      });
+    }
+
+    const result = await NotificationLog.updateMany(
+      { userId, isRead: false, isDeleted: false },
+      { isRead: true, readAt: new Date() }
+    );
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read',
+      data: {
+        modifiedCount: result.modifiedCount,
+        matchedCount: result.matchedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error marking all as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking notifications as read',
+      error: error.message
+    });
+  }
+};
+
+/**
  * GET User Notifications
  * Retrieve unread notifications for the authenticated user
  * @route   GET /api/notifications/user
@@ -548,7 +588,13 @@ exports.getUserNotifications = async (req, res) => {
       .limit(limitNum)
       .lean();
 
-    // Get unread count
+    // Mark all unread notifications as read for this user
+    await NotificationLog.updateMany(
+      { userId, isRead: false, isDeleted: false },
+      { isRead: true, readAt: new Date() }
+    );
+
+    // Get updated unread count (should be 0 now)
     const unreadCount = await NotificationLog.countDocuments({
       userId,
       isRead: false,
@@ -560,7 +606,7 @@ exports.getUserNotifications = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Notifications retrieved',
+      message: 'Notifications retrieved and marked as read',
       data: {
         notifications: notifications.map(notif => ({
           id: notif._id,
@@ -588,68 +634,6 @@ exports.getUserNotifications = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching notifications',
-      error: error.message
-    });
-  }
-};
-
-/**
- * PATCH Mark Notification as Read/Unread
- * Toggle notification read status
- * @route   PATCH /api/notifications/:id
- * @access  Private (requires authentication)
- */
-exports.markNotificationAsRead = async (req, res) => {
-  try {
-    const { userId } = req.query;
-    const { id } = req.params;
-    const { isRead } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userId query parameter is required'
-      });
-    }
-
-    if (isRead === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'isRead field is required (true or false)'
-      });
-    }
-
-    // Update notification
-    const notification = await NotificationLog.findOneAndUpdate(
-      { _id: id, userId },
-      {
-        isRead: isRead === true || isRead === 'true',
-        readAt: isRead === true || isRead === 'true' ? new Date() : null
-      },
-      { new: true, lean: true }
-    );
-
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: `Notification marked as ${notification.isRead ? 'read' : 'unread'}`,
-      data: {
-        id: notification._id,
-        isRead: notification.isRead,
-        readAt: notification.readAt
-      }
-    });
-  } catch (error) {
-    console.error('Error updating notification:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating notification',
       error: error.message
     });
   }
