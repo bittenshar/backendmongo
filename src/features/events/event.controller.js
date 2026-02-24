@@ -10,6 +10,25 @@ const { NOTIFICATION_TYPES } = require('../notificationfcm/constants/notificatio
 const { NOTIFICATION_DATA_TYPES } = require('../notificationfcm/constants/notificationDataTypes');
 
 /**
+ * Get current time in Indian Standard Time (IST)
+ * IST is UTC+5:30
+ */
+const getCurrentIST = () => {
+  const now = new Date();
+  // IST offset is UTC+5:30 (330 minutes)
+  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+  return istTime;
+};
+
+/**
+ * Convert UTC date to IST
+ */
+const convertToIST = (utcDate) => {
+  const date = new Date(utcDate);
+  return new Date(date.getTime() + (5.5 * 60 * 60 * 1000) - (date.getTimezoneOffset() * 60 * 1000));
+};
+
+/**
  * Transform event data to hide S3 URLs
  * Only exposes encrypted image token with event ID (no AWS bucket/region info)
  */
@@ -190,10 +209,10 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   if (req.body.agelimit !== undefined && (!req.body.agelimit || !req.body.agelimit.trim())) {
     return next(new AppError('Event age limit cannot be empty', 400));
   }
-   if (!req.body.locationlink || !req.body.locationlink.trim()) {
+   if (req.body.locationlink !== undefined && (!req.body.locationlink || !req.body.locationlink.trim())) {
     return next(new AppError('Event location link is required', 400));
   }
-  if (!req.body.description || !req.body.description.trim()) {
+  if (req.body.description !== undefined && (!req.body.description || !req.body.description.trim())) {
     return next(new AppError('Event description is required', 400));
   }
 

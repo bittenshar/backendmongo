@@ -1,7 +1,17 @@
-
 const Booking = require('./booking_model');
 const AppError = require('../../shared/utils/appError');
 const Event = require('../events/event.model');
+
+/**
+ * Get current time in Indian Standard Time (IST)
+ * IST is UTC+5:30
+ */
+const getCurrentIST = () => {
+  const now = new Date();
+  // IST is UTC+5:30, convert server time to IST
+  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+  return istTime;
+};
 
 /**
  * Validate ticket for event check-in (Admin/Event Staff)
@@ -313,9 +323,21 @@ exports.verifyEntry = async (req, res) => {
       return res.json({ status: 'RED', reason: 'EVENT_NOT_ACTIVE' });
     }
 
-    const now = new Date();
-    if (now < event.startTime || now > event.endTime) {
-      return res.json({ status: 'RED', reason: 'OUTSIDE_EVENT_TIME' });
+    // Use IST (Indian Standard Time) for all time validations
+    const nowIST = getCurrentIST();
+    const eventStartIST = new Date(event.startTime);
+    const eventEndIST = new Date(event.endTime);
+
+    if (nowIST < eventStartIST || nowIST > eventEndIST) {
+      return res.json({ 
+        status: 'RED', 
+        reason: 'OUTSIDE_EVENT_TIME',
+        details: {
+          currentIST: nowIST.toISOString(),
+          eventStart: eventStartIST.toISOString(),
+          eventEnd: eventEndIST.toISOString()
+        }
+      });
     }
 
     // 3️⃣ Atomic booking validation + consume
