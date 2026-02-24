@@ -311,16 +311,27 @@ exports.verifyEntry = async (req, res) => {
   try {
     const { userId, eventId } = req.body;
 
-    
-
     // 2️⃣ Event validation
     const event = await Event.findById(eventId).lean();
     if (!event) {
-      return res.json({ status: 'RED', reason: 'EVENT_NOT_FOUND' });
+      return res.json({ 
+        status: 'RED', 
+        reason: 'EVENT_NOT_FOUND',
+        eventId
+      });
     }
 
     if (event.status !== 'active') {
-      return res.json({ status: 'RED', reason: 'EVENT_NOT_ACTIVE' });
+      return res.json({ 
+        status: 'RED', 
+        reason: 'EVENT_NOT_ACTIVE',
+        eventName: event.name,
+        eventStatus: event.status,
+        eventTime: {
+          startTime: event.startTime,
+          endTime: event.endTime
+        }
+      });
     }
 
     // Use IST (Indian Standard Time) for all time validations
@@ -332,10 +343,24 @@ exports.verifyEntry = async (req, res) => {
       return res.json({ 
         status: 'RED', 
         reason: 'OUTSIDE_EVENT_TIME',
+        eventName: event.name,
+        eventTime: {
+          startTime: event.startTime,
+          endTime: event.endTime,
+          startTimeIST: eventStartIST.toISOString(),
+          endTimeIST: eventEndIST.toISOString()
+        },
+        currentTime: {
+          IST: nowIST.toISOString(),
+          UTC: new Date().toISOString()
+        },
         details: {
           currentIST: nowIST.toISOString(),
           eventStart: eventStartIST.toISOString(),
-          eventEnd: eventEndIST.toISOString()
+          eventEnd: eventEndIST.toISOString(),
+          curTime: nowIST.getTime(),
+          startTime: eventStartIST.getTime(),
+          endTime: eventEndIST.getTime()
         }
       });
     }
@@ -359,18 +384,43 @@ exports.verifyEntry = async (req, res) => {
     );
 
     if (!booking) {
-      return res.json({ status: 'RED', reason: 'NO_VALID_SMART_TICKET' });
+      return res.json({ 
+        status: 'RED', 
+        reason: 'NO_VALID_SMART_TICKET',
+        eventName: event.name,
+        eventTime: {
+          startTime: event.startTime,
+          endTime: event.endTime
+        },
+        currentTime: {
+          IST: nowIST.toISOString()
+        }
+      });
     }
 
     // 4️⃣ Success
     return res.json({
       status: 'GREEN',
-      bookingId: booking._id
+      bookingId: booking._id,
+      eventName: event.name,
+      eventTime: {
+        startTime: event.startTime,
+        endTime: event.endTime
+      },
+      currentTime: {
+        IST: nowIST.toISOString(),
+        UTC: new Date().toISOString()
+      },
+      checkedInAt: new Date().toISOString()
     });
 
   } catch (err) {
     console.error('ENTRY_VERIFY_ERROR:', err);
-    return res.status(500).json({ status: 'ERROR' });
+    return res.status(500).json({ 
+      status: 'ERROR',
+      message: err.message,
+      timestamp: new Date().toISOString()
+    });
   }
 };
 
