@@ -3,14 +3,25 @@ const AppError = require('../../shared/utils/appError');
 const Event = require('../events/event.model');
 
 /**
- * Get current time in Indian Standard Time (IST)
- * IST is UTC+5:30
+ * Convert UTC date to IST for display/logging only
+ * IST is UTC+5:30 (333 minutes)
+ * WARNING: Never use IST for timezone-critical comparisons
  */
-const getCurrentIST = () => {
-  const now = new Date();
-  // IST is UTC+5:30, convert server time to IST
-  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
-  return istTime;
+const toIST = (utcDate) => {
+  const date = new Date(utcDate);
+  // Add 5 hours 30 minutes for IST offset
+  return new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+};
+
+/**
+ * Format IST date for display
+ * Returns ISO string with proper timezone indication
+ */
+const formatIST = (utcDate) => {
+  const istDate = toIST(utcDate);
+  const iso = istDate.toISOString();
+  // Replace Z with +05:30 to indicate IST
+  return iso.replace('Z', '+05:30');
 };
 
 /**
@@ -326,42 +337,42 @@ exports.verifyEntry = async (req, res) => {
         status: 'RED', 
         reason: 'EVENT_NOT_ACTIVE',
         eventName: event.name,
-        eventStatus: event.status,
-        eventTime: {
-          startTime: event.startTime,
-          endTime: event.endTime
-        }
+        eventStatus: event.status
       });
     }
 
-    // Use IST (Indian Standard Time) for all time validations
-    const nowIST = getCurrentIST();
-    const eventStartIST = new Date(event.startTime);
-    const eventEndIST = new Date(event.endTime);
+    // ✅ CORRECT: All comparisons in UTC
+    const nowUTC = new Date();
+    const eventStartUTC = new Date(event.startTime);
+    const eventEndUTC = new Date(event.endTime);
 
-    if (nowIST < eventStartIST || nowIST > eventEndIST) {
+    const isOutsideEventTime = nowUTC < eventStartUTC || nowUTC > eventEndUTC;
+
+    // 🔍 For display/logging: Convert to IST (but never use for comparisons)
+    const nowIST = toIST(nowUTC);
+    const eventStartIST = toIST(eventStartUTC);
+    const eventEndIST = toIST(eventEndUTC);
+
+    if (isOutsideEventTime) {
       return res.json({ 
         status: 'RED', 
         reason: 'OUTSIDE_EVENT_TIME',
         eventName: event.name,
         eventTime: {
-          startTime: event.startTime,
-          endTime: event.endTime,
-          startTimeIST: eventStartIST.toISOString(),
-          endTimeIST: eventEndIST.toISOString()
+          utc: {
+            startTime: eventStartUTC.toISOString(),
+            endTime: eventEndUTC.toISOString()
+          },
+          ist: {
+            startTime: formatIST(eventStartUTC),
+            endTime: formatIST(eventEndUTC)
+          }
         },
         currentTime: {
-          IST: nowIST.toISOString(),
-          UTC: new Date().toISOString()
+          utc: nowUTC.toISOString(),
+          ist: formatIST(nowUTC)
         },
-        details: {
-          currentIST: nowIST.toISOString(),
-          eventStart: eventStartIST.toISOString(),
-          eventEnd: eventEndIST.toISOString(),
-          curTime: nowIST.getTime(),
-          startTime: eventStartIST.getTime(),
-          endTime: eventEndIST.getTime()
-        }
+        isEventRunning: false
       });
     }
 
@@ -389,11 +400,18 @@ exports.verifyEntry = async (req, res) => {
         reason: 'NO_VALID_SMART_TICKET',
         eventName: event.name,
         eventTime: {
-          startTime: event.startTime,
-          endTime: event.endTime
+          utc: {
+            startTime: eventStartUTC.toISOString(),
+            endTime: eventEndUTC.toISOString()
+          },
+          ist: {
+            startTime: formatIST(eventStartUTC),
+            endTime: formatIST(eventEndUTC)
+          }
         },
         currentTime: {
-          IST: nowIST.toISOString()
+          utc: nowUTC.toISOString(),
+          ist: formatIST(nowUTC)
         }
       });
     }
@@ -404,14 +422,22 @@ exports.verifyEntry = async (req, res) => {
       bookingId: booking._id,
       eventName: event.name,
       eventTime: {
-        startTime: event.startTime,
-        endTime: event.endTime
+        utc: {
+          startTime: eventStartUTC.toISOString(),
+          endTime: eventEndUTC.toISOString()
+        },
+        ist: {
+          startTime: formatIST(eventStartUTC),
+          endTime: formatIST(eventEndUTC)
+        }
       },
       currentTime: {
-        IST: nowIST.toISOString(),
-        UTC: new Date().toISOString()
+        utc: nowUTC.toISOString(),
+        ist: formatIST(nowUTC)
       },
-      checkedInAt: new Date().toISOString()
+      isEventRunning: true,
+      checkedInAt: nowUTC.toISOString(),
+      checkedInAtIST: formatIST(nowUTC)
     });
 
   } catch (err) {
