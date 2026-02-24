@@ -133,7 +133,23 @@ const bookingSchema = new mongoose.Schema(
     ticketDownloadCount: {
       type: Number,
       default: 0
-    }
+    },
+    // Check-in tracking (multiple check-ins allowed)
+    checkInCount: {
+      type: Number,
+      default: 0
+    },
+    checkIns: [{
+      timestamp: {
+        type: Date
+      },
+      timestampIST: {
+        type: String
+      },
+      checkInNumber: {
+        type: Number
+      }
+    }]
   },
   { timestamps: true }
 );

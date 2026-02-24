@@ -376,23 +376,12 @@ exports.verifyEntry = async (req, res) => {
       });
     }
 
-    // 3️⃣ Atomic booking validation + consume
-    const booking = await Booking.findOneAndUpdate(
-      {
-        userId,
-        eventId,
-        tickettype: 'smart',
-        status: 'confirmed',
-        usedAt: null
-      },
-      {
-        $set: {
-          status: 'used',
-          usedAt: new Date()
-        }
-      },
-      { new: true }
-    );
+    // 3️⃣ Find booking (ticket can be checked multiple times)
+    let booking = await Booking.findOne({
+      userId,
+      eventId,
+      tickettype: 'smart'
+    });
 
     if (!booking) {
       return res.json({ 
@@ -416,11 +405,34 @@ exports.verifyEntry = async (req, res) => {
       });
     }
 
-    // 4️⃣ Success
+    // 4️⃣ Track multiple check-ins (increment counter + add timestamp)
+    booking.checkInCount = (booking.checkInCount || 0) + 1;
+    
+    // Initialize checkIns array if not exists and store all timestamps
+    if (!booking.checkIns) {
+      booking.checkIns = [];
+    }
+    booking.checkIns.push({
+      timestamp: nowUTC,
+      timestampIST: formatIST(nowUTC),
+      checkInNumber: booking.checkInCount
+    });
+    
+    // Update status to 'used' on first check-in
+    if (booking.status === 'confirmed') {
+      booking.status = 'used';
+      booking.usedAt = nowUTC;
+    }
+
+    await booking.save();
+
+    // 5️⃣ Success - Multiple check-in allowed
     return res.json({
       status: 'GREEN',
       bookingId: booking._id,
       eventName: event.name,
+      message: `Ticket is checked ${booking.checkInCount} time${booking.checkInCount > 1 ? 's' : ''}`,
+      checkInCount: booking.checkInCount,
       eventTime: {
         utc: {
           startTime: eventStartUTC.toISOString(),
@@ -437,7 +449,8 @@ exports.verifyEntry = async (req, res) => {
       },
       isEventRunning: true,
       checkedInAt: nowUTC.toISOString(),
-      checkedInAtIST: formatIST(nowUTC)
+      checkedInAtIST: formatIST(nowUTC),
+      allCheckIns: booking.checkIns
     });
 
   } catch (err) {
