@@ -1,5 +1,7 @@
+
 const Booking = require('./booking_model');
 const AppError = require('../../shared/utils/appError');
+const Event = require('../events/event.model');
 
 /**
  * Validate ticket for event check-in (Admin/Event Staff)
