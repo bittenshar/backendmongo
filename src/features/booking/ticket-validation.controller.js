@@ -295,4 +295,59 @@ exports.getTicketDetails = async (req, res, next) => {
   }
 };
 
+exports.verifyEntry = async (req, res) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    
+
+    // 2️⃣ Event validation
+    const event = await Event.findById(eventId).lean();
+    if (!event) {
+      return res.json({ status: 'RED', reason: 'EVENT_NOT_FOUND' });
+    }
+
+    if (event.status !== 'active') {
+      return res.json({ status: 'RED', reason: 'EVENT_NOT_ACTIVE' });
+    }
+
+    const now = new Date();
+    if (now < event.startTime || now > event.endTime) {
+      return res.json({ status: 'RED', reason: 'OUTSIDE_EVENT_TIME' });
+    }
+
+    // 3️⃣ Atomic booking validation + consume
+    const booking = await Booking.findOneAndUpdate(
+      {
+        userId,
+        eventId,
+        tickettype: 'smart',
+        status: 'confirmed',
+        usedAt: null
+      },
+      {
+        $set: {
+          status: 'used',
+          usedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!booking) {
+      return res.json({ status: 'RED', reason: 'NO_VALID_SMART_TICKET' });
+    }
+
+    // 4️⃣ Success
+    return res.json({
+      status: 'GREEN',
+      bookingId: booking._id
+    });
+
+  } catch (err) {
+    console.error('ENTRY_VERIFY_ERROR:', err);
+    return res.status(500).json({ status: 'ERROR' });
+  }
+};
+
 module.exports = exports;

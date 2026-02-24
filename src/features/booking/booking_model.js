@@ -139,8 +139,11 @@ const bookingSchema = new mongoose.Schema(
 );
 
 // Indexes
-bookingSchema.index({ userId: 1, eventId: 1 });
-bookingSchema.index({ status: 1 });
+bookingSchema.index({ userId: 1, eventId: 1 , 
+   tickettype: 1,
+  status: 1,
+  usedAt: 1
+});
 bookingSchema.index({ bookedAt: -1 });
 bookingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
 bookingSchema.index({ razorpayOrderId: 1 });

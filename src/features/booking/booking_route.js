@@ -9,6 +9,7 @@ const { confirmSeatAfterPayment } = require('./confirmSeat.controller');
 const { cancelSeatBooking } = require('./cancelSeat.controller');
 const bookingController = require('./booking.controller');
 const ticketValidationController = require('./ticket-validation.controller');
+// verifyEntry lives in booking.controller, not ticket-validation.controller
 const authMiddleware = require('../auth/auth.middleware');
 
 /**
@@ -105,5 +106,14 @@ router.post('/checkin-ticket', ticketValidationController.checkInTicket);
 
 // Get ticket details by ticket number
 router.get('/ticket/:ticketNumber', ticketValidationController.getTicketDetails);
+
+
+
+
+router.post('/entry/verify', ticketValidationController.verifyEntry);
+
+
+
+
 
 module.exports = router;
