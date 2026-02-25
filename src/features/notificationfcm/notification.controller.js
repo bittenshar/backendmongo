@@ -578,7 +578,7 @@ exports.markAllNotificationsAsRead = async (req, res) => {
 exports.getUserNotifications = async (req, res) => {
   try {
     const { userId } = req.query;
-    const { page = 1, limit = 20, type, isRead } = req.query;
+    const { type, isRead } = req.query;
 
     if (!userId) {
       return res.status(400).json({
@@ -586,10 +586,6 @@ exports.getUserNotifications = async (req, res) => {
         message: 'userId query parameter is required'
       });
     }
-
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
 
     // Build query
     const query = { 
@@ -608,14 +604,10 @@ exports.getUserNotifications = async (req, res) => {
       query.notificationType = type;
     }
 
-    // Get total count
+    // Get all matching notifications (no pagination)
     const total = await NotificationLog.countDocuments(query);
-
-    // Get notifications
     const notifications = await NotificationLog.find(query)
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
       .lean();
 
     // Mark all unread notifications as read for this user
@@ -631,8 +623,6 @@ exports.getUserNotifications = async (req, res) => {
       isDeleted: false,
       expiresAt: { $gt: new Date() }
     });
-
-    const totalPages = Math.ceil(total / limitNum);
 
     res.json({
       success: true,
@@ -650,11 +640,8 @@ exports.getUserNotifications = async (req, res) => {
           createdAt: notif.createdAt,
           relatedId: notif.relatedId
         })),
-        pagination: {
-          currentPage: pageNum,
-          totalPages,
+        stats: {
           totalNotifications: total,
-          perPage: limitNum,
           unreadCount
         }
       }

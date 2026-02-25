@@ -33,6 +33,8 @@ router.post("/send-batch", sendBatch);
 
 // Get user notifications (unread by default, supports filtering)
 router.get("/user", getUserNotifications);
+// Get user notification stats (alias to getUserNotifications for now)
+router.get("/user/stats", getUserNotifications);
 
 // Delete (soft delete) notification
 router.delete("/:id", deleteNotification);
