@@ -55,9 +55,16 @@ exports.registerToken = async (req, res) => {
  * @param {string} token - Direct FCM token
  * @param {string} title - Notification title
  * @param {string} body - Notification body
+ * @param {string} imageUrl - Optional image URL for rich notifications
+ * @param {boolean} [skipSave=false] - if true the notification will not be persisted in the database (useful for marketing/batch pushes)
  */
 exports.sendNotification = async (req, res) => {
-  const { userId, phone, token, title, body, data, imageUrl, notificationType = 'other', relatedId } = req.body;
+  // allow caller to skip persisting logs (e.g. batch/marketing pushes)
+  let { userId, phone, token, title, body, data, imageUrl, notificationType = 'other', relatedId, skipSave = false } = req.body;
+  // if caller passes a category that is known to be batch/marketing, always skip saving
+  if (notificationType === 'batch') {
+    skipSave = true;
+  }
 
   // Validate required fields
   if (!title || !body) {
@@ -212,24 +219,26 @@ exports.sendNotification = async (req, res) => {
         fcmMessageId = response.messageId;
       }
 
-      // Log to database
-      logsToSave.push({
-        userId: resolvedUserId ? resolvedUserId : null,
-        token: t.token || t,
-        isGuest: !resolvedUserId,
-        title,
-        body,
-        data: data || {},
-        imageUrl: imageUrl || null,
-        deviceType: t.deviceType || 'unknown',
-        deviceId: t.deviceId || null,
-        fcmMessageId,
-        fcmStatus,
-        fcmError,
-        notificationType,
-        relatedId: relatedId || null,
-        isRead: false
-      });
+      // Optionally log to database (batch/marketing pushes may skip)
+      if (!skipSave) {
+        logsToSave.push({
+          userId: resolvedUserId ? resolvedUserId : null,
+          token: t.token || t,
+          isGuest: !resolvedUserId,
+          title,
+          body,
+          data: data || {},
+          imageUrl: imageUrl || null,
+          deviceType: t.deviceType || 'unknown',
+          deviceId: t.deviceId || null,
+          fcmMessageId,
+          fcmStatus,
+          fcmError,
+          notificationType,
+          relatedId: relatedId || null,
+          isRead: false
+        });
+      }
 
       responses.push({ 
         token: t.token || t, 
@@ -282,10 +291,12 @@ exports.sendNotification = async (req, res) => {
     }
   }
 
-  // Save all notifications to database
+  // Save all notifications to database (if any and not skipped)
   try {
-    await NotificationLog.insertMany(logsToSave);
-    console.log(`✅ Stored ${logsToSave.length} notification logs in database`);
+    if (logsToSave.length > 0) {
+      await NotificationLog.insertMany(logsToSave);
+      console.log(`✅ Stored ${logsToSave.length} notification logs in database`);
+    }
   } catch (dbError) {
     console.error("Error storing notifications in database:", dbError);
     // Don't fail the response if DB storage fails, but log the error
@@ -310,7 +321,8 @@ exports.sendNotification = async (req, res) => {
  * Batch Notification (Event updates)
  */
 exports.sendBatch = async (req, res) => {
-  const { title, body, data, imageUrl, notificationType = 'other', relatedId } = req.body;
+  // batch pushes are marketing by nature; do not persist logs unless explicitly requested
+  const { title, body, data, imageUrl, notificationType = 'other', relatedId, skipSave = true } = req.body;
 
   const tokens = await UserFcmToken.find().select("token deviceType userId deviceId");
 
@@ -394,24 +406,26 @@ exports.sendBatch = async (req, res) => {
         fcmMessageId = response.messageId;
       }
 
-      // Log to database
-      logsToSave.push({
-        userId: t.userId || null,
-        token: t.token,
-        isGuest: !t.userId,
-        title,
-        body,
-        data: data || {},
-        imageUrl: imageUrl || null,
-        deviceType: t.deviceType || 'unknown',
-        deviceId: t.deviceId || null,
-        fcmMessageId,
-        fcmStatus,
-        fcmError,
-        notificationType,
-        relatedId: relatedId || null,
-        isRead: false
-      });
+      // Log to database only if caller wants to
+      if (!skipSave) {
+        logsToSave.push({
+          userId: t.userId || null,
+          token: t.token,
+          isGuest: !t.userId,
+          title,
+          body,
+          data: data || {},
+          imageUrl: imageUrl || null,
+          deviceType: t.deviceType || 'unknown',
+          deviceId: t.deviceId || null,
+          fcmMessageId,
+          fcmStatus,
+          fcmError,
+          notificationType,
+          relatedId: relatedId || null,
+          isRead: false
+        });
+      }
 
       responses.push({ 
         token: t.token, 
@@ -462,10 +476,12 @@ exports.sendBatch = async (req, res) => {
     }
   }
 
-  // Save all notifications to database
+  // Save all notifications to database (if any and not skipped)
   try {
-    await NotificationLog.insertMany(logsToSave);
-    console.log(`✅ Stored ${logsToSave.length} batch notification logs in database`);
+    if (!skipSave && logsToSave.length > 0) {
+      await NotificationLog.insertMany(logsToSave);
+      console.log(`✅ Stored ${logsToSave.length} batch notification logs in database`);
+    }
   } catch (dbError) {
     console.error("Error storing batch notifications in database:", dbError);
     // Don't fail the response if DB storage fails
@@ -551,6 +567,20 @@ exports.markAllNotificationsAsRead = async (req, res) => {
       { isRead: true, readAt: new Date() }
     );
 
+    // auto‑delete ticket/utility notifications once they become read
+    await NotificationLog.updateMany(
+      {
+        userId,
+        isRead: true,
+        isDeleted: false,
+        $or: [
+          { notificationType: { $regex: '^TICKET_' } },
+          { notificationType: 'utility' }
+        ]
+      },
+      { isDeleted: true, deletedAt: new Date() }
+    );
+
     res.json({
       success: true,
       message: 'All notifications marked as read',
@@ -566,6 +596,85 @@ exports.markAllNotificationsAsRead = async (req, res) => {
       message: 'Error marking notifications as read',
       error: error.message
     });
+  }
+};
+
+
+/**
+ * PATCH Mark single notification as read
+ * @route   PATCH /api/notifications/:id/mark-read
+ * @access  Private (requires userId query param)
+ */
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId query parameter is required' });
+    }
+
+    const notif = await NotificationLog.findOne({ _id: id, userId });
+    if (!notif) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+
+    // mark as read
+    const updated = await NotificationLog.findOneAndUpdate(
+      { _id: id, userId, isDeleted: false },
+      { isRead: true, readAt: new Date() },
+      { new: true, lean: true }
+    );
+
+    // If this is a ticket or utility notification, auto-soft-delete when read
+    if (notif.notificationType && (notif.notificationType.startsWith('TICKET_') || notif.notificationType === 'utility')) {
+      await NotificationLog.findOneAndUpdate(
+        { _id: id, userId },
+        { isDeleted: true, deletedAt: new Date() }
+      );
+    }
+
+    res.json({ success: true, message: 'Notification marked as read', data: { id } });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ success: false, message: 'Error marking notification as read', error: error.message });
+  }
+};
+
+
+/**
+ * PATCH Mark single notification as unread
+ * @route   PATCH /api/notifications/:id/mark-unread
+ * @access  Private (requires userId query param)
+ */
+exports.markNotificationAsUnread = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId query parameter is required' });
+    }
+
+    const notif = await NotificationLog.findOne({ _id: id, userId });
+    if (!notif) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+
+    if (notif.isDeleted) {
+      return res.status(400).json({ success: false, message: 'Cannot mark deleted notification as unread' });
+    }
+
+    const updated = await NotificationLog.findOneAndUpdate(
+      { _id: id, userId, isDeleted: false },
+      { isRead: false, readAt: null },
+      { new: true, lean: true }
+    );
+
+    res.json({ success: true, message: 'Notification marked as unread', data: { id } });
+  } catch (error) {
+    console.error('Error marking notification as unread:', error);
+    res.status(500).json({ success: false, message: 'Error marking notification as unread', error: error.message });
   }
 };
 
@@ -610,13 +719,7 @@ exports.getUserNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Mark all unread notifications as read for this user
-    await NotificationLog.updateMany(
-      { userId, isRead: false, isDeleted: false },
-      { isRead: true, readAt: new Date() }
-    );
-
-    // Get updated unread count (should be 0 now)
+    // Do NOT mark notifications as read on GET — return current read state
     const unreadCount = await NotificationLog.countDocuments({
       userId,
       isRead: false,
@@ -626,7 +729,7 @@ exports.getUserNotifications = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Notifications retrieved and marked as read',
+      message: 'Notifications retrieved',
       data: {
         notifications: notifications.map(notif => ({
           id: notif._id,
@@ -656,6 +759,47 @@ exports.getUserNotifications = async (req, res) => {
   }
 };
 
+
+/**
+ * GET User Notification Stats
+ * Returns only numeric stats (total, unread)
+ * @route   GET /api/notifications/user/stats
+ * @access  Private (requires userId query param)
+ */
+exports.getUserNotificationStats = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const { type } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId query parameter is required' });
+    }
+
+    const baseQuery = {
+      userId,
+      isDeleted: false,
+      expiresAt: { $gt: new Date() }
+    };
+
+    if (type) baseQuery.notificationType = type;
+
+    const totalNotifications = await NotificationLog.countDocuments(baseQuery);
+    const unreadCount = await NotificationLog.countDocuments({ ...baseQuery, isRead: false });
+
+    res.json({
+      success: true,
+      message: 'Notification stats retrieved',
+      data: {
+        totalNotifications,
+        unreadCount
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching notification stats:', error);
+    res.status(500).json({ success: false, message: 'Error fetching notification stats', error: error.message });
+  }
+};
+
 /**
  * DELETE Soft delete notification
  * @route   DELETE /api/notifications/:id
@@ -673,13 +817,21 @@ exports.deleteNotification = async (req, res) => {
       });
     }
 
-    const notification = await NotificationLog.findOneAndUpdate(
-      { _id: id, userId },
-      { isDeleted: true, deletedAt: new Date() },
-      { new: true, lean: true }
-    );
+    // delegate to model static which encapsulates verification guard
+    let deleted;
+    try {
+      deleted = await NotificationLog.deleteNotification(id, userId);
+    } catch (modelErr) {
+      if (modelErr.code === 'NOT_VERIFIED') {
+        return res.status(403).json({
+          success: false,
+          message: modelErr.message
+        });
+      }
+      throw modelErr;
+    }
 
-    if (!notification) {
+    if (!deleted) {
       return res.status(404).json({
         success: false,
         message: 'Notification not found'
@@ -690,8 +842,8 @@ exports.deleteNotification = async (req, res) => {
       success: true,
       message: 'Notification deleted',
       data: {
-        id: notification._id,
-        deletedAt: notification.deletedAt
+        id: deleted._id,
+        deletedAt: deleted.deletedAt
       }
     });
   } catch (error) {

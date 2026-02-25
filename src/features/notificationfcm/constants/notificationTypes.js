@@ -31,4 +31,8 @@ module.exports.NOTIFICATION_TYPES = {
   USER_ACCOUNT_CREATED: "USER_ACCOUNT_CREATED",
   USER_ACCOUNT_UPDATED: "USER_ACCOUNT_UPDATED",
   USER_ACCOUNT_SUSPENDED: "USER_ACCOUNT_SUSPENDED",
+
+  // Generic categories used by the public API (not templates)
+  UTILITY: "UTILITY",
+  BATCH: "BATCH" // marketing/broadcast no storage
 };

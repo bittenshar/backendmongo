@@ -6,7 +6,10 @@ const {
   deleteToken,
   softLogout,
   getUserNotifications,
+  getUserNotificationStats,
   deleteNotification,
+  markNotificationAsRead,
+  markNotificationAsUnread,
   hardDeleteToken
 } = require("./notification.controller");
 
@@ -33,11 +36,15 @@ router.post("/send-batch", sendBatch);
 
 // Get user notifications (unread by default, supports filtering)
 router.get("/user", getUserNotifications);
-// Get user notification stats (alias to getUserNotifications for now)
-router.get("/user/stats", getUserNotifications);
+// Get user notification stats (numbers only)
+router.get("/user/stats", getUserNotificationStats);
 
 // Delete (soft delete) notification
 router.delete("/:id", deleteNotification);
+
+// Mark single notification as read/unread
+router.patch("/mark-read/:id/", markNotificationAsRead);
+router.patch("/mark-unread/:id/", markNotificationAsUnread);
 
 // ============================================
 // TOKEN MANAGEMENT ROUTES

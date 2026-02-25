@@ -91,7 +91,21 @@ const notificationLogSchema = new mongoose.Schema(
     // Notification type for filtering
     notificationType: {
       type: String,
-      enum: ['event', 'booking', 'payment', 'system', 'promotional', 'order', 'other'],
+      // categories that help client‑side filtering; many internal notifications
+      // may use more specific type strings (e.g. TICKET_CONFIRMED) but the
+      // enum here covers the broad buckets we expose via the API.
+      enum: [
+        'event',
+        'booking',
+        'payment',
+        'system',
+        'promotional',
+        'order',
+        'other',
+        'verification', // cannot be deleted until user is verified
+        'utility',      // auto‑deleted when marked read
+        'batch'         // marketing/broadcast; usually not stored
+      ],
       default: 'other'
     },
     
@@ -185,7 +199,22 @@ notificationLogSchema.statics.markMultipleAsRead = function(notificationIds, use
   );
 };
 
-notificationLogSchema.statics.deleteNotification = function(notificationId, userId) {
+notificationLogSchema.statics.deleteNotification = async function(notificationId, userId) {
+  // fetch first so we can apply business rules
+  const notif = await this.findOne({ _id: notificationId, userId }).lean();
+  if (!notif) return null;
+
+  // verification notifications are protected until the user is verified
+  if (/VERIFICATION/i.test(notif.notificationType)) {
+    const User = require('../users/user.model');
+    const user = await User.findById(userId).select('verificationStatus');
+    if (user && user.verificationStatus !== 'verified') {
+      const err = new Error('Cannot delete verification notification until account is verified');
+      err.code = 'NOT_VERIFIED';
+      throw err;
+    }
+  }
+
   return this.findOneAndUpdate(
     { _id: notificationId, userId },
     { isDeleted: true, deletedAt: new Date() },
