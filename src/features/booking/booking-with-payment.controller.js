@@ -24,7 +24,7 @@ exports.checkFaceVerification = async (req, res, next) => {
       return next(new AppError('User not found', 404));
     }
 
-    const isVerified = user.verificationStatus === 'verified' && user.faceId;
+    const isVerified = user.verificationStatus === 'verified';
 
     res.status(200).json({
       status: 'success',
