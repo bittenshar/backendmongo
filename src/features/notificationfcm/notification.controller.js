@@ -562,8 +562,14 @@ exports.markAllNotificationsAsRead = async (req, res) => {
       });
     }
 
+    // exclude verification-related messages
     const result = await NotificationLog.updateMany(
-      { userId, isRead: false, isDeleted: false },
+      {
+        userId,
+        isRead: false,
+        isDeleted: false,
+        notificationType: { $not: /VERIFICATION/i }
+      },
       { isRead: true, readAt: new Date() }
     );
 
@@ -583,7 +589,7 @@ exports.markAllNotificationsAsRead = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'All notifications marked as read',
+      message: 'All applicable notifications marked as read',
       data: {
         modifiedCount: result.modifiedCount,
         matchedCount: result.matchedCount

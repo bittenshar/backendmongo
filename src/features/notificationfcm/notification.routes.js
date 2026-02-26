@@ -3,7 +3,6 @@ const {
   registerToken,
   sendNotification,
   sendBatch,
-  deleteToken,
   softLogout,
   getUserNotifications,
   getUserNotificationStats,
@@ -43,8 +42,11 @@ router.get("/user/stats", getUserNotificationStats);
 router.delete("/:id", deleteNotification);
 
 // Mark single notification as read/unread
-router.patch("/mark-read/:id/", markNotificationAsRead);
-router.patch("/mark-unread/:id/", markNotificationAsUnread);
+router.patch("/mark-read/:id", markNotificationAsRead);
+router.patch("/mark-unread/:id", markNotificationAsUnread);
+
+// Bulk mark-all-read (skips verification notifications)
+router.patch("/mark-all-read", markAllNotificationsAsRead);
 
 // ============================================
 // TOKEN MANAGEMENT ROUTES
