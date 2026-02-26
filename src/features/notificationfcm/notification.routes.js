@@ -9,6 +9,7 @@ const {
   deleteNotification,
   markNotificationAsRead,
   markNotificationAsUnread,
+  markAllNotificationsAsRead,
   hardDeleteToken
 } = require("./notification.controller");
 
