@@ -419,12 +419,15 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
     let qrCodeDataUrl = null;
     
     try {
-      // Generate unique ticket number
+      // Generate unique ticket number (Ticket ID)
       const ticketNumber = `TKT-${booking._id.toString().slice(-8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
       
-      // Generate QR code for ticket
+      // Generate QR code that encodes the ticket ID
       const { generateQRCodeDataURL } = require('../../shared/services/ticket-qrcode.service');
       qrCodeDataUrl = await generateQRCodeDataURL(ticketNumber);
+      
+      // QR code now contains the ticket number (ticket ID) for scanning and validation
+      console.log('✅ QR Code generated with Ticket ID:', ticketNumber);
       
       // Create ticket object
       ticket = {
@@ -440,11 +443,19 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
         seatType: booking.seatType,
         quantity: booking.quantity,
         ticketGeneratedAt: new Date(),
-        qrCode: qrCodeDataUrl
+        qrCode: qrCodeDataUrl,
+        qrCodeContent: ticketNumber // Explicitly store what the QR code encodes
       };
       
+      // Save ticket information to booking document
+      booking.ticketNumbers = [ticketNumber];
+      booking.qrCodes = [qrCodeDataUrl];
+      await booking.save();
+      
       console.log('✅ Ticket generated successfully');
-      console.log(`   Ticket Number: ${ticketNumber}`);
+      console.log(`   Ticket Number (ID): ${ticketNumber}`);
+      console.log(`   QR Code Content: ${ticketNumber}`);
+      console.log('✅ Ticket saved to booking document');
     } catch (ticketError) {
       console.warn('⚠️  Ticket generation failed (non-critical):', ticketError.message);
       // Ticket generation failure should not block booking confirmation
@@ -475,6 +486,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
         ticket: ticket ? {
           ticketNumber: ticket.ticketNumber,
           qrCode: ticket.qrCode,
+          qrCodeContent: ticket.qrCodeContent,
           eventName: ticket.eventName,
           eventDate: ticket.eventDate,
           location: ticket.location,
@@ -483,7 +495,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
           seatType: ticket.seatType,
           quantity: ticket.quantity,
           ticketGeneratedAt: ticket.ticketGeneratedAt,
-          note: 'QR Code can be scanned for ticket validation'
+          note: 'QR Code contains Ticket ID and can be scanned for ticket validation'
         } : { error: 'Ticket generation failed - booking still confirmed' },
         verification: {
           faceVerified: isFaceVerified,
