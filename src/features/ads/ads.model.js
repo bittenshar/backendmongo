@@ -30,6 +30,11 @@ const adSchema = new Schema(
       type: String,
       required: [true, 'Image URL is required']
     },
+     image: {
+      type: String,
+      required: [true, 'Image is required']
+    },
+
 
     imageKey: {
       type: String,

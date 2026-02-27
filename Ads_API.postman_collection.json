@@ -1,0 +1,346 @@
+{
+  "info": {
+    "name": "Ads API",
+    "description": "Ads management API - Create, Read, Update, Delete ads with Cloudinary image uploads",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Ad (POST)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "organizerId",
+              "value": "{{organizerId}}",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "value": "Summer Sale Banner",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "value": "Exclusive summer promotion with up to 50% off",
+              "type": "text"
+            },
+            {
+              "key": "adType",
+              "value": "banner",
+              "type": "text"
+            },
+            {
+              "key": "targetUrl",
+              "value": "https://example.com/summer-sale",
+              "type": "text"
+            },
+            {
+              "key": "startDate",
+              "value": "2026-02-27T00:00:00Z",
+              "type": "text"
+            },
+            {
+              "key": "endDate",
+              "value": "2026-03-27T00:00:00Z",
+              "type": "text"
+            },
+            {
+              "key": "displayDuration",
+              "value": "5",
+              "type": "text"
+            },
+            {
+              "key": "priority",
+              "value": "1",
+              "type": "text"
+            },
+            {
+              "key": "tags",
+              "value": "summer,sale,promotion",
+              "type": "text"
+            },
+            {
+              "key": "budget",
+              "value": "5000",
+              "type": "text"
+            },
+            {
+              "key": "targetAudience",
+              "value": "all",
+              "type": "text"
+            },
+            {
+              "key": "image",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", ""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Active Ads",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/active",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "active"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Ad by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Ads by Organizer",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/organizer/{{organizerId}}?status=pending",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "organizer", "{{organizerId}}"],
+          "query": [
+            {
+              "key": "status",
+              "value": "pending"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Ad (PATCH)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "organizerId",
+              "value": "{{organizerId}}",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "value": "Updated Summer Sale",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "value": "Updated promotional description",
+              "type": "text"
+            },
+            {
+              "key": "image",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Ad",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"organizerId\": \"{{organizerId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Record Ad Click",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}/click",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}", "click"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Ad Analytics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}/analytics",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}", "analytics"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Get Pending Ads",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/admin/pending-ads",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "admin", "pending-ads"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Approve Ad",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}/approve",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}", "approve"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Reject Ad",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rejectionReason\": \"Image quality is too low\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/ads/{{adId}}/reject",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "ads", "{{adId}}", "reject"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "YOUR_ORGANIZER_AUTH_TOKEN",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "YOUR_ADMIN_AUTH_TOKEN",
+      "type": "string"
+    },
+    {
+      "key": "organizerId",
+      "value": "YOUR_ORGANIZER_ID",
+      "type": "string"
+    },
+    {
+      "key": "adId",
+      "value": "CREATED_AD_ID",
+      "type": "string"
+    }
+  ]
+}

@@ -1,8 +1,8 @@
-const cloudinary = require('cloudinary').v2;
+const cloudinary  = require("../../shared/config/cloudinary");
 const streamifier = require('streamifier');
 const Ad = require('./ads.model');
-const catchAsync = require('../../utils/catchAsync');
-const AppError = require('../../utils/appError');
+const catchAsync = require("../../shared/utils/catchAsync");
+const  AppError = require("../../shared/utils/appError");
 
 // ============================================
 // PUBLIC ROUTES
@@ -118,7 +118,9 @@ exports.createAd = catchAsync(async (req, res, next) => {
     endDate,
     tags: tags ? (typeof tags === 'string' ? tags.split(',') : tags) : [],
     budget,
-    targetAudience: targetAudience || 'all'
+    targetAudience: targetAudience || 'all',
+    status: 'approved', // Auto-approve ads when created
+    isActive: true
   });
 
   res.status(201).json({
