@@ -1,140 +1,147 @@
+const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier');
 const Ad = require('./ads.model');
-const Organizer = require('../organizers/organizer.model');
-const AWS = require('aws-sdk');
-const catchAsync = require('../../shared/utils/catchAsync');
-const AppError = require('../../shared/utils/appError');
+const catchAsync = require('../../utils/catchAsync');
+const AppError = require('../../utils/appError');
 
-// Configure AWS S3
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION
+// ============================================
+// PUBLIC ROUTES
+// ============================================
+
+/**
+ * Get active ads (public route)
+ * Filters: targetAudience, adType, tags
+ */
+exports.getActiveAds = catchAsync(async (req, res, next) => {
+  const { targetAudience, adType, tags } = req.query;
+
+  const filter = {};
+  if (targetAudience) filter.targetAudience = targetAudience;
+  if (adType) filter.adType = adType;
+  if (tags) filter.tags = { $in: tags.split(',') };
+
+  const ads = await Ad.getActiveAds(filter);
+
+  res.status(200).json({
+    status: 'success',
+    results: ads.length,
+    data: {
+      ads
+    }
+  });
+});
+
+/**
+ * Get single ad by ID
+ */
+exports.getAd = catchAsync(async (req, res, next) => {
+  const ad = await Ad.findById(req.params.id).populate('organizerId', 'name email');
+
+  if (!ad) {
+    return next(new AppError('Ad not found', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      ad
+    }
+  });
+});
+
+/**
+ * Record ad click
+ */
+exports.recordClick = catchAsync(async (req, res, next) => {
+  const ad = await Ad.findByIdAndUpdate(
+    req.params.id,
+    { $inc: { clicks: 1 } },
+    { new: true, runValidators: true }
+  );
+
+  if (!ad) {
+    return next(new AppError('Ad not found', 404));
+  }
+
+  // Update CTR
+  ad.ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : 0;
+  await ad.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      ad
+    }
+  });
 });
 
 // ============================================
-// @desc    Upload and create new ad
-// @route   POST /api/ads
-// @access  Private (Organizer)
+// PROTECTED ROUTES
 // ============================================
-exports.createAd = catchAsync(async (req, res, next) => {
-  const { organizerId, title, description, adType, targetUrl, displayDuration, priority, startDate, endDate, tags, budget, targetAudience } = req.body;
 
-  // Validate organizer exists
-  const organizer = await Organizer.findById(organizerId);
-  if (!organizer) {
-    return next(new AppError('Organizer not found', 404));
+/**
+ * Create new ad with image upload
+ */
+exports.createAd = catchAsync(async (req, res, next) => {
+  const { title, description, adType, targetUrl, displayDuration, priority, startDate, endDate, tags, budget, targetAudience } = req.body;
+
+  // Validate required fields
+  if (!title || !startDate || !endDate) {
+    return next(new AppError('Title, startDate, and endDate are required', 400));
+  }
+
+  if (!req.file) {
+    return next(new AppError('Image file is required', 400));
   }
 
   // Validate dates
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  if (start >= end) {
+  if (new Date(startDate) >= new Date(endDate)) {
     return next(new AppError('Start date must be before end date', 400));
   }
 
-  // Upload image if provided
-  let imageUrl = req.body.imageUrl;
-  let imageKey = null;
-
-  if (req.file) {
-    try {
-      const key = `ads/${organizerId}/${Date.now()}-${req.file.originalname}`;
-      
-      const params = {
-        Bucket: process.env.AWS_S3_BUCKET,
-        Key: key,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
-        ACL: 'public-read'
-      };
-
-      const result = await s3.upload(params).promise();
-      imageUrl = result.Location;
-      imageKey = key;
-    } catch (error) {
-      return next(new AppError(`Failed to upload image: ${error.message}`, 500));
-    }
-  }
+  // Upload image to Cloudinary
+  const imageUrl = await uploadToCloudinary(req.file);
 
   // Create ad
   const ad = await Ad.create({
-    organizerId,
+    organizerId: req.user.id,
     title,
     description,
     imageUrl,
-    imageKey,
-    adType,
+    image: imageUrl,
+    imageKey: imageUrl.split('/').pop(), // Extract key from URL
+    adType: adType || 'promotional',
     targetUrl,
     displayDuration: displayDuration || 5,
     priority: priority || 0,
-    startDate: start,
-    endDate: end,
-    tags: tags || [],
-    budget: budget || 0,
-    targetAudience: targetAudience || 'all',
-    status: 'pending' // Requires approval
+    startDate,
+    endDate,
+    tags: tags ? (typeof tags === 'string' ? tags.split(',') : tags) : [],
+    budget,
+    targetAudience: targetAudience || 'all'
   });
 
   res.status(201).json({
     status: 'success',
-    message: 'Ad created successfully. Awaiting admin approval.',
+    message: 'Ad created successfully',
     data: {
       ad
     }
   });
 });
 
-// ============================================
-// @desc    Get all active ads for Android app
-// @route   GET /api/ads/active
-// @access  Public
-// ============================================
-exports.getActiveAds = catchAsync(async (req, res, next) => {
-  const { targetAudience } = req.query;
-
-  let filter = { targetAudience: { $in: ['all'] } };
-
-  if (targetAudience && targetAudience !== 'all') {
-    filter.targetAudience.$in.push(targetAudience);
-  }
-
-  const ads = await Ad.getActiveAds(filter);
-
-  // Increment impressions for each ad
-  if (ads.length > 0) {
-    const adIds = ads.map(ad => ad._id);
-    await Ad.updateMany(
-      { _id: { $in: adIds } },
-      { $inc: { impressions: 1 } }
-    );
-  }
-
-  res.status(200).json({
-    status: 'success',
-    results: ads.length,
-    data: {
-      ads
-    }
-  });
-});
-
-// ============================================
-// @desc    Get ads by specific organizer
-// @route   GET /api/ads/organizer/:organizerId
-// @access  Private (Organizer or Admin)
-// ============================================
+/**
+ * Get ads by organizer
+ */
 exports.getAdsByOrganizer = catchAsync(async (req, res, next) => {
   const { organizerId } = req.params;
-  const { status } = req.query;
+  const { status, isActive } = req.query;
 
-  // Verify organizer exists
-  const organizer = await Organizer.findById(organizerId);
-  if (!organizer) {
-    return next(new AppError('Organizer not found', 404));
-  }
+  const filters = {};
+  if (status) filters.status = status;
+  if (isActive !== undefined) filters.isActive = isActive === 'true';
 
-  const filter = status ? { status } : {};
-  const ads = await Ad.getOrganizerAds(organizerId, filter);
+  const ads = await Ad.getOrganizerAds(organizerId, filters);
 
   res.status(200).json({
     status: 'success',
@@ -145,125 +152,84 @@ exports.getAdsByOrganizer = catchAsync(async (req, res, next) => {
   });
 });
 
-// ============================================
-// @desc    Get single ad details
-// @route   GET /api/ads/:id
-// @access  Public
-// ============================================
-exports.getAd = catchAsync(async (req, res, next) => {
-  const ad = await Ad.findById(req.params.id);
-
-  if (!ad) {
-    return next(new AppError('Ad not found', 404));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      ad
-    }
-  });
-});
-
-// ============================================
-// @desc    Update ad
-// @route   PATCH /api/ads/:id
-// @access  Private (Organizer)
-// ============================================
+/**
+ * Update ad with optional image upload
+ */
 exports.updateAd = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { organizerId } = req.body;
-  const updateData = { ...req.body };
+  const { title, description, adType, targetUrl, displayDuration, priority, startDate, endDate, tags, budget, targetAudience, isActive } = req.body;
 
   // Find ad
-  const ad = await Ad.findById(id);
+  let ad = await Ad.findById(id);
   if (!ad) {
     return next(new AppError('Ad not found', 404));
   }
 
-  // Verify ownership
-  if (ad.organizerId.toString() !== organizerId) {
+  // Check if user owns the ad or is admin
+  if (ad.organizerId.toString() !== req.user.id && req.user.role !== 'admin') {
     return next(new AppError('You do not have permission to update this ad', 403));
   }
 
-  // Only pending ads can be edited
-  if (ad.status !== 'pending') {
-    return next(new AppError('Only pending ads can be edited', 400));
-  }
-
-  // Handle image update
+  // Update image if provided
+  let imageUrl = ad.imageUrl;
   if (req.file) {
-    try {
-      // Delete old image
-      if (ad.imageKey) {
-        await s3.deleteObject({
-          Bucket: process.env.AWS_S3_BUCKET,
-          Key: ad.imageKey
-        }).promise();
-      }
-
-      // Upload new image
-      const key = `ads/${organizerId}/${Date.now()}-${req.file.originalname}`;
-      const params = {
-        Bucket: process.env.AWS_S3_BUCKET,
-        Key: key,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
-        ACL: 'public-read'
-      };
-
-      const result = await s3.upload(params).promise();
-      updateData.imageUrl = result.Location;
-      updateData.imageKey = key;
-    } catch (error) {
-      return next(new AppError(`Failed to update image: ${error.message}`, 500));
+    // Delete old image from Cloudinary
+    if (ad.imageKey) {
+      await deleteFromCloudinary(ad.imageKey);
     }
+    // Upload new image
+    imageUrl = await uploadToCloudinary(req.file);
   }
 
-  // Update ad
-  const updatedAd = await Ad.findByIdAndUpdate(id, updateData, {
-    new: true,
-    runValidators: true
-  });
+  // Update fields
+  ad.title = title || ad.title;
+  ad.description = description || ad.description;
+  ad.imageUrl = imageUrl;
+  ad.image = imageUrl;
+  ad.imageKey = imageUrl.split('/').pop();
+  ad.adType = adType || ad.adType;
+  ad.targetUrl = targetUrl || ad.targetUrl;
+  ad.displayDuration = displayDuration !== undefined ? displayDuration : ad.displayDuration;
+  ad.priority = priority !== undefined ? priority : ad.priority;
+  ad.budget = budget || ad.budget;
+  ad.targetAudience = targetAudience || ad.targetAudience;
+  ad.tags = tags ? (typeof tags === 'string' ? tags.split(',') : tags) : ad.tags;
+  
+  if (startDate) ad.startDate = startDate;
+  if (endDate) ad.endDate = endDate;
+  if (isActive !== undefined) ad.isActive = isActive;
+
+  ad.updatedAt = new Date();
+  await ad.save();
 
   res.status(200).json({
     status: 'success',
     message: 'Ad updated successfully',
     data: {
-      ad: updatedAd
+      ad
     }
   });
 });
 
-// ============================================
-// @desc    Delete ad
-// @route   DELETE /api/ads/:id
-// @access  Private (Organizer or Admin)
-// ============================================
+/**
+ * Delete ad
+ */
 exports.deleteAd = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { organizerId } = req.body;
 
   const ad = await Ad.findById(id);
   if (!ad) {
     return next(new AppError('Ad not found', 404));
   }
 
-  // Verify ownership
-  if (ad.organizerId.toString() !== organizerId) {
+  // Check ownership
+  if (ad.organizerId.toString() !== req.user.id && req.user.role !== 'admin') {
     return next(new AppError('You do not have permission to delete this ad', 403));
   }
 
-  // Delete image from S3
+  // Delete image from Cloudinary
   if (ad.imageKey) {
-    try {
-      await s3.deleteObject({
-        Bucket: process.env.AWS_S3_BUCKET,
-        Key: ad.imageKey
-      }).promise();
-    } catch (error) {
-      console.log('Error deleting image from S3:', error);
-    }
+    await deleteFromCloudinary(ad.imageKey);
   }
 
   // Delete ad
@@ -275,46 +241,71 @@ exports.deleteAd = catchAsync(async (req, res, next) => {
   });
 });
 
-// ============================================
-// @desc    Record ad click
-// @route   POST /api/ads/:id/click
-// @access  Public
-// ============================================
-exports.recordClick = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-
-  const ad = await Ad.findByIdAndUpdate(
-    id,
-    { $inc: { clicks: 1 } },
-    { new: true }
-  );
+/**
+ * Get ad analytics
+ */
+exports.getAnalytics = catchAsync(async (req, res, next) => {
+  const ad = await Ad.findById(req.params.id);
 
   if (!ad) {
     return next(new AppError('Ad not found', 404));
   }
 
+  // Check ownership
+  if (ad.organizerId.toString() !== req.user.id && req.user.role !== 'admin') {
+    return next(new AppError('You do not have permission to view analytics for this ad', 403));
+  }
+
+  const analytics = {
+    adId: ad._id,
+    title: ad.title,
+    impressions: ad.impressions,
+    clicks: ad.clicks,
+    ctr: ad.ctr,
+    clickThroughRate: ad.clickThroughRate,
+    status: ad.status,
+    startDate: ad.startDate,
+    endDate: ad.endDate,
+    isCurrentlyActive: ad.isCurrentlyActive(),
+    budget: ad.budget,
+    costPerClick: ad.budget && ad.clicks > 0 ? (ad.budget / ad.clicks).toFixed(2) : 0
+  };
+
   res.status(200).json({
     status: 'success',
-    message: 'Click recorded',
     data: {
-      clicks: ad.clicks,
-      redirectUrl: ad.targetUrl
+      analytics
     }
   });
 });
 
 // ============================================
-// @desc    Admin approve ad
-// @route   PATCH /api/ads/:id/approve
-// @access  Private (Admin)
+// ADMIN ROUTES
 // ============================================
-exports.approveAd = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
 
+/**
+ * Get pending ads for review
+ */
+exports.getPendingAds = catchAsync(async (req, res, next) => {
+  const ads = await Ad.find({ status: 'pending' }).sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: 'success',
+    results: ads.length,
+    data: {
+      ads
+    }
+  });
+});
+
+/**
+ * Approve ad
+ */
+exports.approveAd = catchAsync(async (req, res, next) => {
   const ad = await Ad.findByIdAndUpdate(
-    id,
+    req.params.id,
     { status: 'approved' },
-    { new: true }
+    { new: true, runValidators: true }
   );
 
   if (!ad) {
@@ -330,13 +321,10 @@ exports.approveAd = catchAsync(async (req, res, next) => {
   });
 });
 
-// ============================================
-// @desc    Admin reject ad
-// @route   PATCH /api/ads/:id/reject
-// @access  Private (Admin)
-// ============================================
+/**
+ * Reject ad
+ */
 exports.rejectAd = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
   const { rejectionReason } = req.body;
 
   if (!rejectionReason) {
@@ -344,12 +332,9 @@ exports.rejectAd = catchAsync(async (req, res, next) => {
   }
 
   const ad = await Ad.findByIdAndUpdate(
-    id,
-    {
-      status: 'rejected',
-      rejectionReason
-    },
-    { new: true }
+    req.params.id,
+    { status: 'rejected', rejectionReason },
+    { new: true, runValidators: true }
   );
 
   if (!ad) {
@@ -366,53 +351,67 @@ exports.rejectAd = catchAsync(async (req, res, next) => {
 });
 
 // ============================================
-// @desc    Get ad analytics
-// @route   GET /api/ads/:id/analytics
-// @access  Private (Organizer)
+// CLOUDINARY HELPER FUNCTIONS
 // ============================================
-exports.getAnalytics = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
 
-  const ad = await Ad.findById(id);
+/**
+ * Upload image to Cloudinary
+ */
+const uploadToCloudinary = (file) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'adminthrill/ads',
+        resource_type: 'auto',
+        quality: 'auto',
+        fetch_format: 'auto'
+      },
+      (error, result) => {
+        if (error) {
+          reject(new AppError(`Image upload failed: ${error.message}`, 400));
+        } else {
+          resolve(result.secure_url);
+        }
+      }
+    );
+
+    streamifier.createReadStream(file.buffer).pipe(stream);
+  });
+};
+
+/**
+ * Delete image from Cloudinary
+ */
+const deleteFromCloudinary = async (publicId) => {
+  try {
+    await cloudinary.uploader.destroy(`adminthrill/ads/${publicId.split('/').pop().split('.')[0]}`);
+  } catch (error) {
+    console.error('Error deleting image from Cloudinary:', error);
+  }
+};
+
+/**
+ * Record ad impression
+ */
+exports.recordImpression = catchAsync(async (req, res, next) => {
+  const ad = await Ad.findByIdAndUpdate(
+    req.params.id,
+    { $inc: { impressions: 1 } },
+    { new: true, runValidators: true }
+  );
+
   if (!ad) {
     return next(new AppError('Ad not found', 404));
   }
 
-  const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : 0;
+  // Update CTR
+  ad.ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : 0;
+  await ad.save();
 
   res.status(200).json({
     status: 'success',
     data: {
-      analytics: {
-        title: ad.title,
-        impressions: ad.impressions,
-        clicks: ad.clicks,
-        ctr: `${ctr}%`,
-        status: ad.status,
-        startDate: ad.startDate,
-        endDate: ad.endDate,
-        budget: ad.budget,
-        displayDuration: ad.displayDuration
-      }
-    }
-  });
-});
-
-// ============================================
-// @desc    Get pending ads for admin review
-// @route   GET /api/ads/admin/pending
-// @access  Private (Admin)
-// ============================================
-exports.getPendingAds = catchAsync(async (req, res, next) => {
-  const ads = await Ad.find({ status: 'pending' })
-    .populate('organizerId', 'name email')
-    .sort({ createdAt: 1 });
-
-  res.status(200).json({
-    status: 'success',
-    results: ads.length,
-    data: {
-      ads
+      ad
     }
   });
 });
