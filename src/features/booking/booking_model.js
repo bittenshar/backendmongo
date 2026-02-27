@@ -45,9 +45,29 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    baseAmount: {
+      type: Number,
+      description: 'Base ticket amount (quantity * pricePerSeat)'
+    },
+    convenienceFee: {
+      type: Number,
+      default: 0,
+      description: 'Convenience fee charged'
+    },
+    gstOnFee: {
+      type: Number,
+      default: 0,
+      description: 'GST on convenience fee'
+    },
+    totalFee: {
+      type: Number,
+      default: 0,
+      description: 'Total fee including GST'
+    },
     totalPrice: {
       type: Number,
-      required: true
+      required: true,
+      description: 'Final total amount including base + fees'
     },
     // Booking status
     status: {

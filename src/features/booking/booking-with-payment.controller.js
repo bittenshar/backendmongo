@@ -74,8 +74,27 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
       return next(new AppError('Event not found', 404));
     }
 
-    // STEP 3: Calculate total price
-    const totalPrice = quantity * pricePerSeat;
+    // STEP 3: Calculate total price with convenience fee + GST
+    const baseAmount = quantity * pricePerSeat;
+    
+    // Calculate convenience fee using razorpay service
+    const razorpayService = require('../../services/razorpay.service');
+    const feePercentage = parseFloat(process.env.RAZORPAY_CONVENIENCE_FEE_PERCENTAGE || 2.36);
+    const gstPercentage = parseFloat(process.env.RAZORPAY_GST_PERCENTAGE || 18);
+    
+    const { convenienceFee, gstOnFee, totalFee, totalAmount: totalAmountWithFee } = razorpayService.calculateConvenienceFee(
+      baseAmount,
+      feePercentage,
+      gstPercentage
+    );
+    
+    console.log('💰 Payment calculation:', {
+      baseAmount,
+      convenienceFee,
+      gstOnFee,
+      totalFee,
+      totalAmountWithFee
+    });
 
     // STEP 4: Create temporary booking
     const tempBooking = new Booking({
@@ -85,7 +104,11 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
       seatType,
       quantity,
       pricePerSeat,
-      totalPrice,
+      baseAmount,
+      convenienceFee,
+      gstOnFee,
+      totalFee,
+      totalPrice: totalAmountWithFee, // Store total with convenience fee
       status: 'temporary',
       paymentStatus: 'pending',
       expiresAt: new Date(Date.now() + 15 * 60 * 1000) // Expires in 15 minutes
@@ -93,11 +116,11 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
 
     await tempBooking.save();
 
-    // STEP 5: Create Razorpay order
+    // STEP 5: Create Razorpay order with total amount (base + convenience fee + GST)
     let razorpayOrder;
     try {
       razorpayOrder = await createRazorpayOrder(
-        totalPrice,
+        totalAmountWithFee,
         tempBooking._id.toString(),
         user.email,
         user.phone,
@@ -145,7 +168,7 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
           eventId,
           quantity,
           pricePerSeat,
-          totalPrice,
+          baseAmount,
           status: tempBooking.status,
           expiresAt: tempBooking.expiresAt,
           createdAt: tempBooking.bookedAt
@@ -158,6 +181,15 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
           userEmail: user.email,
           userName: user.name,
           userPhone: user.phone
+        },
+        priceBreakdown: {
+          baseAmount,
+          feePercentage,
+          convenienceFee,
+          gstPercentage,
+          gstOnFee,
+          totalFee,
+          totalAmount: totalAmountWithFee
         },
         verification: {
           faceVerified: isFaceVerified,
