@@ -205,7 +205,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
       // First, try as MongoDB ObjectId
       booking = await Booking.findById(bookingId)
         .populate('userId', 'name email phone verificationStatus faceId')
-        .populate('eventId', 'name date location coverImage');
+        .populate('eventId', 'name date location locationlink coverImage');
       
       if (booking) {
         console.log('   ✅ Found by MongoDB _id');
@@ -221,7 +221,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
       console.log('   🔍 Querying: Booking.findOne({ razorpayOrderId: "' + razorpayOrderId + '" })');
       booking = await Booking.findOne({ razorpayOrderId })
         .populate('userId', 'name email phone verificationStatus faceId')
-        .populate('eventId', 'name date location coverImage');
+        .populate('eventId', 'name date location locationlink coverImage');
       
       if (booking) {
         console.log('   ✅ Found by razorpayOrderId');
@@ -403,6 +403,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
         eventName: booking.eventId.name,
         eventDate: booking.eventId.date,
         location: booking.eventId.location,
+        locationLink: booking.eventId.locationlink,
         coverImage: booking.eventId.coverImage,
         seatType: booking.seatType,
         quantity: booking.quantity,
@@ -445,6 +446,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
           eventName: ticket.eventName,
           eventDate: ticket.eventDate,
           location: ticket.location,
+          locationLink: ticket.locationLink,
           coverImage: ticket.coverImage,
           seatType: ticket.seatType,
           quantity: ticket.quantity,
@@ -481,7 +483,7 @@ exports.getBookingStatus = async (req, res, next) => {
 
     const booking = await Booking.findById(bookingId)
       .populate('userId', 'name email verificationStatus faceId')
-      .populate('eventId', 'name date location coverImage');
+      .populate('eventId', 'name date location locationlink coverImage');
 
     if (!booking) {
       return next(new AppError('Booking not found', 404));
