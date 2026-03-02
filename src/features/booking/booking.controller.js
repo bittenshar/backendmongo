@@ -2,7 +2,6 @@ const Booking = require('./booking_model');
 const Event = require('../events/event.model');
 const User = require('../auth/auth.model');
 const AppError = require('../../shared/utils/appError');
-const { encryptUrl } = require('../../shared/services/urlEncryption2.service');
 
 /**
  * Get user bookings
@@ -17,13 +16,13 @@ exports.getUserBookings = async (req, res, next) => {
     const { status } = req.query;
 
     const bookings = await Booking.findUserBookings(userId, status)
-      .populate('eventId', 'name date location coverImage imageId');
+      .populate('eventId', 'name date location imageToken imageId');
     const modifiedBookings = bookings.map(booking => {
     const bookingObj = booking.toObject();
 
-    if (bookingObj.eventId?.coverImage) {
+    if (bookingObj.eventId?.imageToken) {
       bookingObj.eventId.coverImage =
-        `/api/images/encrypted/${encryptUrl(bookingObj.eventId.coverImage)}`;
+        `/api/images/encrypted/${encodeURIComponent(bookingObj.eventId.imageToken)}`;
     }
 
   return bookingObj;
