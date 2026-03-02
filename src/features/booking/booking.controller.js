@@ -23,9 +23,7 @@ exports.getUserBookings = async (req, res, next) => {
 
     if (bookingObj.eventId?.coverImage) {
       bookingObj.eventId.coverImage =
-        `/api/images/encrypted/${encodeURIComponent(
-          encryptUrl(bookingObj.eventId.coverImage)
-        )}`;
+        `/api/images/encrypted/${encryptUrl(bookingObj.eventId.coverImage)}`;
     }
 
   return bookingObj;
