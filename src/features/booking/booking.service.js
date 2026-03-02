@@ -442,7 +442,8 @@ exports.createBookingWithPayment = async (bookingData) => {
       status: 'temporary',
       paymentStatus: 'pending',
       specialRequirements,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min expiry
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min expiry
+      coverImage: event.coverImage // Store event cover image snapshot
     });
 
     // Save booking first

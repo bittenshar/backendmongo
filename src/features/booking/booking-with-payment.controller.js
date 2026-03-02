@@ -68,7 +68,7 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
     const isFaceVerified = user.verificationStatus === 'verified' && user.faceId;
 
     // STEP 2: Verify event exists and get details
-    const event = await Event.findById(eventId).select('_id name date location ticketPrice');
+    const event = await Event.findById(eventId).select('_id name date location ticketPrice coverImage');
 
     if (!event) {
       return next(new AppError('Event not found', 404));
@@ -111,7 +111,8 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
       totalPrice: totalAmountWithFee, // Store total with convenience fee
       status: 'temporary',
       paymentStatus: 'pending',
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000) // Expires in 15 minutes
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // Expires in 15 minutes
+      coverImage: event.coverImage // Store event cover image snapshot
     });
 
     await tempBooking.save();

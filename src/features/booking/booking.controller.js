@@ -616,7 +616,8 @@ exports.bookWithPayment = async (req, res, next) => {
         paymentStatus: 'pending',
         specialRequirements,
         razorpayOrderId,
-        expiresAt: new Date(Date.now() + 1 * 60 * 1000) // 1 min expiry for seat lock
+        expiresAt: new Date(Date.now() + 1 * 60 * 1000), // 1 min expiry for seat lock
+        coverImage: event.coverImage // Store event cover image snapshot
       });
 
       await booking.save();
@@ -895,7 +896,8 @@ exports.adminBookEventTicket = async (req, res, next) => {
         specialRequirements,
         notes: adminNotes || `Admin booking by ${adminId}`,
         bookedAt: new Date(),
-        confirmedAt: new Date()
+        confirmedAt: new Date(),
+        coverImage: event.coverImage // Store event cover image snapshot
       });
 
       await booking.save();
