@@ -392,17 +392,31 @@ exports.createBookingAndInitiatePayment = async (req, res, next) => {
     const {
       eventId,
       seatingId,
-      seatType,
       quantity,
-      pricePerSeat,
       specialRequirements
     } = req.body;
 
     // Validate required fields
-    if (!eventId || !seatingId || !seatType || !quantity || !pricePerSeat) {
-      return next(new AppError('Missing required fields', 400));
+    if (!eventId || !seatingId || !quantity) {
+      return next(new AppError('Missing required fields: eventId, seatingId, quantity', 400));
     }
 
+    // Fetch event and seating to get actual price and seat type
+    const Event = require('../events/event.model').default || require('../events/event.model');
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return next(new AppError('Event not found', 404));
+    }
+
+    const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+    if (seatingIndex === -1) {
+      return next(new AppError('Seating type not found for this event', 404));
+    }
+
+    const seating = event.seatings[seatingIndex];
+    const seatType = seating.seatType;
+    const pricePerSeat = seating.price;
     const totalPrice = quantity * pricePerSeat;
 
     // Create booking with payment
@@ -423,7 +437,6 @@ exports.createBookingAndInitiatePayment = async (req, res, next) => {
       data: result,
       message: 'Booking created and payment order initiated'
     });
-
   } catch (error) {
     console.error('Error creating booking:', error);
     next(error);
@@ -574,16 +587,14 @@ exports.bookWithPayment = async (req, res, next) => {
     const {
       eventId,
       seatingId,
-      seatType,
       quantity,
-      pricePerSeat,
       specialRequirements,
       paymentData // Contains razorpayOrderId, razorpayPaymentId, razorpaySignature
     } = req.body;
 
     // ===== VALIDATION =====
-    if (!eventId || !seatingId || !seatType || !quantity || !pricePerSeat) {
-      return next(new AppError('Missing required fields: eventId, seatingId, seatType, quantity, pricePerSeat', 400));
+    if (!eventId || !seatingId || !quantity) {
+      return next(new AppError('Missing required fields: eventId, seatingId, quantity', 400));
     }
 
     if (!paymentData || !paymentData.razorpayOrderId || !paymentData.razorpayPaymentId || !paymentData.razorpaySignature) {
@@ -591,6 +602,23 @@ exports.bookWithPayment = async (req, res, next) => {
     }
 
     const bookingService = require('./booking.service');
+    
+    // Fetch event and seating to get actual price and seat type
+    const Event = require('../events/event.model').default || require('../events/event.model');
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return next(new AppError('Event not found', 404));
+    }
+
+    const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+    if (seatingIndex === -1) {
+      return next(new AppError('Seating type not found for this event', 404));
+    }
+
+    const seating = event.seatings[seatingIndex];
+    const seatType = seating.seatType;
+    const pricePerSeat = seating.price;
     const totalPrice = quantity * pricePerSeat;
 
     console.log('📚 Unified booking endpoint called:', {
@@ -598,6 +626,7 @@ exports.bookWithPayment = async (req, res, next) => {
       eventId,
       seatType,
       quantity,
+      pricePerSeat,
       totalPrice,
       paymentData: paymentData.razorpayOrderId
     });

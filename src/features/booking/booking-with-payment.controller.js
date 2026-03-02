@@ -47,14 +47,24 @@ exports.checkFaceVerification = async (req, res, next) => {
 /**
  * Step 2: Initiate Booking with Face Verification Check
  * Creates temporary booking and returns Razorpay order details
+ * 
+ * Request body:
+ * {
+ *   userId: string,
+ *   eventId: string,
+ *   seatingId: string,
+ *   quantity: number
+ * }
+ * 
+ * Note: pricePerSeat and seatType are automatically fetched from the seating configuration
  */
 exports.initiateBookingWithVerification = async (req, res, next) => {
   try {
-    const { userId, eventId, seatingId, seatType, quantity, pricePerSeat } = req.body;
+    const { userId, eventId, seatingId, quantity } = req.body;
 
     // Validate required fields
-    if (!userId || !eventId || !seatingId || !seatType || !quantity || !pricePerSeat) {
-      return next(new AppError('Missing required fields: userId, eventId, seatingId, seatType, quantity, pricePerSeat', 400));
+    if (!userId || !eventId || !seatingId || !quantity) {
+      return next(new AppError('Missing required fields: userId, eventId, seatingId, quantity', 400));
     }
 
     // STEP 1: Get user details (face verification is optional)
@@ -67,12 +77,22 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
     // Check if user is face verified (informational, not blocking)
     const isFaceVerified = user.verificationStatus === 'verified' && user.faceId;
 
-    // STEP 2: Verify event exists and get details
-    const event = await Event.findById(eventId).select('_id name date location ticketPrice coverImage');
+    // STEP 2: Verify event exists and get details including seating
+    const event = await Event.findById(eventId).select('_id name date location coverImage seatings');
 
     if (!event) {
       return next(new AppError('Event not found', 404));
     }
+
+    // STEP 2.5: Get seating details to fetch price and seatType
+    const seatingIndex = event.seatings.findIndex(s => s._id.toString() === seatingId.toString());
+    if (seatingIndex === -1) {
+      return next(new AppError('Seating type not found for this event', 404));
+    }
+
+    const seating = event.seatings[seatingIndex];
+    const seatType = seating.seatType;
+    const pricePerSeat = seating.price;
 
     // STEP 3: Calculate total price with convenience fee + GST
     const baseAmount = quantity * pricePerSeat;
@@ -90,6 +110,9 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
     
     console.log('💰 Payment calculation:', {
       baseAmount,
+      pricePerSeat,
+      quantity,
+      seatType,
       convenienceFee,
       gstOnFee,
       totalFee,

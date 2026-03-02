@@ -295,7 +295,8 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
       });
     } else {
       console.warn('⚠️ Image upload failed:', uploadResult.message);
-      updateData.coverImage = ''; // Clear if update fails
+      // Don't update coverImage if upload fails - keep existing value
+      delete updateData.coverImage;
     }
   }
 
