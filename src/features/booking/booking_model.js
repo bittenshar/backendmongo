@@ -224,7 +224,7 @@ bookingSchema.methods.generateTickets = function() {
 bookingSchema.statics.findUserBookings = function(userId, status = null) {
   const query = { userId };
   if (status) query.status = status;
-  return this.find(query).populate('eventId', 'name date').sort({ bookedAt: -1 });
+  return this.find(query).populate('eventId', 'name date location coverImage imageId').sort({ bookedAt: -1 });
 };
 
 bookingSchema.statics.findExpiredTemporaryBookings = function() {

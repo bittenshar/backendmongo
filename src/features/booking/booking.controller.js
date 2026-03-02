@@ -2,6 +2,7 @@ const Booking = require('./booking_model');
 const Event = require('../events/event.model');
 const User = require('../auth/auth.model');
 const AppError = require('../../shared/utils/appError');
+const { encryptUrl } = require('../../shared/services/urlEncryption2.service');
 
 /**
  * Get user bookings
@@ -16,15 +17,26 @@ exports.getUserBookings = async (req, res, next) => {
     const { status } = req.query;
 
     const bookings = await Booking.findUserBookings(userId, status)
-      .populate('eventId', 'name date location coverImage');
+      .populate('eventId', 'name date location coverImage imageId');
+    const modifiedBookings = bookings.map(booking => {
+    const bookingObj = booking.toObject();
+
+    if (bookingObj.eventId?.coverImage) {
+      bookingObj.eventId.coverImage =
+        `/api/images/encrypted/${encodeURIComponent(
+          encryptUrl(bookingObj.eventId.coverImage)
+        )}`;
+    }
+
+  return bookingObj;
+});
 
     res.status(200).json({
-      status: 'success',
-      data: {
-        bookings,
-        count: bookings.length
-      }
-    });
+  status: 'success',
+  data: {
+    bookings: modifiedBookings
+  }
+});
   } catch (error) {
     console.error('Error fetching user bookings:', error);
     return next(new AppError(error.message, 500));
@@ -42,7 +54,7 @@ exports.getBookingDetails = async (req, res, next) => {
 
     const booking = await Booking.findById(bookingId)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location ticketPrice coverImage');
+      .populate('eventId', 'name date location ticketPrice coverImage imageId');
 
     if (!booking) {
       return next(new AppError('Booking not found', 404));
@@ -244,7 +256,7 @@ exports.getBookingByReference = async (req, res, next) => {
 
     const booking = await Booking.findOne({ _id: reference })
       .populate('userId', 'name email')
-      .populate('eventId', 'name date location coverImage');
+      .populate('eventId', 'name date location coverImage imageId');
 
     if (!booking) {
       return next(new AppError('Booking not found', 404));
@@ -1030,7 +1042,7 @@ exports.getAllBookings = async (req, res, next) => {
       .skip(skip)
       .limit(limitNum)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location ticketPrice coverImage');
+      .populate('eventId', 'name date location ticketPrice coverImage imageId');
 
     // Calculate statistics
     const stats = await Booking.aggregate([

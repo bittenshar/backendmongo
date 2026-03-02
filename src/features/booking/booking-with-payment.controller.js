@@ -238,7 +238,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
       // First, try as MongoDB ObjectId
       booking = await Booking.findById(bookingId)
         .populate('userId', 'name email phone verificationStatus faceId')
-        .populate('eventId', 'name date location locationlink coverImage');
+        .populate('eventId', 'name date location locationlink coverImage imageId');
       
       if (booking) {
         console.log('   ✅ Found by MongoDB _id');
@@ -254,7 +254,7 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
       console.log('   🔍 Querying: Booking.findOne({ razorpayOrderId: "' + razorpayOrderId + '" })');
       booking = await Booking.findOne({ razorpayOrderId })
         .populate('userId', 'name email phone verificationStatus faceId')
-        .populate('eventId', 'name date location locationlink coverImage');
+        .populate('eventId', 'name date location locationlink coverImage imageId');
       
       if (booking) {
         console.log('   ✅ Found by razorpayOrderId');
@@ -528,7 +528,7 @@ exports.getBookingStatus = async (req, res, next) => {
 
     const booking = await Booking.findById(bookingId)
       .populate('userId', 'name email verificationStatus faceId')
-      .populate('eventId', 'name date location locationlink coverImage');
+      .populate('eventId', 'name date location locationlink coverImage imageId');
 
     if (!booking) {
       return next(new AppError('Booking not found', 404));
