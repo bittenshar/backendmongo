@@ -144,10 +144,7 @@ const bookingSchema = new mongoose.Schema(
     qrCodes: [{
       type: String // S3 keys for QR code images or data URLs
     }],
-    coverImage: {
-      type: String,
-      description: 'Event cover image snapshot at time of booking'
-    },
+    
     notificationsSent: {
       whatsapp: { type: Boolean, default: false },
       email: { type: Boolean, default: false },
