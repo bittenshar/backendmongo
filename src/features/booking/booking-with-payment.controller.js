@@ -140,11 +140,11 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
 
     await tempBooking.save();
 
-    // STEP 5: Create Razorpay order with base amount (ticket price only, no fees)
+    // STEP 5: Create Razorpay order with total amount (base + convenience fee + GST)
     let razorpayOrder;
     try {
       razorpayOrder = await createRazorpayOrder(
-        baseAmount,
+        totalAmountWithFee,
         tempBooking._id.toString(),
         user.email,
         user.phone,
