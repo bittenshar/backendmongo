@@ -16,7 +16,7 @@ exports.getUserBookings = async (req, res, next) => {
     const { status } = req.query;
 
     const bookings = await Booking.findUserBookings(userId, status)
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
 
     res.status(200).json({
       status: 'success',
@@ -42,7 +42,7 @@ exports.getBookingDetails = async (req, res, next) => {
 
     const booking = await Booking.findById(bookingId)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location ticketPrice');
+      .populate('eventId', 'name date location ticketPrice coverImage');
 
     if (!booking) {
       return next(new AppError('Booking not found', 404));
@@ -244,7 +244,7 @@ exports.getBookingByReference = async (req, res, next) => {
 
     const booking = await Booking.findOne({ _id: reference })
       .populate('userId', 'name email')
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
 
     if (!booking) {
       return next(new AppError('Booking not found', 404));
@@ -1028,7 +1028,7 @@ exports.getAllBookings = async (req, res, next) => {
       .skip(skip)
       .limit(limitNum)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location ticketPrice');
+      .populate('eventId', 'name date location ticketPrice coverImage');
 
     // Calculate statistics
     const stats = await Booking.aggregate([

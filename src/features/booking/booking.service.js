@@ -693,7 +693,7 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
     console.log('🔄 Fetching fresh booking data from database...');
     const freshBooking = await Booking.findById(bookingId)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
     
     console.log('✅ Fresh booking data retrieved:', {
       _id: freshBooking._id,
@@ -745,7 +745,7 @@ exports.getBookingWithPayment = async (bookingId) => {
   try {
     const booking = await Booking.findById(bookingId)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location price');
+      .populate('eventId', 'name date location price coverImage');
 
     if (!booking) {
       throw new AppError('Booking not found', 404);
@@ -825,7 +825,7 @@ exports.getPaymentReceipt = async (bookingId) => {
   try {
     const booking = await Booking.findById(bookingId)
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
 
     if (!booking) {
       throw new AppError('Booking not found', 404);

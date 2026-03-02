@@ -45,7 +45,7 @@ exports.validateTicket = async (req, res, next) => {
       ticketNumbers: ticketNumber
     })
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
 
     if (!booking) {
       return res.status(404).json({
@@ -133,7 +133,7 @@ exports.checkInTicket = async (req, res, next) => {
       ticketNumbers: ticketNumber
     })
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
 
     if (!booking) {
       return res.status(404).json({
@@ -204,7 +204,7 @@ exports.validateQRCode = async (req, res, next) => {
       ticketNumbers: qrContent
     })
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date location');
+      .populate('eventId', 'name date location coverImage');
 
     if (!booking) {
       return res.status(404).json({
@@ -271,7 +271,7 @@ exports.getTicketDetails = async (req, res, next) => {
       ticketNumbers: ticketNumber
     })
       .populate('userId', 'name email phone')
-      .populate('eventId', 'name date startTime endTime location totalTickets');
+      .populate('eventId', 'name date startTime endTime location totalTickets coverImage');
 
     if (!booking) {
       return res.status(404).json({

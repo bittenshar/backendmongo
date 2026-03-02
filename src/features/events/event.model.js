@@ -56,12 +56,11 @@ const eventSchema = new mongoose.Schema(
       description: 'Encrypted token for secure image access via /api/images/encrypted/:token'
     },
     
-    status: {
-      type: String,
-      enum: ['upcoming', 'active', 'completed', 'cancelled'],
-      default: 'upcoming',
-    }
-    ,
+    isCancelled: {
+      type: Boolean,
+      default: false,
+      description: 'Explicitly mark event as cancelled'
+    },
   },
   {
     timestamps: true,
@@ -69,5 +68,28 @@ const eventSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+// Virtual getter for automatic status calculation based on event times
+eventSchema.virtual('status').get(function () {
+  // Check if explicitly cancelled
+  if (this.isCancelled) {
+    return 'cancelled';
+  }
+  
+  const now = new Date();
+  
+  // Check if active (between start and end time)
+  if (now >= this.startTime && now <= this.endTime) {
+    return 'active';
+  }
+  
+  // Check if completed (after end time)
+  if (now > this.endTime) {
+    return 'completed';
+  }
+  
+  // Default to upcoming (before start time)
+  return 'upcoming';
+});
 
 module.exports = mongoose.model('Event', eventSchema);

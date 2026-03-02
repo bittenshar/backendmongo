@@ -94,7 +94,17 @@ exports.getEvent = catchAsync(async (req, res, next) => {
 });
 
 exports.createEvent = catchAsync(async (req, res, next) => {
-  const { seatings, language, agelimit, name, location, date, startTime, endTime, ...otherData } = req.body;
+  // Parse form data - handle both FormData and JSON requests
+  let { seatings, language, agelimit, name, location, date, startTime, endTime, locationlink, description, ...otherData } = req.body;
+
+  // Parse stringified JSON fields from FormData
+  if (typeof seatings === 'string') {
+    try {
+      seatings = JSON.parse(seatings);
+    } catch (e) {
+      return next(new AppError(`Invalid seatings JSON format. Seatings must be a valid JSON array string. Received: "${seatings}"`, 400));
+    }
+  }
 
   // Validate required fields
   if (!name || !name.trim()) {
@@ -109,10 +119,10 @@ exports.createEvent = catchAsync(async (req, res, next) => {
   if (!agelimit || !agelimit.trim()) {
     return next(new AppError('Event age limit is required', 400));
   }
-  if (!req.body.locationlink || !req.body.locationlink.trim()) {
+  if (!locationlink || !locationlink.trim()) {
     return next(new AppError('Event location link is required', 400));
   }
-  if (!req.body.description || !req.body.description.trim()) {
+  if (!description || !description.trim()) {
     return next(new AppError('Event description is required', 400));
   }
   if (!date) {
@@ -136,6 +146,8 @@ exports.createEvent = catchAsync(async (req, res, next) => {
     date,
     startTime,
     endTime,
+    locationlink,
+    description,
     ...otherData,
     seatings,
     organizer: req.user.id  // Auto-assign organizer to logged-in user
@@ -196,27 +208,37 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     return next(new AppError('No event found with that ID', 404));
   }
 
-  // Validate required fields if provided in update
-  if (req.body.name !== undefined && (!req.body.name || !req.body.name.trim())) {
-    return next(new AppError('Event name cannot be empty', 400));
-  }
-  if (req.body.location !== undefined && (!req.body.location || !req.body.location.trim())) {
-    return next(new AppError('Event location cannot be empty', 400));
-  }
-  if (req.body.language !== undefined && (!req.body.language || !req.body.language.trim())) {
-    return next(new AppError('Event language cannot be empty', 400));
-  }
-  if (req.body.agelimit !== undefined && (!req.body.agelimit || !req.body.agelimit.trim())) {
-    return next(new AppError('Event age limit cannot be empty', 400));
-  }
-   if (req.body.locationlink !== undefined && (!req.body.locationlink || !req.body.locationlink.trim())) {
-    return next(new AppError('Event location link is required', 400));
-  }
-  if (req.body.description !== undefined && (!req.body.description || !req.body.description.trim())) {
-    return next(new AppError('Event description is required', 400));
+  // Parse form data - handle both FormData and JSON requests
+  let updateData = { ...req.body };
+
+  // Parse stringified JSON fields from FormData
+  if (typeof updateData.seatings === 'string') {
+    try {
+      updateData.seatings = JSON.parse(updateData.seatings);
+    } catch (e) {
+      return next(new AppError(`Invalid seatings JSON format. Seatings must be a valid JSON array string. Received: "${updateData.seatings}"`, 400));
+    }
   }
 
-  let updateData = { ...req.body };
+  // Validate required fields if provided in update
+  if (updateData.name !== undefined && (!updateData.name || !updateData.name.trim())) {
+    return next(new AppError('Event name cannot be empty', 400));
+  }
+  if (updateData.location !== undefined && (!updateData.location || !updateData.location.trim())) {
+    return next(new AppError('Event location cannot be empty', 400));
+  }
+  if (updateData.language !== undefined && (!updateData.language || !updateData.language.trim())) {
+    return next(new AppError('Event language cannot be empty', 400));
+  }
+  if (updateData.agelimit !== undefined && (!updateData.agelimit || !updateData.agelimit.trim())) {
+    return next(new AppError('Event age limit cannot be empty', 400));
+  }
+  if (updateData.locationlink !== undefined && (!updateData.locationlink || !updateData.locationlink.trim())) {
+    return next(new AppError('Event location link is required', 400));
+  }
+  if (updateData.description !== undefined && (!updateData.description || !updateData.description.trim())) {
+    return next(new AppError('Event description is required', 400));
+  }
 
   // Handle cover image update if provided
   if (req.file) {
