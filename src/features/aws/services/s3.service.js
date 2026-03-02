@@ -2,7 +2,7 @@ const { s3 } = require('../../config/aws-robust');
 const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-const bucketName = process.env.S3_BUCKET_NAME || 'nfacialimagescollections';
+const bucketName = process.env.S3_BUCKET_NAME || 'adminthrill-uploads';
 
 const s3Service = {
   async uploadFile(fileBuffer, fileName, contentType = 'image/jpeg') {

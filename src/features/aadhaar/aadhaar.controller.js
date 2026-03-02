@@ -44,7 +44,7 @@ exports.uploadAadhaarImage = async (req, res, next) => {
     const s3Key = `uploads/aadhaar/${fullNamePath}/${userId}/${fileName}`;
 
     // Upload to S3
-    const bucketName = process.env.AWS_S3_BUCKET || 'event-images-collection';
+    const bucketName = process.env.AWS_S3_BUCKET || 'nfacialimagescollections';
     console.log('📤 S3 Upload Params:', {
       bucketName,
       s3Key,
@@ -243,9 +243,19 @@ exports.deleteAadhaarImage = async (req, res, next) => {
       return next(new AppError('Not authorized to delete this image', 403));
     }
 
+    // Extract bucket from S3 image URL or use default
+    let bucketName = process.env.AWS_S3_BUCKET || 'nfacialimagescollections';
+    
+    if (aadhaarImage.s3Url && aadhaarImage.s3Url.includes('amazonaws.com')) {
+      const bucketMatch = aadhaarImage.s3Url.match(/https:\/\/([a-z0-9-]+)\.s3/);
+      if (bucketMatch) {
+        bucketName = bucketMatch[1];
+      }
+    }
+
     // Delete from S3
     const deleteParams = {
-      Bucket: process.env.AWS_S3_BUCKET || 'event-images-collection',
+      Bucket: bucketName,
       Key: aadhaarImage.s3Key
     };
 
@@ -261,5 +271,80 @@ exports.deleteAadhaarImage = async (req, res, next) => {
   } catch (error) {
     console.error('❌ Delete Aadhaar Image Error:', error.message);
     return next(new AppError('Failed to delete Aadhaar image', 500));
+  }
+};
+
+/**
+ * Get Aadhaar Image by User ID (Public)
+ * @route GET /api/aadhaar/:userId
+ * @access Public
+ * Returns presigned URL for the aadhaar image
+ */
+exports.getAadhaarImageByUserId = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    console.log('🔍 Fetching aadhaar image for user:', userId);
+
+    // Find the most recent aadhaar image for this user
+    const aadhaarImage = await AadhaarImage.findOne({ userId }).sort({ createdAt: -1 });
+
+    if (!aadhaarImage) {
+      return res.status(404).json({
+        success: false,
+        message: 'No Aadhaar image found for this user'
+      });
+    }
+
+    console.log('📦 Aadhaar image found:', {
+      imageId: aadhaarImage._id,
+      s3Key: aadhaarImage.s3Key,
+      s3Url: aadhaarImage.s3Url,
+      hasS3Url: !!aadhaarImage.s3Url
+    });
+
+    // Extract bucket from S3 image URL or use default
+    let bucketName = process.env.AWS_S3_BUCKET || 'nfacialimagescollections';
+    
+    if (aadhaarImage.s3Url && aadhaarImage.s3Url.includes('amazonaws.com')) {
+      const bucketMatch = aadhaarImage.s3Url.match(/https:\/\/([a-z0-9-]+)\.s3/);
+      if (bucketMatch) {
+        bucketName = bucketMatch[1];
+        console.log('📌 Bucket extracted from s3Url:', bucketName);
+      }
+    } else {
+      console.log('📌 Using default bucket:', bucketName);
+    }
+
+    console.log('🔑 Generating presigned URL with:', {
+      bucket: bucketName,
+      key: aadhaarImage.s3Key,
+      expires: 3600
+    });
+
+    // Generate presigned URL for the image
+    const presignedUrl = await s3.getSignedUrlPromise('getObject', {
+      Bucket: bucketName,
+      Key: aadhaarImage.s3Key,
+      Expires: 3600 // 1 hour
+    });
+
+    console.log('✅ Presigned URL generated successfully');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId,
+        imageUrl: presignedUrl,
+        s3Key: aadhaarImage.s3Key,
+        bucket: bucketName,
+        uploadedAt: aadhaarImage.createdAt,
+        expiresIn: 3600
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get Aadhaar Image by UserId Error:', error.message);
+    console.error('Stack:', error.stack);
+    return next(new AppError('Failed to retrieve Aadhaar image', 500));
   }
 };

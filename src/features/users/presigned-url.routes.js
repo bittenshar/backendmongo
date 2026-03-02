@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { getPublicUserImage } = require('./presigned-url.controller');
 
 // Configure S3
 const s3Client = new S3Client({
@@ -12,6 +13,12 @@ const s3Client = new S3Client({
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     }
 });
+
+/**
+ * PUBLIC ENDPOINT: Get user image URL (no authentication required)
+ * GET /api/public/:userId/image
+ */
+router.get('/:userId/image', getPublicUserImage);
 
 // Get presigned URLs for user's images
 router.get('/:userId/presigned-urls', async (req, res) => {
@@ -66,10 +73,14 @@ router.get('/:userId/presigned-urls', async (req, res) => {
         // Parse the S3 key from the URL
         const url = new URL(user.uploadedPhoto);
         const key = url.pathname.substring(1); // Remove leading slash
+        
+        // Extract bucket name from URL if available
+        const bucketMatch = user.uploadedPhoto.match(/https:\/\/([a-z0-9-]+)\.s3/);
+        const bucketName = bucketMatch ? bucketMatch[1] : (process.env.AWS_S3_BUCKET || 'adminthrill-uploads');
 
         // Generate presigned URL
         const command = new GetObjectCommand({
-            Bucket: process.env.AWS_S3_BUCKET || 'nfacialimagescollections',
+            Bucket: bucketName,
             Key: key
         });
 

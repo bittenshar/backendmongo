@@ -109,6 +109,16 @@ router.get(
 
 
 /**
+ * GET /api/aadhaar/:userId
+ * Get aadhaar image for a specific user (public)
+ * No authentication required
+ */
+router.get(
+  '/:userId',
+  catchAsync(aadhaarController.getAadhaarImageByUserId)
+);
+
+/**
  * DELETE /api/aadhaar/images/:imageId
  * Delete specific Aadhaar image
  */

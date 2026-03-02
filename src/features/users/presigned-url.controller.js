@@ -185,5 +185,99 @@ const getPresignedUrls = catchAsync(async (req, res) => {
 
 // Export the controller function as an object - this matches how it's imported in user.routes.js
 module.exports = {
-    getPresignedUrls
+    getPresignedUrls,
+    getPublicUserImage: catchAsync(async (req, res) => {
+        const { userId } = req.params;
+
+        console.log('📸 Public image request for user:', userId);
+
+        try {
+            // Convert string ID to MongoDB ObjectId
+            let userObjectId;
+            try {
+                userObjectId = new mongoose.Types.ObjectId(userId);
+            } catch (error) {
+                console.log('❌ Invalid user ID format:', userId);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid user ID format'
+                });
+            }
+
+            // Find user
+            const User = mongoose.model('User');
+            const user = await User.findById(userObjectId);
+
+            if (!user) {
+                console.log('❌ User not found with ID:', userId);
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+
+            if (!user.uploadedPhoto) {
+                console.log('❌ No uploaded photo found for user:', userId);
+                return res.status(404).json({
+                    success: false,
+                    message: 'User has no uploaded photo'
+                });
+            }
+
+            // Generate presigned URL for the uploaded photo
+            console.log('🔗 Generating presigned URL for:', user.uploadedPhoto);
+            try {
+                // Extract bucket name and S3 key from the stored URL
+                let s3Bucket = process.env.AWS_S3_BUCKET || 'adminthrill-uploads';
+                let s3Key = user.uploadedPhoto;
+
+                // If URL contains bucket info, extract both bucket and key
+                if (user.uploadedPhoto.includes('amazonaws.com/')) {
+                    // URL format: https://bucket-name.s3.region.amazonaws.com/key
+                    // Extract bucket name from URL
+                    const bucketMatch = user.uploadedPhoto.match(/https:\/\/([a-z0-9-]+)\.s3/);
+                    if (bucketMatch) {
+                        s3Bucket = bucketMatch[1];
+                        console.log('📦 Extracted bucket from URL:', s3Bucket);
+                    }
+                    
+                    // Extract key from URL
+                    s3Key = user.uploadedPhoto.split('amazonaws.com/').pop();
+                }
+
+                console.log('🔑 S3 Details:', { bucket: s3Bucket, key: s3Key });
+
+                const presignedUrl = await s3.getSignedUrlPromise('getObject', {
+                    Bucket: s3Bucket,
+                    Key: s3Key,
+                    Expires: 3600 // 1 hour
+                });
+
+                console.log('✅ Presigned URL generated successfully');
+
+                res.status(200).json({
+                    success: true,
+                    imageUrl: presignedUrl,
+                    expiresIn: 3600,
+                    user: {
+                        _id: user._id,
+                        name: user.name || user.fullName,
+                        email: user.email
+                    }
+                });
+            } catch (error) {
+                console.error('❌ Error generating presigned URL:', error.message);
+                res.status(500).json({
+                    success: false,
+                    message: 'Failed to generate image URL'
+                });
+            }
+        } catch (error) {
+            console.error('💥 Unexpected error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error'
+            });
+        }
+    })
 };

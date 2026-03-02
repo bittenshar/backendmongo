@@ -81,6 +81,7 @@ app.use('/api/users/:userId/*', (req, res, next) => {
 
 // Routes
 app.use('/api/users', presignedUrlRoutes);
+app.use('/api/public', presignedUrlRoutes); // Also mount public routes at /api/public
 
 // Import and use feature routes
 const awsRoutes = require('./features/aws/aws-debug.routes');
@@ -91,6 +92,7 @@ app.get('/api/debug', (req, res) => {
         success: true,
         message: 'API is working',
         routes: {
+            publicUserImage: '/api/public/:userId/image',
             users: '/api/users/:userId/presigned-urls',
             aws: '/api/aws/aws-test'
         },
@@ -179,7 +181,7 @@ app.get('/api/aws-status', (req, res) => {
     status: 'success',
     awsConfigured: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
     awsRegion: process.env.AWS_REGION || 'ap-south-1',
-    bucket: 'nfacialimagescollections',
+    bucket: 'adminthrill-uploads',
     message: 'AWS status check complete'
   });
 });

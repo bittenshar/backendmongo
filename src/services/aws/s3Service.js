@@ -21,7 +21,7 @@ const generatePresignedUrl = async (fileName, fileType, userId) => {
   const key = `user-uploads/${userId}/${Date.now()}-${fileName}`;
   
   const params = {
-    Bucket: process.env.AWS_S3_BUCKET || 'nfacialimagescollections',
+    Bucket: process.env.AWS_S3_BUCKET || 'adminthrill-uploads',
     Key: key,
     ContentType: fileType,
     Expires: 3600, // 1 hour
@@ -52,7 +52,7 @@ const generatePresignedUrl = async (fileName, fileType, userId) => {
 const deleteObject = async (key) => {
   try {
     await s3Client.deleteObject({
-      Bucket: process.env.AWS_S3_BUCKET || 'nfacialimagescollections',
+      Bucket: process.env.AWS_S3_BUCKET || 'adminthrill-uploads',
       Key: key
     }).promise();
     return true;

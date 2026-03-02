@@ -44,11 +44,14 @@ const eventSchema = new mongoose.Schema(
 
     coverImage: { 
       type: String, 
-      default: null
+      required: true,
+      description: 'Event cover image URL or local path (required)'
     },
     s3ImageKey: { 
       type: String, 
-      default: null
+      default: null,
+      required: true,
+
     },
     imageToken: {
       type: String,

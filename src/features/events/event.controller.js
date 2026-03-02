@@ -95,7 +95,7 @@ exports.getEvent = catchAsync(async (req, res, next) => {
 
 exports.createEvent = catchAsync(async (req, res, next) => {
   // Parse form data - handle both FormData and JSON requests
-  let { seatings, language, agelimit, name, location, date, startTime, endTime, locationlink, description, ...otherData } = req.body;
+  let { seatings, language, agelimit, name, location, date, startTime, endTime, locationlink, description, organizer, coverImage, ...otherData } = req.body;
 
   // Parse stringified JSON fields from FormData
   if (typeof seatings === 'string') {
@@ -137,6 +137,19 @@ exports.createEvent = catchAsync(async (req, res, next) => {
   if (!seatings || !Array.isArray(seatings) || seatings.length === 0) {
     return next(new AppError('At least one seating configuration is required', 400));
   }
+  
+  // Validate organizer (required)
+  if (!organizer) {
+    return next(new AppError('Organizer is required', 400));
+  }
+
+  // Validate that image file is provided (required)
+  if (!req.file) {
+    return next(new AppError('Event cover image is required. Please upload an image file.', 400));
+  }
+
+  // Determine coverImage value - use placeholder during upload
+  let finalCoverImage = 'uploading'; // Temporary placeholder during image processing
 
   const newEvent = await Event.create({
     name,
@@ -150,43 +163,50 @@ exports.createEvent = catchAsync(async (req, res, next) => {
     description,
     ...otherData,
     seatings,
-    organizer: req.user.id  // Auto-assign organizer to logged-in user
+    coverImage: finalCoverImage, // 🔗 Include coverImage explicitly
+    organizer: organizer || req.user.id  // Use provided organizer or fall back to logged-in user
   });
 
-  // Handle cover image upload if provided
-  if (req.file) {
-    console.log('📸 Processing image in 3:4 ratio...');
-    const uploadResult = await imageService.uploadEventImageWithRatio(
-      req.file.buffer,
-      req.file.originalname,
-      newEvent._id.toString()
-    );
+  // Handle cover image upload (required)
+  console.log('📸 Processing image in 3:4 ratio...');
+  const uploadResult = await imageService.uploadEventImageWithRatio(
+    req.file.buffer,
+    req.file.originalname,
+    newEvent._id.toString()
+  );
 
-    if (uploadResult.success) {
-      // Create encrypted image token - only contains event ID
-      const imageToken = encryptUrl(`event-${newEvent._id}`);
-      
-      await Event.findByIdAndUpdate(
-        newEvent._id,
-        {
-          s3ImageKey: uploadResult.s3Key,
-          imageToken: imageToken
-        }
-      );
-
-      console.log('✅ Image uploaded and encrypted:', {
-        eventId: newEvent._id,
-        ratio: uploadResult.ratio,
-        size: uploadResult.size
-      });
-    } else {
-      console.warn('⚠️ Image upload failed:', uploadResult.message);
-    }
+  if (!uploadResult.success) {
+    // Delete the event if image upload fails (image is required)
+    await Event.findByIdAndDelete(newEvent._id);
+    console.error('❌ Image upload failed - event deleted:', uploadResult.message);
+    return next(new AppError(`Image upload failed: ${uploadResult.message}. Event was not created.`, 500));
   }
 
-  // Fetch updated event with image data
-  const eventWithImage = await Event.findById(newEvent._id);
-  const transformedEvent = transformEventResponse(eventWithImage);
+  // Create encrypted image token - only contains event ID
+  const imageToken = encryptUrl(`event-${newEvent._id}`);
+  const encryptedImageUrl = `/api/images/encrypted/${encodeURIComponent(imageToken)}`;
+  
+  // Update event with S3 image data
+  const updatedEvent = await Event.findByIdAndUpdate(
+    newEvent._id,
+    {
+      s3ImageKey: uploadResult.s3Key,
+      imageToken: imageToken,
+      coverImage: encryptedImageUrl // 🔗 Update with encrypted URL directly
+    },
+    { new: true } // Return updated document
+  );
+
+  console.log('✅ Image uploaded and encrypted:', {
+    eventId: newEvent._id,
+    s3Key: uploadResult.s3Key,
+    imageToken: imageToken,
+    coverImage: encryptedImageUrl,
+    ratio: uploadResult.ratio,
+    size: uploadResult.size
+  });
+
+  const transformedEvent = transformEventResponse(updatedEvent);
 
   res.status(201).json({
     status: 'success',
@@ -260,23 +280,34 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
     if (uploadResult.success) {
       // Create encrypted image token
       const imageToken = encryptUrl(`event-${req.params.id}`);
+      const encryptedImageUrl = `/api/images/encrypted/${encodeURIComponent(imageToken)}`;
       
       updateData.s3ImageKey = uploadResult.s3Key;
       updateData.imageToken = imageToken;
+      updateData.coverImage = encryptedImageUrl; // 🔗 Update coverImage with encrypted URL
 
       console.log('✅ Image uploaded and encrypted:', {
         eventId: req.params.id,
+        s3Key: uploadResult.s3Key,
+        coverImage: encryptedImageUrl,
         ratio: uploadResult.ratio,
         size: uploadResult.size
       });
     } else {
       console.warn('⚠️ Image upload failed:', uploadResult.message);
+      updateData.coverImage = ''; // Clear if update fails
     }
   }
 
   const updatedEvent = await Event.findByIdAndUpdate(req.params.id, updateData, {
     new: true,
     runValidators: true
+  });
+
+  console.log('📋 Updated event being returned:', {
+    id: updatedEvent._id,
+    coverImage: updatedEvent.coverImage,
+    s3ImageKey: updatedEvent.s3ImageKey
   });
 
   // 🔔 Send event updated notification to all registered users
