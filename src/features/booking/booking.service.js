@@ -615,8 +615,7 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
       );
       
       // Create full QR URL
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
-      const qrUrl = `${appUrl}/checkin?token=${token}`;
+      const qrUrl = `/checkin?token=${token}`;
       
       // Store token and URL in booking
       booking.qrToken = token;
