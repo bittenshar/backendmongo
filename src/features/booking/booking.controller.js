@@ -2,6 +2,7 @@ const Booking = require('./booking_model');
 const Event = require('../events/event.model');
 const User = require('../auth/auth.model');
 const AppError = require('../../shared/utils/appError');
+const jwt = require('jsonwebtoken');
 
 /**
  * Get user bookings
@@ -967,9 +968,41 @@ exports.adminBookEventTicket = async (req, res, next) => {
       // Don't fail the booking if inventory update fails
     }
 
-    // ===== STEP 6: Generate tickets =====
+    // ===== STEP 6: Generate JWT QR token =====
     try {
-      console.log('🎫 Step 6: Generating tickets...');
+      console.log('📲 Step 6: Generating JWT QR token...');
+      
+      // Generate JWT token for QR code
+      const token = jwt.sign(
+        {
+          ticketId: booking._id.toString(),
+          eventId: booking.eventId._id.toString(),
+          userId: booking.userId.toString(),
+          quantity: booking.quantity
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '365d' }
+      );
+      
+      // Create full QR URL
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const qrUrl = `${appUrl}/checkin?token=${token}`;
+      
+      // Store token and URL in booking
+      booking.qrToken = token;
+      booking.qrCodes = qrUrl;
+      
+      await booking.save();
+      console.log('✅ JWT QR Token generated successfully');
+      console.log(`   QR URL: ${qrUrl}`);
+    } catch (qrError) {
+      console.warn('⚠️ QR generation failed (non-critical):', qrError.message);
+      // QR generation failure should not block booking confirmation
+    }
+
+    // ===== STEP 7: Generate tickets =====
+    try {
+      console.log('🎫 Step 7: Generating tickets...');
       
       await booking.generateTickets();
       console.log('✅ Tickets generated:', booking.ticketNumbers);

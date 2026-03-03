@@ -1,6 +1,7 @@
 const Booking = require('./booking_model');
 const Event = require('../events/event.model');
 const AppError = require('../../shared/utils/appError');
+const jwt = require('jsonwebtoken');
 
 /**
  * ==========================================
@@ -597,56 +598,65 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
       paymentStatus: booking.paymentStatus
     });
 
-    // ===== GENERATE PDF & QR CODES =====
+    // ===== GENERATE JWT QR TOKEN =====
     try {
-      console.log('📄 Generating PDF ticket...');
-      const ticketPdfService = require('../../shared/services/ticket-pdf.service');
-      const ticketQrcodeService = require('../../shared/services/ticket-qrcode.service');
-      const User = require('../auth/auth.model');
+      console.log('📱 Generating JWT QR token...');
+      
+      // Generate JWT token for QR code
+      const token = jwt.sign(
+        {
+          ticketId: booking._id.toString(),
+          eventId: booking.eventId.toString(),
+          userId: booking.userId.toString(),
+          quantity: booking.quantity
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '365d' }
+      );
+      
+      // Create full QR URL
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const qrUrl = `${appUrl}/checkin?token=${token}`;
+      
+      // Store token and URL in booking
+      booking.qrToken = token;
+      booking.qrCodes = qrUrl;
+      
+      console.log('💾 Saving booking with JWT QR token...');
+      await booking.save();
+      console.log('✅ JWT QR token generated and saved');
+      console.log('📌 QR URL:', qrUrl);
+    } catch (qrError) {
+      console.warn('⚠️ QR token generation failed (non-critical):', qrError.message);
+      // Don't fail the booking if QR generation fails
+    }
 
+    // ===== SEND NOTIFICATIONS =====
+    try {
+      console.log('📬 Sending ticket notifications...');
+      const ticketNotificationService = require('../../shared/services/ticket-notification.service');
+      const User = require('../auth/auth.model');
+      
       // Get user details
       const user = await User.findById(booking.userId);
 
-      // Generate PDF
-      const pdfBuffer = await ticketPdfService.generateTicketPDF(booking, event, user);
-      console.log('✅ PDF ticket generated');
+      const notificationResults = await ticketNotificationService.sendTicketViaAllChannels(
+        user,
+        booking,
+        booking.ticketNumbers,
+        event
+      );
 
-      // Generate QR codes for each ticket
-      console.log('📱 Generating QR codes...');
-      const qrCodes = await ticketQrcodeService.generateMultipleQRCodes(booking.ticketNumbers);
-      booking.qrCodes = qrCodes.map(qr => qr.dataUrl);
+      booking.notificationsSent = {
+        whatsapp: notificationResults.whatsapp.success || false,
+        email: notificationResults.email.success || false,
+        sms: notificationResults.sms.success || false,
+        sentAt: new Date()
+      };
       
-      console.log('💾 Saving booking with QR codes...');
+      console.log('💾 Saving booking with notifications status...');
       await booking.save();
-      console.log('✅ QR codes generated and saved:', booking.qrCodes.length);
-      console.log('📌 Booking after QR save:', {
-        _id: booking._id,
-        qrCodesCount: booking.qrCodes.length,
-        ticketsCount: booking.ticketNumbers.length
-      });
-
-      // ===== SEND NOTIFICATIONS =====
-      try {
-        console.log('📬 Sending ticket notifications...');
-        const ticketNotificationService = require('../../shared/services/ticket-notification.service');
-        
-        const notificationResults = await ticketNotificationService.sendTicketViaAllChannels(
-          user,
-          booking,
-          booking.ticketNumbers,
-          event
-        );
-
-        booking.notificationsSent = {
-          whatsapp: notificationResults.whatsapp.success || false,
-          email: notificationResults.email.success || false,
-          sms: notificationResults.sms.success || false,
-          sentAt: new Date()
-        };
-        
-        console.log('💾 Saving booking with notifications status...');
-        await booking.save();
-        console.log('✅ Notifications sent and saved:', booking.notificationsSent);
+      console.log('✅ Notifications sent and saved:', booking.notificationsSent);
         console.log('📌 Booking after notifications save:', {
           _id: booking._id,
           notificationsSent: booking.notificationsSent
