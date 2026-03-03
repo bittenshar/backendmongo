@@ -657,18 +657,13 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
       console.log('💾 Saving booking with notifications status...');
       await booking.save();
       console.log('✅ Notifications sent and saved:', booking.notificationsSent);
-        console.log('📌 Booking after notifications save:', {
-          _id: booking._id,
-          notificationsSent: booking.notificationsSent
-        });
-      } catch (notificationError) {
-        console.warn('⚠️ Error sending notifications:', notificationError.message);
-        // Don't fail the booking if notifications fail
-      }
-
-    } catch (ticketError) {
-      console.warn('⚠️ Error generating/sending tickets:', ticketError.message);
-      // Don't fail the booking if ticket generation fails
+      console.log('📌 Booking after notifications save:', {
+        _id: booking._id,
+        notificationsSent: booking.notificationsSent
+      });
+    } catch (notificationError) {
+      console.warn('⚠️ Error sending notifications:', notificationError.message);
+      // Don't fail the booking if notifications fail
     }
 
     // ===== UPDATE SEATING INVENTORY =====
