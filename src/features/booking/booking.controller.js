@@ -17,7 +17,7 @@ exports.getUserBookings = async (req, res, next) => {
     const { status } = req.query;
 
     const bookings = await Booking.findUserBookings(userId, status)
-      .populate('eventId', 'name date location imageToken imageId');
+      .populate('eventId', 'name date location locationlink imageToken imageId');
     const modifiedBookings = bookings.map(booking => {
     const bookingObj = booking.toObject();
 
