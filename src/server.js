@@ -117,6 +117,8 @@ const testNotificationRoutes = require("./features/notificationfcm/test-notifica
 // Import booking routes
 const bookingRoutes = require('./features/booking/booking_route');
 const bookingPaymentRoutes = require('./features/booking/booking-with-payment.routes');
+const checkInRoutes = require('./features/checkin/checkIn.routes');
+const staffRoutes = require('./features/admin/staff.routes');
 const paymentRoutes = require('./features/payment/payment.routes');
 const aadhaarImageRoutes = require('./features/aadhaar/aadhaar.routes');
 
@@ -133,6 +135,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutesNew);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/booking-payment', bookingPaymentRoutes);
+app.use('/api/checkin', checkInRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use("/api/notifications", notificationRoutes);

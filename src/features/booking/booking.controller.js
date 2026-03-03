@@ -984,9 +984,8 @@ exports.adminBookEventTicket = async (req, res, next) => {
         { expiresIn: '365d' }
       );
       
-      // Create full QR URL
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
-      const qrUrl = `${appUrl}/checkin?token=${token}`;
+      // Create full QR URL (relative path for frontend)
+      const qrUrl = `/checkin?token=${token}`;
       
       // Store token and URL in booking
       booking.qrToken = token;

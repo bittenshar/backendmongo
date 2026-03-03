@@ -31,6 +31,17 @@ const validateAdminAuth = (req, res, next) => {
 // ===== PUBLIC ENDPOINTS (No auth required) =====
 
 /**
+ * GET /api/checkin
+ * Verify ticket validity using QR token (from QR scan)
+ *
+ * Query params:
+ * ?token=jwt_token_from_qr
+ * 
+ * Returns ticket and booking details for display/verification
+ */
+router.get('/', getCheckInStatus);
+
+/**
  * POST /api/checkin/generate-qr
  * Generate QR token after successful payment
  *
