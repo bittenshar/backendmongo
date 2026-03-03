@@ -141,9 +141,10 @@ const bookingSchema = new mongoose.Schema(
     ticketNumbers: [{
       type: String
     }],
-    qrCodes: [{
-      type: String // S3 keys for QR code images or data URLs
-    }],
+    qrCodes: {
+      type: String,
+      description: 'Full QR code URL with embedded token (e.g., https://domain.com/checkin?token=...)'
+    },
     
     notificationsSent: {
       whatsapp: { type: Boolean, default: false },
@@ -170,7 +171,57 @@ const bookingSchema = new mongoose.Schema(
       checkInNumber: {
         type: Number
       }
-    }]
+    }],
+    
+    // ===== QR TICKET CHECK-IN SYSTEM =====
+    // QR Token for check-in validation
+    qrToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+      description: 'JWT token embedded in QR code for venue check-in'
+    },
+    
+    // Check-in status with single timestamp
+    checkedIn: {
+      type: Boolean,
+      default: false,
+      index: true,
+      description: 'Flag to prevent duplicate entry'
+    },
+    
+    checkInTime: {
+      type: Date,
+      description: 'Timestamp when ticket was validated at venue'
+    },
+    
+    checkInGate: {
+      type: String,
+      description: 'Gate number/entrance used for check-in'
+    },
+    
+    checkInDeviceInfo: {
+      type: String,
+      description: 'Device info of scanner that validated ticket'
+    },
+    
+    checkInIpAddress: {
+      type: String,
+      description: 'IP address of the scanner/staff device'
+    },
+    
+    // Face verification support
+    faceVerified: {
+      type: Boolean,
+      default: false,
+      description: 'Whether face verification was completed'
+    },
+    
+    faceVerificationTime: {
+      type: Date,
+      description: 'Timestamp when face verification was completed'
+    }
+    // ===== END QR CHECK-IN FIELDS =====
   },
   { timestamps: true }
 );
@@ -184,6 +235,11 @@ bookingSchema.index({ userId: 1, eventId: 1 ,
 bookingSchema.index({ bookedAt: -1 });
 bookingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
 bookingSchema.index({ razorpayOrderId: 1 });
+
+// QR Check-in System Indexes (Performance critical)
+bookingSchema.index({ eventId: 1, checkedIn: 1 }); // Find all checked-in tickets for an event
+bookingSchema.index({ paymentStatus: 1, eventId: 1 }); // Find paid bookings for an event
+bookingSchema.index({ qrToken: 1 }); // Fast QR token lookup
 
 // Virtual: Check if booking is expired
 bookingSchema.virtual('isExpired').get(function() {

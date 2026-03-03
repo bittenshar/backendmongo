@@ -1,0 +1,339 @@
+{
+  "info": {
+    "name": "QR Ticket Check-In System",
+    "description": "Complete API collection for QR ticket check-in, staff authentication, and event management",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Staff Authentication",
+      "item": [
+        {
+          "name": "Staff Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"scanner@venue.com\",\n  \"password\": \"scanner-password\",\n  \"eventId\": \"{{eventId}}\",\n  \"ipAddress\": \"192.168.1.100\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/staff/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staff", "login"]
+            }
+          }
+        },
+        {
+          "name": "Create Staff Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Scanner\",\n  \"email\": \"scanner@venue.com\",\n  \"phone\": \"+919876543210\",\n  \"password\": \"scanner-password\",\n  \"eventId\": \"{{eventId}}\",\n  \"organizerId\": \"{{organizerId}}\",\n  \"assignedGates\": [\"Gate-A\", \"Gate-B\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/staff/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staff", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get Event Staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/staff/event/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staff", "event", "{{eventId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Staff Gates",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedGates\": [\"Gate-A\", \"Gate-C\", \"Gate-D\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/staff/{{staffId}}/gates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staff", "{{staffId}}", "gates"]
+            }
+          }
+        },
+        {
+          "name": "Deactivate Staff",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Event completed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/staff/{{staffId}}/deactivate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staff", "{{staffId}}", "deactivate"]
+            }
+          }
+        },
+        {
+          "name": "Unlock Staff Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/staff/{{staffId}}/unlock",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staff", "{{staffId}}", "unlock"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. QR Token Generation",
+      "item": [
+        {
+          "name": "Generate QR Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkin/generate-qr",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkin", "generate-qr"]
+            },
+            "description": "Generates JWT token for QR code after successful payment"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Check-In Operations",
+      "item": [
+        {
+          "name": "Scanner - Scan QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{qrToken}}\",\n  \"gateNumber\": \"Gate-A\",\n  \"deviceInfo\": \"iOS-Scanner-v1.2\",\n  \"ipAddress\": \"192.168.1.100\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkin/scanner",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkin", "scanner"]
+            },
+            "description": "Main check-in endpoint - staff scans QR code"
+          }
+        },
+        {
+          "name": "Face Recognition Check-In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"gateNumber\": \"Gate-B\",\n  \"faceImage\": \"base64_encoded_image_here\",\n  \"matchScore\": 92.5,\n  \"ipAddress\": \"192.168.1.101\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkin/face-verification",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkin", "face-verification"]
+            },
+            "description": "Alternative check-in using face recognition (future feature)"
+          }
+        },
+        {
+          "name": "Get Check-In Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/checkin/status?token={{qrToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkin", "status"],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{qrToken}}"
+                }
+              ]
+            },
+            "description": "Query whether a ticket has been checked in"
+          }
+        },
+        {
+          "name": "Get Event Check-In Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/checkin/event/{{eventId}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkin", "event", "{{eventId}}", "stats"]
+            },
+            "description": "Get real-time check-in statistics for an event"
+          }
+        },
+        {
+          "name": "Flag Check-In for Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checkInLogId\": \"{{checkInLogId}}\",\n  \"reason\": \"Duplicate IP address detected\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkin/flag",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkin", "flag"]
+            },
+            "description": "Flag a check-in as suspicious for fraud investigation"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "qrToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "staffToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "staffId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "organizerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "checkInLogId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

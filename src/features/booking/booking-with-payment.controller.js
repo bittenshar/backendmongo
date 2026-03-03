@@ -5,6 +5,7 @@ const Payment = require('../payment/payment.model');
 const AppError = require('../../shared/utils/appError');
 const { createRazorpayOrder, verifyRazorpayPayment } = require('../../services/razorpay.service');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 /**
  * Step 1: Check Face Verification Status
@@ -437,52 +438,36 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
     await payment.save();
     console.log('✅ Payment record saved');
 
-    // STEP 8: Generate ticket
-    console.log('\n📍 STEP 8: Generating ticket...');
-    let ticket = null;
-    let qrCodeDataUrl = null;
-    
+    // STEP 8: Generate JWT-based QR code
+    console.log('\n📍 STEP 8: Generating JWT-based QR token...');
     try {
-      // Generate unique ticket number (Ticket ID)
-      const ticketNumber = `TKT-${booking._id.toString().slice(-8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+      // Generate JWT token for QR code
+      const token = jwt.sign(
+        {
+          ticketId: booking._id.toString(),
+          eventId: booking.eventId._id.toString(),
+          userId: booking.userId.toString(),
+          quantity: booking.quantity
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '365d' }
+      );
       
-      // Generate QR code that encodes the ticket ID
-      const { generateQRCodeDataURL } = require('../../shared/services/ticket-qrcode.service');
-      qrCodeDataUrl = await generateQRCodeDataURL(ticketNumber);
+      // Create full QR URL
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const qrUrl = `${appUrl}/checkin?token=${token}`;
       
-      // QR code now contains the ticket number (ticket ID) for scanning and validation
-      console.log('✅ QR Code generated with Ticket ID:', ticketNumber);
+      // Store token and URL in booking
+      booking.qrToken = token;
+      booking.qrCodes = qrUrl;
       
-      // Create ticket object
-      ticket = {
-        ticketNumber,
-        bookingId: booking._id,
-        eventId: booking.eventId._id,
-        userId: user._id,
-        eventName: booking.eventId.name,
-        eventDate: booking.eventId.date,
-        location: booking.eventId.location,
-        locationLink: booking.eventId.locationlink,
-        coverImage: booking.eventId.coverImage,
-        seatType: booking.seatType,
-        quantity: booking.quantity,
-        ticketGeneratedAt: new Date(),
-        qrCode: qrCodeDataUrl,
-        qrCodeContent: ticketNumber // Explicitly store what the QR code encodes
-      };
-      
-      // Save ticket information to booking document
-      booking.ticketNumbers = [ticketNumber];
-      booking.qrCodes = [qrCodeDataUrl];
       await booking.save();
-      
-      console.log('✅ Ticket generated successfully');
-      console.log(`   Ticket Number (ID): ${ticketNumber}`);
-      console.log(`   QR Code Content: ${ticketNumber}`);
-      console.log('✅ Ticket saved to booking document');
-    } catch (ticketError) {
-      console.warn('⚠️  Ticket generation failed (non-critical):', ticketError.message);
-      // Ticket generation failure should not block booking confirmation
+      console.log('✅ JWT QR Token generated successfully');
+      console.log(`   Token: ${token.substring(0, 20)}...`);
+      console.log(`   QR URL: ${qrUrl}`);
+    } catch (qrError) {
+      console.warn('⚠️  QR generation failed (non-critical):', qrError.message);
+      // QR generation failure should not block booking confirmation
     }
 
     // STEP 9: Return success

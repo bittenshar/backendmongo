@@ -50,7 +50,6 @@ const eventSchema = new mongoose.Schema(
     s3ImageKey: { 
       type: String, 
       default: null,
-      required: true,
 
     },
     imageToken: {
@@ -64,6 +63,15 @@ const eventSchema = new mongoose.Schema(
       default: false,
       description: 'Explicitly mark event as cancelled'
     },
+
+    // ===== QR CHECK-IN SYSTEM =====
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+      description: 'Whether event is active for check-ins (can be disabled for venue control)'
+    },
+    // ===== END QR CHECK-IN FIELDS =====
   },
   {
     timestamps: true,
