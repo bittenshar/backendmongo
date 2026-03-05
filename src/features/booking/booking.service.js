@@ -321,7 +321,7 @@ exports.generateTicket = async (bookingId) => {
     throw new AppError('Only confirmed bookings have tickets', 400);
   }
 
-  if (booking.ticketNumbers && booking.ticketNumbers.length > 0) {
+  if (booking.ticketNumbers) {
     return booking.ticketNumbers;
   }
 
@@ -703,8 +703,8 @@ exports.verifyBookingPayment = async (bookingId, paymentData) => {
     console.log('✅ Fresh booking data retrieved:', {
       _id: freshBooking._id,
       status: freshBooking.status,
-      ticketNumbers: freshBooking.ticketNumbers?.length || 0,
-      qrCodes: freshBooking.qrCodes?.length || 0,
+      ticketNumber: freshBooking.ticketNumbers || 'Not generated',
+      qrCodes: freshBooking.qrCodes ? 'Generated' : 'Not generated',
       notificationsSent: freshBooking.notificationsSent
     });
 

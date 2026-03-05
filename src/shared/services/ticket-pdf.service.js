@@ -34,7 +34,7 @@ exports.generateTicketPDF = async (booking, event, user) => {
       doc.moveDown(0.5);
 
       doc.fontSize(10).font('Helvetica');
-      doc.text(`Ticket ID: ${booking.ticketNumbers[0]}`, { width: 300 });
+      doc.text(`Ticket ID: ${booking.ticketNumbers}`, { width: 300 });
       doc.text(`Booking ID: ${booking._id}`);
       doc.text(`User: ${user.name || user.email}`);
       doc.text(`Phone: ${user.phone || 'N/A'}`);
@@ -68,9 +68,7 @@ exports.generateTicketPDF = async (booking, event, user) => {
       doc.moveDown(0.5);
 
       doc.fontSize(9).font('Helvetica');
-      booking.ticketNumbers.forEach((ticket, index) => {
-        doc.text(`${index + 1}. ${ticket}`);
-      });
+      doc.text(`${booking.ticketNumbers}`);
       doc.moveDown(1);
 
       // ===== FOOTER =====

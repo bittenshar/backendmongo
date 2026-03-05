@@ -70,7 +70,7 @@ exports.sendTicketViaEmail = async (email, booking, ticketNumbers, pdfPath = nul
       }
     });
 
-    const ticketList = ticketNumbers.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    const ticketList = ticketNumbers || 'N/A';
 
     const mailOptions = {
       from: process.env.SMTP_FROM || 'noreply@thrillathon.com',
@@ -188,7 +188,7 @@ exports.sendTicketViaAllChannels = async (user, booking, ticketNumbers, event) =
 
     // Send via WhatsApp
     if (user.phone) {
-      results.whatsapp = await exports.sendTicketViaWhatsApp(user.phone, bookingData, ticketNumbers[0]);
+      results.whatsapp = await exports.sendTicketViaWhatsApp(user.phone, bookingData, ticketNumbers);
     }
 
     // Send via Email
@@ -198,7 +198,7 @@ exports.sendTicketViaAllChannels = async (user, booking, ticketNumbers, event) =
 
     // Send via SMS
     if (user.phone) {
-      results.sms = await exports.sendTicketViaSMS(user.phone, bookingData, ticketNumbers[0]);
+      results.sms = await exports.sendTicketViaSMS(user.phone, bookingData, ticketNumbers);
     }
 
     console.log('✅ Ticket notifications sent:', results);

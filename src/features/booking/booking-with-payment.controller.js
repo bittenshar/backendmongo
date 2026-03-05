@@ -141,7 +141,68 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
 
     await tempBooking.save();
 
-    // STEP 5: Create Razorpay order with total amount (base + convenience fee + GST)
+    // STEP 5: Check if amount is zero (free booking)
+    if (totalAmountWithFee === 0) {
+      console.log('🎁 Free booking detected - Skipping Razorpay payment');
+
+      // Auto-confirm booking for free tickets
+      tempBooking.status = 'confirmed';
+      tempBooking.paymentStatus = 'completed';
+      tempBooking.paymentVerified = true;
+      tempBooking.confirmedAt = new Date();
+      tempBooking.paymentId = `FREE_${Date.now()}`;
+      
+      // Generate QR token
+      try {
+        const token = jwt.sign(
+          {
+            ticketId: tempBooking._id.toString(),
+            eventId: tempBooking.eventId._id.toString(),
+            userId: tempBooking.userId.toString(),
+            quantity: tempBooking.quantity
+          },
+          process.env.JWT_SECRET || 'your-secret-key',
+          { expiresIn: '365d' }
+        );
+        
+        const qrUrl = `/checkin?token=${token}`;
+        tempBooking.qrToken = token;
+        tempBooking.qrCodes = qrUrl;
+      } catch (qrError) {
+        console.warn('⚠️ QR generation failed for free booking:', qrError.message);
+      }
+
+      await tempBooking.save();
+
+      // Return free booking response
+      return res.status(200).json({
+        status: 'success',
+        message: 'Free ticket booked successfully! No payment required.',
+        isFreeBooking: true,
+        data: {
+          booking: {
+            bookingId: tempBooking._id,
+            userId,
+            eventId,
+            quantity,
+            status: tempBooking.status,
+            paymentStatus: tempBooking.paymentStatus,
+            confirmedAt: tempBooking.confirmedAt,
+            ticketNumbers: tempBooking.ticketNumbers,
+            qrCodes: tempBooking.qrCodes
+          },
+          priceBreakdown: {
+            baseAmount: baseAmount,
+            convenienceFee: convenienceFee,
+            gstOnFee: gstOnFee,
+            totalFee: totalFee,
+            totalAmount: totalAmountWithFee
+          }
+        }
+      });
+    }
+
+    // STEP 6: Create Razorpay order with total amount (base + convenience fee + GST)
     let razorpayOrder;
     try {
       razorpayOrder = await createRazorpayOrder(
@@ -177,12 +238,12 @@ exports.initiateBookingWithVerification = async (req, res, next) => {
       return next(new AppError('Failed to create payment order', 500));
     }
 
-    // STEP 6: Update booking with Razorpay order ID
+    // STEP 7: Update booking with Razorpay order ID
     tempBooking.razorpayOrderId = razorpayOrder.id;
     tempBooking.paymentId = razorpayOrder.id;
     await tempBooking.save();
 
-    // STEP 7: Return booking and payment details
+    // STEP 8: Return booking and payment details
     res.status(200).json({
       status: 'success',
       message: 'Booking initiated successfully. Proceed to payment.',

@@ -138,9 +138,10 @@ const bookingSchema = new mongoose.Schema(
       type: String
     },
     // Ticket information
-    ticketNumbers: [{
-      type: String
-    }],
+    ticketNumbers: {
+      type: String,
+      description: '9-digit alphabetic ticket number (e.g., ABC123XYZ)'
+    },
     qrCodes: {
       type: String,
       description: 'Full QR code URL with embedded token (e.g., https://domain.com/checkin?token=...)'
@@ -266,10 +267,13 @@ bookingSchema.methods.cancel = function(reason = 'User cancelled') {
 };
 
 bookingSchema.methods.generateTickets = function() {
-  // Generate ticket numbers
-  this.ticketNumbers = Array.from({ length: this.quantity }, (_, i) => 
-    `TKT-${this.eventId}-${this.userId}-${i + 1}-${Date.now()}`
-  );
+  // Generate 9-digit alphabetic ticket number
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let ticketNumber = '';
+  for (let i = 0; i < 9; i++) {
+    ticketNumber += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  this.ticketNumbers = ticketNumber;
   return this.save();
 };
 

@@ -89,7 +89,7 @@ exports.downloadTicket = async (req, res, next) => {
       return next(new AppError('Only confirmed bookings can download tickets', 400));
     }
 
-    if (!booking.ticketNumbers || booking.ticketNumbers.length === 0) {
+    if (!booking.ticketNumbers) {
       return next(new AppError('Tickets not yet generated', 400));
     }
 
