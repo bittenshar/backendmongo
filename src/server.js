@@ -421,8 +421,8 @@ const startServer = async () => {
   }
 };
 
-// If running directly (not imported), start the server
-if (require.main === module) {
+// If running directly (not imported) AND not in Vercel, start the server
+if (require.main === module && !process.env.VERCEL) {
   startServer();
 }
 
