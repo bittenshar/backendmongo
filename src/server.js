@@ -321,6 +321,11 @@ app.use(errorHandler);
 // Define PORT
 const PORT = process.env.PORT || 3000;
 
+// Detect if running in serverless environment
+const isServerless = process.env.VERCEL === '1' || 
+                      process.env.AWS_LAMBDA_FUNCTION_NAME || 
+                      process.env.NETLIFY === 'true';
+
 // Start server function - Wait for database connection first
 const startServer = async () => {
   try {
@@ -421,10 +426,11 @@ const startServer = async () => {
   }
 };
 
-// If running directly (not imported) AND not in Vercel, start the server
-if (require.main === module && !process.env.VERCEL) {
+// Only start server if NOT in serverless environment and running as main module
+// On Vercel/serverless, the app is exported as a handler
+if (!isServerless && require.main === module) {
   startServer();
 }
 
-// Export the app for Vercel serverless functions
+// Export the app for Vercel and other serverless platforms
 module.exports = app;
