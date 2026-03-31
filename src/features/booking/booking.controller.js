@@ -5,6 +5,96 @@ const AppError = require('../../shared/utils/appError');
 const jwt = require('jsonwebtoken');
 
 /**
+ * Verify entry by userId and eventId (for already identified users)
+ * Used by desktop/system scripts that already know the userId
+ * PUBLIC ENDPOINT - No authentication required
+ */
+exports.verifyEntryByUserId = async (req, res, next) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    // Validate inputs
+    if (!userId || !eventId) {
+      return res.status(400).json({
+        status: 'ERROR',
+        message: 'userId and eventId are required',
+        action: 'DENY_ENTRY'
+      });
+    }
+
+    // Lookup booking for this user and event (without populate to avoid schema issues)
+    const booking = await Booking.findOne({
+      userId: userId,
+      eventId: eventId
+    });
+
+    if (!booking) {
+      return res.status(200).json({
+        status: 'BLACK',
+        message: 'No valid booking found',
+        action: 'DENY_ENTRY',
+        reason: 'User has no booking for this event',
+        userId
+      });
+    }
+
+    // Check booking status
+    if (booking.status !== 'confirmed') {
+      return res.status(200).json({
+        status: 'RED',
+        message: 'Booking not confirmed',
+        action: 'DENY_ENTRY',
+        reason: `Booking status: ${booking.status}`,
+        userId,
+        bookingId: booking._id
+      });
+    }
+
+    // Check if ticket was already used for entry (entryTime means already entered)
+    if (booking.entryTime) {
+      return res.status(200).json({
+        status: 'BLUE',
+        message: 'Entry already recorded',
+        action: 'ALREADY_ENTERED',
+        reason: `Already entered at ${new Date(booking.entryTime).toLocaleTimeString()}`,
+        userId,
+        bookingId: booking._id,
+        firstEntryTime: booking.entryTime
+      });
+    }
+
+    // Mark entry time
+    booking.entryTime = new Date();
+    booking.facialEntryVerified = true;
+    await booking.save();
+
+    // Return GREEN - Entry allowed
+    return res.status(200).json({
+      status: 'GREEN',
+      message: 'Entry verified and recorded',
+      action: 'ALLOW_ENTRY',
+      userId,
+      bookingId: booking._id,
+      eventId: booking.eventId,
+      entryTime: booking.entryTime,
+      bookingDetails: {
+        bookingNumber: booking.bookingNumber,
+        ticketType: booking.tickettype,
+        entryGate: 'Main Gate'
+      }
+    });
+  } catch (error) {
+    console.error('Entry verification error:', error);
+    return res.status(500).json({
+      status: 'ERROR',
+      message: 'Entry verification failed',
+      action: 'DENY_ENTRY',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get user bookings
  * 
  * 
@@ -1142,6 +1232,102 @@ exports.getAllBookings = async (req, res, next) => {
   } catch (error) {
     console.error('Error getting all bookings:', error);
     return next(new AppError(error.message, 500));
+  }
+};
+
+/**
+ * Verify entry by userId and eventId (for already identified users)
+ * Used by desktop scripts, Python facial recognition system
+ * No authentication required - public endpoint
+ * 
+ * @param {Object} req - Express request with {userId, eventId} in body
+ * @param {Object} res - Express response
+ */
+exports.verifyEntryByUserId = async (req, res, next) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    // Validate inputs
+    if (!userId || !eventId) {
+      return res.status(200).json({
+        status: 'fail',
+        message: 'userId and eventId are required',
+        action: 'DENY_ENTRY'
+      });
+    }
+
+    // Lookup booking for this user and event
+    const booking = await Booking.findOne({
+      user: userId,
+      eventId: eventId
+    }).populate('user').populate('eventId');
+
+    if (!booking) {
+      return res.status(200).json({
+        status: 'BLACK',
+        message: 'No valid booking found',
+        action: 'DENY_ENTRY',
+        reason: 'User has no booking for this event',
+        userId
+      });
+    }
+
+    // Check booking status
+    if (booking.status !== 'confirmed') {
+      return res.status(200).json({
+        status: 'RED',
+        message: 'Booking not confirmed',
+        action: 'DENY_ENTRY',
+        reason: `Booking status: ${booking.status}`,
+        userId,
+        userName: booking.user?.name || 'Unknown',
+        bookingId: booking._id
+      });
+    }
+
+    // Check if ticket was already used for entry
+    if (booking.entryTime) {
+      return res.status(200).json({
+        status: 'BLUE',
+        message: 'Entry already recorded',
+        action: 'ALREADY_ENTERED',
+        reason: `Already entered at ${new Date(booking.entryTime).toLocaleTimeString()}`,
+        userId,
+        userName: booking.user?.name || 'Unknown',
+        bookingId: booking._id,
+        firstEntryTime: booking.entryTime
+      });
+    }
+
+    // Mark entry time
+    booking.entryTime = new Date();
+    booking.facialEntryVerified = true;
+    await booking.save();
+
+    // Return GREEN - Entry allowed
+    return res.status(200).json({
+      status: 'GREEN',
+      message: 'Entry verified and recorded',
+      action: 'ALLOW_ENTRY',
+      userId,
+      userName: booking.user?.name || 'Unknown',
+      bookingId: booking._id,
+      eventId: booking.eventId,
+      entryTime: booking.entryTime,
+      bookingDetails: {
+        bookingNumber: booking.bookingNumber,
+        ticketType: booking.ticketType,
+        eventName: booking.eventId?.name,
+        entryGate: booking.eventId?.gate || 'Main Gate'
+      }
+    });
+  } catch (error) {
+    console.error('Error verifying entry:', error);
+    return res.status(500).json({
+      status: 'fail',
+      message: 'Entry verification failed',
+      error: error.message
+    });
   }
 };
 

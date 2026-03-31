@@ -1,0 +1,238 @@
+{
+  "_postman_id": "organizer-auth-collection",
+  "name": "Organizer Login & Events API",
+  "description": "Complete organizer authentication and events management API",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  "item": [
+    {
+      "_postman_id": "login",
+      "name": "1. Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.environment.set(\"organizerToken\", jsonData.token);",
+              "    pm.environment.set(\"organizerId\", jsonData.data.organizer._id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"contact@techevents.com\", \"password\": \"password123\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/login",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "login"]
+        }
+      }
+    },
+    {
+      "_postman_id": "profile-only",
+      "name": "2. Get Profile",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{organizerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/profile",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "profile"]
+        }
+      }
+    },
+    {
+      "_postman_id": "profile-summary",
+      "name": "3. Get Profile + Summary",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{organizerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/profile?include=summary",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "profile"],
+          "query": [
+            {
+              "key": "include",
+              "value": "summary"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "_postman_id": "profile-events",
+      "name": "4. Get Profile + Events",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{organizerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/profile?include=events",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "profile"],
+          "query": [
+            {
+              "key": "include",
+              "value": "events"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "_postman_id": "update-profile",
+      "name": "5. Update Profile",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{organizerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Updated Name\", \"phone\": \"9876543210\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/profile",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "profile"]
+        }
+      }
+    },
+    {
+      "_postman_id": "change-password",
+      "name": "6. Change Password",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{organizerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"currentPassword\": \"password123\", \"newPassword\": \"newPass123\", \"confirmPassword\": \"newPass123\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/change-password",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "change-password"]
+        }
+      }
+    },
+    {
+      "_postman_id": "logout",
+      "name": "7. Logout",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{organizerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/organizers/auth/logout",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "organizers", "auth", "logout"]
+        }
+      }
+    }
+  ],
+  "event": [],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "organizerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "organizerId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

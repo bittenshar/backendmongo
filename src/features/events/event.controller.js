@@ -95,7 +95,7 @@ exports.getEvent = catchAsync(async (req, res, next) => {
 
 exports.createEvent = catchAsync(async (req, res, next) => {
   // Parse form data - handle both FormData and JSON requests
-  let { seatings, language, agelimit, name, location, date, startTime, endTime, locationlink, description, organizer, coverImage, tickettitle, ...otherData } = req.body;
+  let { seatings, language, agelimit, name, location, date, startTime, endTime, locationlink, description, organizer, coverImage, ...otherData } = req.body;
 
   // Parse stringified JSON fields from FormData
   if (typeof seatings === 'string') {
@@ -107,9 +107,6 @@ exports.createEvent = catchAsync(async (req, res, next) => {
   }
 
   // Validate required fields
-  if (!tickettitle || !tickettitle.trim()) {
-    return next(new AppError('Event ticket title is required', 400));
-  }
   if (!name || !name.trim()) {
     return next(new AppError('Event name is required', 400));
   }
@@ -159,7 +156,6 @@ exports.createEvent = catchAsync(async (req, res, next) => {
     location,
     language,
     agelimit,
-    tickettitle,
     date,
     startTime,
     endTime,
@@ -260,12 +256,8 @@ exports.updateEvent = catchAsync(async (req, res, next) => {
   if (updateData.locationlink !== undefined && (!updateData.locationlink || !updateData.locationlink.trim())) {
     return next(new AppError('Event location link is required', 400));
   }
- 
   if (updateData.description !== undefined && (!updateData.description || !updateData.description.trim())) {
     return next(new AppError('Event description is required', 400));
-  }
-  if (updateData.tickettitle !== undefined && (!updateData.tickettitle || !updateData.tickettitle.trim())) {
-    return next(new AppError('Event ticket title is required', 400));
   }
 
   // Handle cover image update if provided

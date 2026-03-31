@@ -530,7 +530,22 @@ exports.verifyPaymentAndConfirmBooking = async (req, res, next) => {
       // QR generation failure should not block booking confirmation
     }
 
-    // STEP 9: Return success
+    // STEP 9: Create Ticket Object
+    const ticket = {
+      ticketNumber: booking._id.toString(),
+      qrCode: booking.qrToken || null,
+      qrCodeContent: booking.qrCodes || null,
+      eventName: booking.eventId.name,
+      eventDate: booking.eventId.date,
+      location: booking.eventId.location,
+      locationLink: booking.eventId.locationlink || null,
+      coverImage: booking.eventId.coverImage || null,
+      seatType: booking.seatType || 'General',
+      quantity: booking.quantity,
+      ticketGeneratedAt: new Date()
+    };
+
+    // Return success
     console.log('\n✅ PAYMENT CONFIRMATION COMPLETE');
     console.log('═════════════════════════════════════════\n');
     

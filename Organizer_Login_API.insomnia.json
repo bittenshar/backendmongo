@@ -1,0 +1,77 @@
+{
+  "env": {
+    "data": {
+      "BASE_URL": "http://localhost:3000",
+      "organizerToken": ""
+    }
+  },
+  "resources": [
+    {
+      "name": "1. Login",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/login",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "raw": "{\"email\": \"contact@techevents.com\", \"password\": \"password123\"}"
+      }
+    },
+    {
+      "name": "2. Get Profile",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/profile",
+      "headers": {
+        "Authorization": "Bearer {{ _.organizerToken }}"
+      }
+    },
+    {
+      "name": "3. Get Profile + Summary",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/profile?include=summary",
+      "headers": {
+        "Authorization": "Bearer {{ _.organizerToken }}"
+      }
+    },
+    {
+      "name": "4. Get Profile + Events",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/profile?include=events",
+      "headers": {
+        "Authorization": "Bearer {{ _.organizerToken }}"
+      }
+    },
+    {
+      "name": "5. Update Profile",
+      "method": "PATCH",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/profile",
+      "headers": {
+        "Authorization": "Bearer {{ _.organizerToken }}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "raw": "{\"name\": \"Updated Name\", \"phone\": \"9876543210\"}"
+      }
+    },
+    {
+      "name": "6. Change Password",
+      "method": "PATCH",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/change-password",
+      "headers": {
+        "Authorization": "Bearer {{ _.organizerToken }}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "raw": "{\"currentPassword\": \"password123\", \"newPassword\": \"newPass123\", \"confirmPassword\": \"newPass123\"}"
+      }
+    },
+    {
+      "name": "7. Logout",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/logout",
+      "headers": {
+        "Authorization": "Bearer {{ _.organizerToken }}"
+      }
+    }
+  ]
+}

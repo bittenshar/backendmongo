@@ -1,0 +1,69 @@
+### Organizer Registration & Login API - REST Client Format
+### Base URL
+@BASE_URL = http://localhost:3000
+@organizerToken = 
+
+### 1. Register New Organizer
+POST {{BASE_URL}}/api/organizers/auth/register
+Content-Type: application/json
+
+{
+  "email": "neworganizer@example.com",
+  "password": "SecurePass123",
+  "confirmPassword": "SecurePass123",
+  "name": "Event Company Ltd",
+  "phone": "+1234567890",
+  "contactPerson": "John Doe",
+  "address": "123 Main Street, City",
+  "website": "https://example.com",
+  "description": "Professional event organizer",
+  "logo": "https://example.com/logo.png"
+}
+
+### 2. Login
+POST {{BASE_URL}}/api/organizers/auth/login
+Content-Type: application/json
+
+{
+  "email": "contact@techevents.com",
+  "password": "password123"
+}
+
+### 3. Get Profile Only
+GET {{BASE_URL}}/api/organizers/auth/profile
+Authorization: Bearer {{organizerToken}}
+
+### 4. Get Profile + Events Summary
+GET {{BASE_URL}}/api/organizers/auth/profile?include=summary
+Authorization: Bearer {{organizerToken}}
+
+### 5. Get Profile + Full Events List
+GET {{BASE_URL}}/api/organizers/auth/profile?include=events
+Authorization: Bearer {{organizerToken}}
+
+### 6. Update Profile
+PATCH {{BASE_URL}}/api/organizers/auth/profile
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "phone": "9876543210",
+  "address": "New Address",
+  "website": "https://newwebsite.com"
+}
+
+### 7. Change Password
+PATCH {{BASE_URL}}/api/organizers/auth/change-password
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "password123",
+  "newPassword": "newPassword123",
+  "confirmPassword": "newPassword123"
+}
+
+### 8. Logout
+GET {{BASE_URL}}/api/organizers/auth/logout
+Authorization: Bearer {{organizerToken}}

@@ -1,0 +1,309 @@
+{
+  "info": {
+    "name": "Organizer Registration & Auth API",
+    "description": "Complete collection for organizer registration, login, and account management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "PUBLIC ENDPOINTS",
+      "item": [
+        {
+          "name": "1. Register New Organizer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('token', jsonData.token);",
+                  "    pm.test('Registration successful', function() {",
+                  "        pm.expect(jsonData.status).to.equal('success');",
+                  "        pm.expect(jsonData.token).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"neworganizer@example.com\",\n  \"password\": \"SecurePass123\",\n  \"confirmPassword\": \"SecurePass123\",\n  \"name\": \"Event Company Ltd\",\n  \"phone\": \"+1234567890\",\n  \"contactPerson\": \"John Doe\",\n  \"address\": \"123 Main Street, City\",\n  \"website\": \"https://example.com\",\n  \"description\": \"Professional event organizer\",\n  \"logo\": \"https://example.com/logo.png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Create a new organizer account\n\nRequired fields: email, password, confirmPassword, name, phone, contactPerson\nOptional fields: address, website, description, logo"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('token', jsonData.token);",
+                  "    pm.test('Login successful', function() {",
+                  "        pm.expect(jsonData.status).to.equal('success');",
+                  "        pm.expect(jsonData.token).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"contact@techevents.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with email and password. Token is automatically saved to environment variable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "PROTECTED ENDPOINTS",
+      "item": [
+        {
+          "name": "3. Get Profile Only",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Get organizer profile information only"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Profile + Events Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/profile?include=summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "profile"
+              ],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "summary"
+                }
+              ]
+            },
+            "description": "Get profile with events summary (count of total, active, upcoming, past)"
+          },
+          "response": []
+        },
+        {
+          "name": "5. Get Profile + Full Events List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/profile?include=events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "profile"
+              ],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "events"
+                }
+              ]
+            },
+            "description": "Get profile with complete event list and summary"
+          },
+          "response": []
+        },
+        {
+          "name": "6. Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Company Name\",\n  \"phone\": \"9876543210\",\n  \"address\": \"New Address\",\n  \"website\": \"https://newwebsite.com\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Update allowed profile fields (name, phone, address, website, description, contactPerson, logo)"
+          },
+          "response": []
+        },
+        {
+          "name": "7. Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"NewPassword123\",\n  \"confirmPassword\": \"NewPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Change organizer password. Current password must be verified."
+          },
+          "response": []
+        },
+        {
+          "name": "8. Logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Logout and clear authentication cookie"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

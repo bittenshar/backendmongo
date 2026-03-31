@@ -63,6 +63,13 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' })); 
 app.use(cookieParser());
 app.use(morgan('dev'));
+
+// ============ PUBLIC ENDPOINTS (Before Auth Middleware) ============
+// Entry verification endpoint - no authentication required
+const bookingController = require('./features/booking/booking.controller');
+app.post('/api/booking/entry/verify', bookingController.verifyEntryByUserId);
+// =====================================================================
+
 app.use(attachDBMiddleware);
 
 // Serve static files from root directory (for HTML test files)
@@ -105,6 +112,7 @@ app.get('/api/debug', (req, res) => {
 });
 const eventRoutes = require('./features/events/event.routes');
 const organizerRoutes = require('./features/organizers/organizer.routes');  
+const organizerAuthRoutes = require('./features/organizers/organizer.auth.routes');
 const feedbackRoutes = require('./features/feedback/feedback.routes');
 const adminRoutes = require('./features/admin/admin.routes');const userRoutesNew = require('./features/users/user.routes');
 const authRoutes = require('./features/auth/auth.routes');
@@ -130,6 +138,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin-public', adminPublicRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/organizers', organizerRoutes);
+app.use('/api/organizers/auth', organizerAuthRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutesNew);
