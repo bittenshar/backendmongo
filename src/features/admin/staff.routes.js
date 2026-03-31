@@ -21,6 +21,7 @@ const validateAdminAuth = (req, res, next) => {
   next();
 };
 
+
 const validateStaffAuth = (req, res, next) => {
   // Verify staff JWT token
   // Sets req.user = { staffId, eventId, role }
