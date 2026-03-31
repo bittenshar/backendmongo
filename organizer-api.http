@@ -1,4 +1,4 @@
-### Organizer Registration & Login API - REST Client Format
+### Organizer Registration & Auth API - REST Client Format
 ### Base URL
 @BASE_URL = http://localhost:3000
 @organizerToken = 
@@ -33,15 +33,27 @@ Content-Type: application/json
 GET {{BASE_URL}}/api/organizers/auth/profile
 Authorization: Bearer {{organizerToken}}
 
-### 4. Get Profile + Events Summary
-GET {{BASE_URL}}/api/organizers/auth/profile?include=summary
+### 4. Get All Events (Separate API)
+GET {{BASE_URL}}/api/organizers/auth/events
 Authorization: Bearer {{organizerToken}}
 
-### 5. Get Profile + Full Events List
-GET {{BASE_URL}}/api/organizers/auth/profile?include=events
+### 5. Get Active Events Only
+GET {{BASE_URL}}/api/organizers/auth/events?status=active
 Authorization: Bearer {{organizerToken}}
 
-### 6. Update Profile
+### 6. Get Upcoming Events Only
+GET {{BASE_URL}}/api/organizers/auth/events?status=upcoming
+Authorization: Bearer {{organizerToken}}
+
+### 7. Get Past Events Only
+GET {{BASE_URL}}/api/organizers/auth/events?status=past
+Authorization: Bearer {{organizerToken}}
+
+### 8. Get Events with Limit and Sort
+GET {{BASE_URL}}/api/organizers/auth/events?limit=5&sort=desc
+Authorization: Bearer {{organizerToken}}
+
+### 9. Update Profile
 PATCH {{BASE_URL}}/api/organizers/auth/profile
 Authorization: Bearer {{organizerToken}}
 Content-Type: application/json
@@ -53,7 +65,7 @@ Content-Type: application/json
   "website": "https://newwebsite.com"
 }
 
-### 7. Change Password
+### 10. Change Password
 PATCH {{BASE_URL}}/api/organizers/auth/change-password
 Authorization: Bearer {{organizerToken}}
 Content-Type: application/json
@@ -64,6 +76,6 @@ Content-Type: application/json
   "confirmPassword": "newPassword123"
 }
 
-### 8. Logout
+### 11. Logout
 GET {{BASE_URL}}/api/organizers/auth/logout
 Authorization: Bearer {{organizerToken}}

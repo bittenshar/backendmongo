@@ -73,30 +73,52 @@ curl -X GET "$BASE_URL/api/organizers/auth/profile" \
   -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 echo ""
 
-# 4. Get Profile + Summary
-echo "4. GET PROFILE + EVENTS SUMMARY"
-echo "-------------------------------"
-echo "curl -X GET '$BASE_URL/api/organizers/auth/profile?include=summary' \\"
-echo "  -H 'Authorization: Bearer $TOKEN'"
-echo ""
-read -p "Press Enter to run..."
-curl -X GET "$BASE_URL/api/organizers/auth/profile?include=summary" \
-  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-echo ""
-
-# 5. Get Profile + Events
-echo "5. GET PROFILE + FULL EVENTS LIST"
+# 4. Get All Events (Separate Endpoint)
+echo "4. GET ALL EVENTS (SEPARATE API)"
 echo "--------------------------------"
-echo "curl -X GET '$BASE_URL/api/organizers/auth/profile?include=events' \\"
+echo "curl -X GET $BASE_URL/api/organizers/auth/events \\"
 echo "  -H 'Authorization: Bearer $TOKEN'"
 echo ""
 read -p "Press Enter to run..."
-curl -X GET "$BASE_URL/api/organizers/auth/profile?include=events" \
+curl -X GET "$BASE_URL/api/organizers/auth/events" \
   -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 echo ""
 
-# 6. Update Profile
-echo "6. UPDATE PROFILE"
+# 5. Get Active Events Only
+echo "5. GET ACTIVE EVENTS ONLY"
+echo "------------------------"
+echo "curl -X GET '$BASE_URL/api/organizers/auth/events?status=active' \\"
+echo "  -H 'Authorization: Bearer $TOKEN'"
+echo ""
+read -p "Press Enter to run..."
+curl -X GET "$BASE_URL/api/organizers/auth/events?status=active" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+echo ""
+
+# 6. Get Upcoming Events Only
+echo "6. GET UPCOMING EVENTS ONLY"
+echo "--------------------------"
+echo "curl -X GET '$BASE_URL/api/organizers/auth/events?status=upcoming' \\"
+echo "  -H 'Authorization: Bearer $TOKEN'"
+echo ""
+read -p "Press Enter to run..."
+curl -X GET "$BASE_URL/api/organizers/auth/events?status=upcoming" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+echo ""
+
+# 7. Get Past Events Only
+echo "7. GET PAST EVENTS ONLY"
+echo "---------------------"
+echo "curl -X GET '$BASE_URL/api/organizers/auth/events?status=past' \\"
+echo "  -H 'Authorization: Bearer $TOKEN'"
+echo ""
+read -p "Press Enter to run..."
+curl -X GET "$BASE_URL/api/organizers/auth/events?status=past" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+echo ""
+
+# 8. Update Profile
+echo "8. UPDATE PROFILE"
 echo "----------------"
 echo "curl -X PATCH $BASE_URL/api/organizers/auth/profile \\"
 echo "  -H 'Authorization: Bearer $TOKEN' \\"
@@ -110,9 +132,9 @@ curl -X PATCH "$BASE_URL/api/organizers/auth/profile" \
   -d '{"name": "Updated Name", "phone": "9876543210"}' | python3 -m json.tool
 echo ""
 
-# 7. Change Password
-echo "7. CHANGE PASSWORD"
-echo "----------------"
+# 9. Change Password
+echo "9. CHANGE PASSWORD"
+echo "-----------------"
 echo "curl -X PATCH $BASE_URL/api/organizers/auth/change-password \\"
 echo "  -H 'Authorization: Bearer $TOKEN' \\"
 echo "  -H 'Content-Type: application/json' \\"
@@ -125,8 +147,8 @@ curl -X PATCH "$BASE_URL/api/organizers/auth/change-password" \
   -d '{"currentPassword": "password123", "newPassword": "newPass123", "confirmPassword": "newPass123"}' | python3 -m json.tool
 echo ""
 
-# 8. Logout
-echo "8. LOGOUT"
+# 10. Logout
+echo "10. LOGOUT"
 echo "---------"
 echo "curl -X GET $BASE_URL/api/organizers/auth/logout \\"
 echo "  -H 'Authorization: Bearer $TOKEN'"

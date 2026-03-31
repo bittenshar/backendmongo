@@ -1,0 +1,261 @@
+{
+  "client": "insomnia",
+  "clientVersion": "2022.1.1",
+  "name": "Organizer Auth API with Events",
+  "description": "Organizer registration, login, and event management API",
+  "dateExported": "2026-04-01T00:00:00.000Z",
+  "version": 4,
+  "contents": [
+    {
+      "_type": "workspace",
+      "_id": "ws_organizer_auth",
+      "parentId": null,
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "name": "Organizer Auth Workspace",
+      "description": "Organizer registration and authentication endpoints",
+      "scope": "design"
+    }
+  ],
+  "resources": [
+    {
+      "_id": "req_register",
+      "_type": "request",
+      "parentId": "fld_public",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/register",
+      "name": "1. Register New Organizer",
+      "description": "Create a new organizer account",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"neworganizer@example.com\",\n  \"password\": \"SecurePass123\",\n  \"confirmPassword\": \"SecurePass123\",\n  \"name\": \"Event Company Ltd\",\n  \"phone\": \"+1234567890\",\n  \"contactPerson\": \"John Doe\",\n  \"address\": \"123 Main Street, City\",\n  \"website\": \"https://example.com\",\n  \"description\": \"Professional event organizer\",\n  \"logo\": \"https://example.com/logo.png\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_login",
+      "_type": "request",
+      "parentId": "fld_public",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/login",
+      "name": "2. Login",
+      "description": "Login with email and password",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"contact@techevents.com\",\n  \"password\": \"password123\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_profile",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/profile",
+      "name": "3. Get Profile Only",
+      "description": "Get organizer profile information",
+      "method": "GET",
+      "body": {},
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_events_all",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/events",
+      "name": "4. Get All Events (Separate API)",
+      "description": "Get all events for the organizer (separate endpoint)",
+      "method": "GET",
+      "body": {},
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_events_active",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/events?status=active",
+      "name": "5. Get Active Events Only",
+      "description": "Get only active events",
+      "method": "GET",
+      "body": {},
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_events_upcoming",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/events?status=upcoming",
+      "name": "6. Get Upcoming Events Only",
+      "description": "Get only upcoming events",
+      "method": "GET",
+      "body": {},
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_events_past",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/events?status=past",
+      "name": "7. Get Past Events Only",
+      "description": "Get only past events",
+      "method": "GET",
+      "body": {},
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_update_profile",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/profile",
+      "name": "8. Update Profile",
+      "description": "Update organizer profile",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Updated Company Name\",\n  \"phone\": \"9876543210\",\n  \"address\": \"New Address\",\n  \"website\": \"https://newwebsite.com\",\n  \"description\": \"Updated description\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_change_password",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/change-password",
+      "name": "9. Change Password",
+      "description": "Change organizer password",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"NewPassword123\",\n  \"confirmPassword\": \"NewPassword123\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "req_logout",
+      "_type": "request",
+      "parentId": "fld_protected",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "url": "{{ _.BASE_URL }}/api/organizers/auth/logout",
+      "name": "10. Logout",
+      "description": "Logout and clear session",
+      "method": "GET",
+      "body": {},
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.TOKEN }}"
+        }
+      ],
+      "authentication": {}
+    },
+    {
+      "_id": "fld_public",
+      "_type": "request_group",
+      "parentId": "ws_organizer_auth",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "name": "PUBLIC ENDPOINTS",
+      "description": "Authentication endpoints (no token required)"
+    },
+    {
+      "_id": "fld_protected",
+      "_type": "request_group",
+      "parentId": "ws_organizer_auth",
+      "modified": 1712020800000,
+      "created": 1712020800000,
+      "name": "PROTECTED ENDPOINTS",
+      "description": "Requires valid JWT token"
+    }
+  ],
+  "env": {
+    "_type": "object",
+    "BASE_URL": {
+      "type": "string",
+      "value": "http://localhost:3000"
+    },
+    "TOKEN": {
+      "type": "string",
+      "value": ""
+    }
+  }
+}

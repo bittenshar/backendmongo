@@ -134,7 +134,7 @@
           "response": []
         },
         {
-          "name": "4. Get Profile + Events Summary",
+          "name": "4. Get All Events (Separate API)",
           "request": {
             "method": "GET",
             "header": [
@@ -144,7 +144,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/organizers/auth/profile?include=summary",
+              "raw": "{{baseUrl}}/api/organizers/auth/events",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -152,21 +152,15 @@
                 "api",
                 "organizers",
                 "auth",
-                "profile"
-              ],
-              "query": [
-                {
-                  "key": "include",
-                  "value": "summary"
-                }
+                "events"
               ]
             },
-            "description": "Get profile with events summary (count of total, active, upcoming, past)"
+            "description": "Get all events for the organizer (separate endpoint)"
           },
           "response": []
         },
         {
-          "name": "5. Get Profile + Full Events List",
+          "name": "5. Get Active Events Only",
           "request": {
             "method": "GET",
             "header": [
@@ -176,7 +170,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/organizers/auth/profile?include=events",
+              "raw": "{{baseUrl}}/api/organizers/auth/events?status=active",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -184,21 +178,85 @@
                 "api",
                 "organizers",
                 "auth",
-                "profile"
+                "events"
               ],
               "query": [
                 {
-                  "key": "include",
-                  "value": "events"
+                  "key": "status",
+                  "value": "active"
                 }
               ]
             },
-            "description": "Get profile with complete event list and summary"
+            "description": "Get only active events (currently happening or upcoming)"
           },
           "response": []
         },
         {
-          "name": "6. Update Profile",
+          "name": "6. Get Upcoming Events Only",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/events?status=upcoming",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "upcoming"
+                }
+              ]
+            },
+            "description": "Get only upcoming events"
+          },
+          "response": []
+        },
+        {
+          "name": "7. Get Past Events Only",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizers/auth/events?status=past",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizers",
+                "auth",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "past"
+                }
+              ]
+            },
+            "description": "Get only past events"
+          },
+          "response": []
+        },
+        {
+          "name": "8. Update Profile",
           "request": {
             "method": "PATCH",
             "header": [
@@ -232,7 +290,7 @@
           "response": []
         },
         {
-          "name": "7. Change Password",
+          "name": "9. Change Password",
           "request": {
             "method": "PATCH",
             "header": [
@@ -266,7 +324,7 @@
           "response": []
         },
         {
-          "name": "8. Logout",
+          "name": "10. Logout",
           "request": {
             "method": "GET",
             "header": [

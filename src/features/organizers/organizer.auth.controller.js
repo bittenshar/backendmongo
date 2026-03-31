@@ -181,6 +181,70 @@ exports.getProfile = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * Get Organizer Events Only
+ * GET /api/organizers/auth/events
+ * Returns list of all events for the organizer
+ * Query params:
+ *   - status: 'active', 'past', 'upcoming' (optional filter)
+ *   - limit: number of events (default: all)
+ *   - sort: 'asc' or 'desc' by date (default: asc)
+ * Protected route
+ */
+exports.getOrganizerEvents = catchAsync(async (req, res, next) => {
+  const { status: statusFilter, limit, sort } = req.query;
+  const organizer = req.organizer;
+
+  if (!organizer) {
+    return next(new AppError('Organizer not found', 404));
+  }
+
+  // Get all events for organizer
+  let query = Event.find({ organizer: organizer._id })
+    .select('name location date startTime endTime description status seatings coverImage');
+
+  // Apply sorting
+  const sortOrder = sort === 'desc' ? -1 : 1;
+  query = query.sort({ date: sortOrder });
+
+  // Apply limit
+  if (limit) {
+    query = query.limit(parseInt(limit));
+  }
+
+  const events = await query.exec();
+
+  // Categorize events
+  const now = new Date();
+  const eventsByStatus = {
+    active: events.filter(e => new Date(e.date) > now && new Date(e.endTime) > now),
+    upcoming: events.filter(e => new Date(e.startTime) > now),
+    past: events.filter(e => new Date(e.endTime) <= now)
+  };
+
+  // Filter by status if provided
+  let filteredEvents = events;
+  if (statusFilter && ['active', 'upcoming', 'past'].includes(statusFilter)) {
+    filteredEvents = eventsByStatus[statusFilter];
+  }
+
+  const eventsSummary = {
+    total: events.length,
+    active: eventsByStatus.active.length,
+    upcoming: eventsByStatus.upcoming.length,
+    past: eventsByStatus.past.length,
+    filtered: filteredEvents.length
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      summary: eventsSummary,
+      events: filteredEvents
+    }
+  });
+});
+
+/**
  * Protect organizer routes
  * Verify JWT token and set req.organizer
  */

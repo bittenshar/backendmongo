@@ -107,6 +107,38 @@ router.use(organizerAuthController.protect);
 router.get('/profile', organizerAuthController.getProfile);
 
 /**
+ * GET /api/organizers/auth/events
+ * Get all events for the organizer
+ * 
+ * Query parameters (all optional):
+ *   - status: 'active', 'upcoming', or 'past' (filter by status)
+ *   - limit: number (limit number of events returned)
+ *   - sort: 'asc' or 'desc' (sort by date, default: asc)
+ * 
+ * Examples:
+ *   GET /api/organizers/auth/events
+ *   GET /api/organizers/auth/events?status=active
+ *   GET /api/organizers/auth/events?status=upcoming&limit=10
+ *   GET /api/organizers/auth/events?sort=desc
+ * 
+ * Response:
+ * {
+ *   "status": "success",
+ *   "data": {
+ *     "summary": {
+ *       "total": 10,
+ *       "active": 5,
+ *       "upcoming": 3,
+ *       "past": 2,
+ *       "filtered": 5
+ *     },
+ *     "events": [ ... ]
+ *   }
+ * }
+ */
+router.get('/events', organizerAuthController.getOrganizerEvents);
+
+/**
  * PATCH /api/organizers/auth/profile
  * Update organizer profile (name, phone, address, etc.)
  * 
