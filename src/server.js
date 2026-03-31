@@ -121,6 +121,7 @@ const amplifyRoutes = require('./features/aws/routes/amplify');
 const adsRoutes = require('./features/ads/ads.routes');
 const notificationRoutes = require("./features/notificationfcm/notification.routes");
 const testNotificationRoutes = require("./features/notificationfcm/test-notification.routes");
+const faceVerificationRoutes = require('./features/single_android_ticket_check/face-verification.routes');
 
 // Import booking routes
 const bookingRoutes = require('./features/booking/booking_route');
@@ -151,6 +152,8 @@ app.use('/api/payments', paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification", testNotificationRoutes);
 app.use('/api/listyourshow', listyourshowRoutes);
+app.use('/api/face-verify', faceVerificationRoutes);
+
 
 // Health check route - MUST be before broad /api routes
 app.get('/api/health', (req, res) => {
