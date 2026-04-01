@@ -5,9 +5,10 @@ const checkInTestController = require('./checkin-test.controller');
 
 const router = express.Router();
 
-// Configure multer for image uploads
+// Configure multer for image uploads - use memory storage for Vercel compatibility
+const storage = multer.memoryStorage();
 const upload = multer({
-  dest: 'uploads/face-verification/',
+  storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
