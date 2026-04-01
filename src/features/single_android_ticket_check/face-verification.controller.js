@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const mongoose = require('mongoose');
 const { SearchFacesByImageCommand } = require('@aws-sdk/client-rekognition');
 const { rekognition } = require('../aws/aws.config');
@@ -42,7 +40,6 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
     const eventId = req.query.eventId || req.body.eventId;
     
     if (!eventId) {
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         color: 'black',
@@ -52,7 +49,6 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
 
     // Validate eventId format
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         color: 'black',
@@ -63,8 +59,8 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
     console.log('📸 Face verification started for file:', req.file.originalname);
     console.log('🎫 Checking ticket for eventId:', eventId);
 
-    // ✅ Step 2: Read image bytes from uploaded file
-    const imageBytes = fs.readFileSync(req.file.path);
+    // ✅ Step 2: Get image bytes (from memory storage buffer)
+    const imageBytes = req.file.buffer;
 
     // ✅ Step 3: Search faces in AWS Rekognition Collection
     const searchCommand = new SearchFacesByImageCommand({
@@ -79,9 +75,6 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
 
     // ✅ Step 4: Check if face was matched
     if (!rekognitionResponse.FaceMatches || rekognitionResponse.FaceMatches.length === 0) {
-      // Clean up temp file
-      fs.unlinkSync(req.file.path);
-
       return res.status(404).json({
         success: false,
         message: 'No matching face found in database',
@@ -135,7 +128,7 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
     }
 
     // Clean up temp file 
-    fs.unlinkSync(req.file.path);
+    // (No cleanup needed with memory storage)
 
     // ✅ Step 8: Determine color based on conditions
     let color;
@@ -187,11 +180,6 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
     return res.status(200).json(response);
 
   } catch (error) {
-    // Clean up temp file if exists
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
     console.error('❌ Face verification error:', error.message);
 
     if (error.message && error.message.includes('No face record found')) {
