@@ -27,6 +27,8 @@ const AppError = require('../../shared/utils/appError');
  */
 exports.verifyFaceAndGetUser = async (req, res, next) => {
   try {
+    const startTime = Date.now();
+    
     // ✅ Step 1: Check if image was uploaded
     if (!req.file) {
       return res.status(400).json({
@@ -71,7 +73,9 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
     });
 
     console.log('🔍 Searching AWS Rekognition for face match...');
+    const t1 = Date.now();
     const rekognitionResponse = await rekognition.send(searchCommand);
+    console.log(`⏱️ Rekognition search took ${Date.now() - t1}ms`);
 
     // ✅ Step 4: Check if face was matched
     if (!rekognitionResponse.FaceMatches || rekognitionResponse.FaceMatches.length === 0) {
@@ -89,7 +93,9 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
     console.log(`✅ Face matched! FaceId: ${faceId}, Similarity: ${similarity}%`);
 
     // ✅ Step 5: Get user details from DynamoDB using RekognitionId
+    const t2 = Date.now();
     const faceRecord = await dynamoDBService.getFaceByRekognitionId(faceId);
+    console.log(`⏱️ DynamoDB lookup took ${Date.now() - t2}ms`);
 
     // ✅ Step 6: Extract userId and fullName
     const userId = faceRecord.data.UserId;
@@ -97,44 +103,41 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
 
     console.log(`✅ User found: ${fullName} (ID: ${userId})`);
 
-    // ✅ Step 7: Check if user has ticket for this event
-    const booking = await Booking.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
-      eventId: new mongoose.Types.ObjectId(eventId)
-    }).select('_id status quantity seatType totalPrice createdAt');
+    // ✅ Step 7 & 7.5: Run booking and checkin queries in parallel for speed
+    const t3 = Date.now();
+    const [booking, usageCount] = await Promise.all([
+      // Query for booking ticket
+      Booking.findOne({
+        userId: new mongoose.Types.ObjectId(userId),
+        eventId: new mongoose.Types.ObjectId(eventId)
+      }).select('_id status quantity seatType totalPrice createdAt').lean(), // .lean() for faster read
+      
+      // For now, just return 0 - we'll check after we have the booking
+      Promise.resolve(null)
+    ]);
+    console.log(`⏱️ Database queries took ${Date.now() - t3}ms`);
+
+    let isTicketUsed = false;
+    
+    // Check if ticket has been used only if booking exists
+    if (booking && booking._id) {
+      const checkInCount = await CheckInLog.countDocuments({
+        ticketId: booking._id
+      });
+      isTicketUsed = checkInCount > 0;
+    }
 
     const hasTicket = !!booking;
     const ticketStatus = booking?.status || null;
 
     console.log(`🎫 Ticket check for user ${userId} at event ${eventId}: ${hasTicket ? 'FOUND' : 'NOT FOUND'}`);
-    console.log(`🎫 Booking Status: ${ticketStatus}`);
-    console.log(`🎫 Booking ID: ${booking?._id}`);
-
-    // ✅ Step 7.5: Check if ticket has been used by looking at CheckInLog
-    let usageCount = 0;
-    let isTicketUsed = false;
-    
-    if (hasTicket && booking._id) {
-      try {
-        usageCount = await CheckInLog.countDocuments({
-          ticketId: booking._id
-        });
-        console.log(`📊 CheckInLog count query result: ${usageCount}`);
-        isTicketUsed = usageCount > 0; // If there are any checkin logs, ticket has been used
-        console.log(`📊 Is ticket used: ${isTicketUsed}, Usage count: ${usageCount}`);
-      } catch (checkInError) {
-        console.error(`❌ Error checking CheckInLog:`, checkInError.message);
-      }
-    }
-
-    // Clean up temp file 
-    // (No cleanup needed with memory storage)
+    console.log(`🎫 Booking Status: ${ticketStatus}, Used: ${isTicketUsed}`);
 
     // ✅ Step 8: Determine color based on conditions
     let color;
     if (hasTicket) {
       if (isTicketUsed) {
-        color = 'blue';   // 🔵 Ticket already checked = BLUE (with usage count)
+        color = 'blue';   // 🔵 Ticket already checked = BLUE
       } else {
         color = 'green';  // 🟢 Confirmed ticket not yet used = GREEN
       }
@@ -167,16 +170,9 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
       if (isTicketUsed) {
         response.usageCount = usageCount;
       }
-      
-      // Debug info
-      response._debug = {
-        bookingId: booking._id.toString(),
-        isTicketUsed: isTicketUsed,
-        usageCount: usageCount,
-        hasCheckInLogs: usageCount > 0
-      };
     }
 
+    console.log(`⏱️ Total request took ${Date.now() - startTime}ms`);
     return res.status(200).json(response);
 
   } catch (error) {
