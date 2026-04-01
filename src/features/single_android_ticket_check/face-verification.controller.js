@@ -6,23 +6,6 @@ const Booking = require('../booking/booking_model');
 const CheckInLog = require('../checkin/checkInLog.model');
 const AppError = require('../../shared/utils/appError');
 
-// Simple in-memory cache for face lookups (TTL: 5 minutes)
-const faceCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
-
-const getCachedFace = (faceId) => {
-  const cached = faceCache.get(faceId);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
-  }
-  faceCache.delete(faceId);
-  return null;
-};
-
-const setCachedFace = (faceId, data) => {
-  faceCache.set(faceId, { data, timestamp: Date.now() });
-};
-
 /**
  * Face Verification with Ticket Check
  * Receives selfie image + eventId → Searches AWS Rekognition → Returns userId and ticket status
@@ -46,18 +29,42 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
   try {
     const startTime = Date.now();
     
-    // ✅ Step 1: Validate inputs
+    // ✅ Step 1: Check if image was uploaded
     if (!req.file) {
-      return res.status(400).json({ success: false, color: 'black', message: 'No image uploaded' });
+      return res.status(400).json({
+        success: false,
+        color: 'black',
+        message: 'No image uploaded'
+      });
     }
 
+    // ✅ Step 1.5: Get eventId from query or body
     const eventId = req.query.eventId || req.body.eventId;
-    if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
-      return res.status(400).json({ success: false, color: 'black', message: 'Invalid eventId' });
+    
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        color: 'black',
+        message: 'eventId is required'
+      });
     }
 
-    // ✅ Step 2: Search faces in AWS Rekognition (BIGGEST TIME CONSUMER - ~2-4 seconds)
+    // Validate eventId format
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({
+        success: false,
+        color: 'black',
+        message: 'Invalid eventId format'
+      });
+    }
+
+    console.log('📸 Face verification started for file:', req.file.originalname);
+    console.log('🎫 Checking ticket for eventId:', eventId);
+
+    // ✅ Step 2: Get image bytes (from memory storage buffer)
     const imageBytes = req.file.buffer;
+
+    // ✅ Step 3: Search faces in AWS Rekognition Collection
     const searchCommand = new SearchFacesByImageCommand({
       CollectionId: process.env.AWS_REKOGNITION_COLLECTION_ID || 'facial_collection',
       Image: { Bytes: imageBytes },
@@ -65,66 +72,80 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
       MaxFaces: 1
     });
 
+    console.log('🔍 Searching AWS Rekognition for face match...');
     const t1 = Date.now();
     const rekognitionResponse = await rekognition.send(searchCommand);
-    const rekognitionTime = Date.now() - t1;
+    console.log(`⏱️ Rekognition search took ${Date.now() - t1}ms`);
 
+    // ✅ Step 4: Check if face was matched
     if (!rekognitionResponse.FaceMatches || rekognitionResponse.FaceMatches.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No matching face found',
-        color: 'black'
+        message: 'No matching face found in database',
+        color: 'black',
+        details: 'Your face does not match any registered entry'
       });
     }
 
     const faceId = rekognitionResponse.FaceMatches[0].Face.FaceId;
     const similarity = rekognitionResponse.FaceMatches[0].Similarity;
 
-    // ✅ Step 3: Get user from cache or DynamoDB
-    const t2 = Date.now();
-    let faceRecord = getCachedFace(faceId);
-    
-    if (!faceRecord) {
-      faceRecord = await dynamoDBService.getFaceByRekognitionId(faceId);
-      setCachedFace(faceId, faceRecord.data);
-    }
-    const dynamoTime = Date.now() - t2;
+    console.log(`✅ Face matched! FaceId: ${faceId}, Similarity: ${similarity}%`);
 
+    // ✅ Step 5: Get user details from DynamoDB using RekognitionId
+    const t2 = Date.now();
+    const faceRecord = await dynamoDBService.getFaceByRekognitionId(faceId);
+    console.log(`⏱️ DynamoDB lookup took ${Date.now() - t2}ms`);
+
+    // ✅ Step 6: Extract userId and fullName
     const userId = faceRecord.data.UserId;
     const fullName = faceRecord.data.FullName || faceRecord.data.Name || 'Unknown';
 
-    // ✅ Step 4: Get booking with lean() for speed
+    console.log(`✅ User found: ${fullName} (ID: ${userId})`);
+
+    // ✅ Step 7 & 7.5: Run booking and checkin queries in parallel for speed
     const t3 = Date.now();
-    const booking = await Booking.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
-      eventId: new mongoose.Types.ObjectId(eventId)
-    }).select('_id status quantity seatType totalPrice createdAt').lean();
-    const bookingTime = Date.now() - t3;
+    const [booking, usageCount] = await Promise.all([
+      // Query for booking ticket
+      Booking.findOne({
+        userId: new mongoose.Types.ObjectId(userId),
+        eventId: new mongoose.Types.ObjectId(eventId)
+      }).select('_id status quantity seatType totalPrice createdAt').lean(), // .lean() for faster read
+      
+      // For now, just return 0 - we'll check after we have the booking
+      Promise.resolve(null)
+    ]);
+    console.log(`⏱️ Database queries took ${Date.now() - t3}ms`);
+
+    let isTicketUsed = false;
+    
+    // Check if ticket has been used only if booking exists
+    if (booking && booking._id) {
+      const checkInCount = await CheckInLog.countDocuments({
+        ticketId: booking._id
+      });
+      isTicketUsed = checkInCount > 0;
+    }
 
     const hasTicket = !!booking;
     const ticketStatus = booking?.status || null;
 
-    // ✅ Step 5: Check ticket usage ASYNCHRONOUSLY (don't wait for this)
-    // This will complete in the background
-    let isTicketUsed = false;
-    let checkInPromise = null;
-    
-    if (booking && booking._id) {
-      checkInPromise = CheckInLog.findOne({ ticketId: booking._id })
-        .select('_id')
-        .lean()
-        .then(log => { isTicketUsed = !!log; });
-    }
+    console.log(`🎫 Ticket check for user ${userId} at event ${eventId}: ${hasTicket ? 'FOUND' : 'NOT FOUND'}`);
+    console.log(`🎫 Booking Status: ${ticketStatus}, Used: ${isTicketUsed}`);
 
-    // ✅ Step 6: Determine color based on immediate info
+    // ✅ Step 8: Determine color based on conditions
     let color;
     if (hasTicket) {
-      color = ticketStatus === 'confirmed' ? 'green' : 'yellow';
+      if (isTicketUsed) {
+        color = 'blue';   // 🔵 Ticket already checked = BLUE
+      } else {
+        color = 'green';  // 🟢 Confirmed ticket not yet used = GREEN
+      }
     } else {
-      color = 'red';
+      color = 'red';      // 🔴 No ticket = RED
     }
 
-    // ✅ Step 7: Build response IMMEDIATELY (don't wait for checkIn check)
+    // ✅ Step 9: Return response
     const response = {
       success: true,
       color: color,
@@ -136,7 +157,7 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
       timestamp: new Date().toISOString()
     };
 
-    // Add ticket details if exists
+    // Add ticket details if ticket exists
     if (booking) {
       response.ticketDetails = {
         quantity: booking.quantity,
@@ -144,21 +165,28 @@ exports.verifyFaceAndGetUser = async (req, res, next) => {
         totalPrice: booking.totalPrice,
         bookedAt: booking.createdAt
       };
+      
+      // Add usage count if ticket has been checked
+      if (isTicketUsed) {
+        response.usageCount = usageCount;
+      }
     }
 
-    const totalTime = Date.now() - startTime;
-    console.log(`⏱️ Timing: Rekognition=${rekognitionTime}ms, DynamoDB=${dynamoTime}ms, MongoDB=${bookingTime}ms, Total=${totalTime}ms`);
-
-    // Send response immediately
-    res.status(200).json(response);
-
-    // Handle the checkin check in background (don't block response)
-    if (checkInPromise) {
-      checkInPromise.catch(err => console.error('CheckIn lookup error:', err.message));
-    }
+    console.log(`⏱️ Total request took ${Date.now() - startTime}ms`);
+    return res.status(200).json(response);
 
   } catch (error) {
     console.error('❌ Face verification error:', error.message);
+
+    if (error.message && error.message.includes('No face record found')) {
+      return res.status(404).json({
+        success: false,
+        color: 'black',
+        message: 'Face record not found in database',
+        details: error.message
+      });
+    }
+
     return res.status(500).json({
       success: false,
       color: 'black',
